@@ -1,456 +1,448 @@
-import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Profile%20screen/profilescreen_Controller.dart';
-import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/utilities/getStorage.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
+import 'package:transwallet/widgets/user_avatar.dart';
 
 class ProfilescreenView extends GetView<ProfilescreenController> {
   const ProfilescreenView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => ProfilescreenController());
-    const Color primaryRed = Color(0xFFE53935);
-    const Color textColor = Color(0xFF111111);
-    const Color secondaryText = Color(0xFF6B7280);
-    const Color borderColor = Color(0xFFECECEC);
+    Get.put(ProfilescreenController());
 
-    return Material(
-      color: Colors.transparent,
-      child: Stack(
-        children: [
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(color: Colors.black.withOpacity(0.35)),
-          ),
-          DraggableScrollableSheet(
-            initialChildSize: 0.80,
-            minChildSize: 0.7,
-            maxChildSize: 0.95,
-            builder: (_, scrollController) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF9FAFB), 
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(40),
+    final Color backgroundColor = const Color(0xFFF9FAFB);
+
+    return Scaffold(
+      extendBody: true,
+      backgroundColor: backgroundColor,
+      bottomNavigationBar: GlobalbottombarView(seletedIndex: 3.obs),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                ClipPath(
+                  clipper: _HeaderClipper(),
+                  child: Container(
+                    height: context.responsive(200),
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage("assets/dashboardbg.png"),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    padding: EdgeInsets.only(top: context.responsive(60)),
+                    alignment: Alignment.topCenter,
+                    child: Text(
+                      "My Profile",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: context.responsive(18),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
+
+                Positioned(
+                  bottom: context.responsive(-40),
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
                     children: [
-                      
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(40),
-                            ),
-                            child: const SizedBox(
-                              width: double.infinity,
-                              height: 190,
-                              child: _InteractiveMultiCardFan(),
-                            ),
+                      Obx(
+                        () => GestureDetector(
+                          onTap: () => controller.uploadProfilePicture(),
+                          child: UserAvatar(
+                            size: context.responsive(100),
+                            imageUrl:
+                                controller.profilePictureUrl.value.isNotEmpty
+                                ? controller.profilePictureUrl.value
+                                : null,
+                            // border: Border.all(color: Colors.white, width: 3),
                           ),
-                          Positioned(
-                            top: 10,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                height: 5,
-                                width: 50,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            ),
-                          ),
-                          
-                          Positioned(
-                            bottom: -45,
-                            left: 24,
-                            child: Stack(
-                              alignment: Alignment.bottomRight,
-                              children: [
-                                Container(
-                                  height: 94,
-                                  width: 94,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 4),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.12),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 8),
-                                      )
-                                    ],
-                                    image: const DecorationImage(
-                                      image: AssetImage(
-                                        "assets/360_F_244436923_vkMe10KKKiw5bjhZeRDT05moxWcPpdmb.jpg",
-                                      ),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                                
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.white,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black12,
-                                          blurRadius: 6,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt_rounded,
-                                      color: primaryRed,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 60),
-
-                      
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Text(
-                                      "Jane Doe",
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w900,
-                                        color: textColor,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFFE53935), Color(0xFFFF6D00)],
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Row(
-                                        children: [
-                                          Icon(Icons.verified_user_rounded, color: Colors.white, size: 10),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            "ELITE",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  "Jane.doe@transcorpint.com",
-                                  style: TextStyle(
-                                    color: secondaryText,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
                         ),
                       ),
-
-                      const SizedBox(height: 28),
-
-                      
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8, bottom: 8),
-                              child: Text(
-                                "CARDS & SECURITY",
-                                style: TextStyle(
-                                  color: secondaryText,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
+                      GestureDetector(
+                        onTap: () => controller.uploadProfilePicture(),
+                        child: Container(
+                          padding: EdgeInsets.all(context.responsive(4)),
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(
+                              Icons.camera_alt_outlined,
+                              color: Colors.white,
+                              size: context.responsive(14),
                             ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: borderColor, width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildCustomMenuItem(
-                                    title: "Card Control",
-                                    subtitle: "Manage transaction limits, card locks & PINs",
-                                    iconPath: "assets/controller.svg",
-                                    accentColor: Colors.deepPurple,
-                                    onTap: () => Get.toNamed('/managecard'),
-                                  ),
-                                  const Divider(color: borderColor, height: 1, indent: 64),
-                                  _buildCustomMenuItem(
-                                    title: "Order New Card",
-                                    subtitle: "Order a signature Obsidian credit card",
-                                    iconPath: "assets/credit-card-svgrepo-com.svg",
-                                    accentColor: primaryRed,
-                                    onTap: () => Get.toNamed('/ordercard'),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8, bottom: 8),
-                              child: Text(
-                                "ACCOUNT & SUPPORT",
-                                style: TextStyle(
-                                  color: secondaryText,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: borderColor, width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildCustomMenuItem(
-                                    title: "Profile Details",
-                                    subtitle: "Verify your email & account verification status",
-                                    iconPath: "assets/profile-circle-svgrepo-com.svg",
-                                    accentColor: Colors.blue,
-                                    onTap: () => Get.toNamed('/profiledetails'),
-                                  ),
-                                  const Divider(color: borderColor, height: 1, indent: 64),
-                                  _buildCustomMenuItem(
-                                    title: "Contact Support",
-                                    subtitle: "Create a support ticket or chat with an agent",
-                                    iconPath: "assets/contectsupport.svg",
-                                    accentColor: Colors.green,
-                                    onTap: () => Get.toNamed('/contactsupport'),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8, bottom: 8),
-                              child: Text(
-                                "LEGAL & ABOUT",
-                                style: TextStyle(
-                                  color: secondaryText,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: borderColor, width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildCustomMenuItem(
-                                    title: "FAQs",
-                                    subtitle: "Quick answers to common questions",
-                                    iconPath: "assets/faq.svg",
-                                    accentColor: Colors.teal,
-                                    onTap: () {},
-                                  ),
-                                  const Divider(color: borderColor, height: 1, indent: 64),
-                                  _buildCustomMenuItem(
-                                    title: "Privacy Policy",
-                                    subtitle: "Understand how we protect your wallet details",
-                                    iconPath: "assets/privacycom.svg",
-                                    accentColor: Colors.blueGrey,
-                                    onTap: () {},
-                                  ),
-                                  const Divider(color: borderColor, height: 1, indent: 64),
-                                  _buildCustomMenuItem(
-                                    title: "Terms & Conditions",
-                                    subtitle: "Read our prepaid service agreements",
-                                    iconPath: "assets/condition&Terms.svg",
-                                    accentColor: Colors.amber.shade800,
-                                    onTap: () {},
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 36),
-
-                            
-                            CustomButton(
-                              text: "Sign Out",
-                              prefixIcon: const Icon(Icons.logout_rounded, color: Colors.white, size: 18),
-                              btncolor: Colors.black,
-                              onPressed: () => controller.showLuxuryLogoutDialog(context),
-                            ),
-                            
-                            const SizedBox(height: 24),
-                            
-                            const Center(
-                              child: Text(
-                                "App version 2.4.66 • Transcorp Prepaid",
-                                style: TextStyle(
-                                  color: secondaryText,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 36),
-                          ],
+                          ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
-              );
-            },
+              ],
+            ),
+            SizedBox(height: context.responsive(50)),
+            Obx(
+              () => Text(
+                controller.userName.value.isNotEmpty
+                    ? controller.userName.value
+                    : (box.read('name') ?? "User"),
+                style: TextStyle(
+                  fontSize: context.responsive(20),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            SizedBox(height: context.responsive(4)),
+            Obx(
+              () => controller.userPhone.value.isNotEmpty
+                  ? Text(
+                      controller.userPhone.value,
+                      style: TextStyle(
+                        fontSize: context.responsive(14),
+                        color: Colors.grey.shade600,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            SizedBox(height: context.responsive(24)),
+
+            // Cards Section
+            _buildSection(
+              context,
+              title: "Cards",
+              children: [
+                _buildRow(
+                  context,
+                  iconAsset: "assets/ordernewcard.svg",
+                  title: "Order New Card",
+                  onTap: () => Get.toNamed('/ordercard'),
+                ),
+              ],
+            ),
+
+            // Account Section
+            _buildSection(
+              context,
+              title: "Account",
+              children: [
+                _buildRow(
+                  context,
+                  iconAsset: "assets/personaldetails.svg",
+                  title: "Personal Details",
+                  onTap: () => Get.toNamed('/profiledetails'),
+                ),
+                _buildDivider(context),
+                Obx(
+                  () => _buildRow(
+                    context,
+                    iconAsset: "assets/kyc.svg",
+                    title: "KYC & Verification",
+                    trailingWidget: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          controller.isKycVerified.value
+                              ? Icons.verified
+                              : Icons.pending_actions,
+                          color: controller.isKycVerified.value
+                              ? Colors.green.shade600
+                              : Colors.orange.shade600,
+                          size: context.responsive(16),
+                        ),
+                        SizedBox(width: context.responsive(4)),
+                        Text(
+                          controller.isKycVerified.value
+                              ? "Verified"
+                              : "Pending",
+                          style: TextStyle(
+                            color: controller.isKycVerified.value
+                                ? Colors.green.shade600
+                                : Colors.orange.shade600,
+                            fontSize: context.responsive(12),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    onTap: controller.handleKycTap,
+                  ),
+                ),
+              ],
+            ),
+
+            // Security Section
+            _buildSection(
+              context,
+              title: "Security",
+              children: [
+                _buildRow(
+                  context,
+                  iconAsset: "assets/changepin.svg",
+                  title: "Change PIN",
+                  onTap: () => Get.toNamed('/create_mpin'),
+                ),
+                _buildDivider(context),
+                Obx(
+                  () => _buildRow(
+                    context,
+                    iconAsset: "assets/biomatrics.svg",
+                    title: "Face Lock / Biometrics",
+                    subtitle: "Unlock with Face Lock or Fingerprint",
+                    trailingWidget: Transform.scale(
+                      scale: 0.8,
+                      child: CupertinoSwitch(
+                        value: controller.biometricEnabled.value,
+                        activeColor: primaryRed,
+                        trackColor: Colors.grey.shade300,
+                        onChanged: controller.toggleBiometric,
+                      ),
+                    ),
+                    showChevron: false,
+                  ),
+                ),
+              ],
+            ),
+
+            // Support Section
+            _buildSection(
+              context,
+              title: "Support",
+              children: [
+                _buildRow(
+                  context,
+                  iconAsset: "assets/help.svg",
+                  title: "Help Center",
+                  onTap: () => Get.toNamed('/contactsupport'),
+                ),
+                _buildDivider(context),
+                _buildRow(
+                  context,
+                  iconAsset: "assets/contactus.svg",
+                  title: "Contact Us",
+                  onTap: () => Get.toNamed('/contactsupport'),
+                ),
+                _buildDivider(context),
+                _buildRow(
+                  context,
+                  iconAsset: "assets/termsandpolicy.svg",
+                  title: "Terms & Privacy Policy",
+                  onTap: () => Get.snackbar(
+                    "Terms & Privacy",
+                    "Terms and Privacy Policy will be available soon.",
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: const Color(0xFF111111),
+                    colorText: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+
+            SizedBox(height: context.responsive(16)),
+
+            // Logout Button
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.responsive(20)),
+              child: ElevatedButton(
+                onPressed: () => controller.showLuxuryLogoutDialog(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(
+                    0xFFE94532,
+                  ), // Match red from image
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(context.responsive(24)),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: context.responsive(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.logout,
+                      color: Colors.white,
+                      size: context.responsive(18),
+                    ),
+                    SizedBox(width: context.responsive(8)),
+                    Text(
+                      "Logout",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: context.responsive(16),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SizedBox(height: context.responsive(24)),
+
+            Text(
+              "Transcorp v2.4.1",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: context.responsive(12),
+              ),
+            ),
+
+            SizedBox(height: context.responsive(140)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsive(20),
+        vertical: context.responsive(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              left: context.responsive(4),
+              bottom: context.responsive(8),
+            ),
+            child: Text(
+              title,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: context.responsive(14),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(context.responsive(16)),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(children: children),
           ),
         ],
       ),
     );
   }
 
-  
-  Widget _buildCustomMenuItem({
+  Widget _buildDivider(BuildContext context) {
+    return Divider(
+      height: 1,
+      color: const Color(0xFFF3F4F6),
+      indent: context.responsive(56),
+    );
+  }
+
+  Widget _buildRow(
+    BuildContext context, {
+    String? iconAsset,
     required String title,
-    required String subtitle,
-    required String iconPath,
-    required Color accentColor,
+    String? subtitle,
+    Widget? trailingWidget,
+    bool showChevron = true,
     VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(context.responsive(16)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.responsive(16),
+          vertical: context.responsive(14),
+        ),
         child: Row(
           children: [
-            
             Container(
-              height: 40,
-              width: 40,
-              padding: const EdgeInsets.all(9),
+              padding: EdgeInsets.all(context.responsive(8)),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: accentColor.withOpacity(0.08),
+                color: lightprimaryred,
+                border: Border.all(color: primaryYellow),
               ),
-              child: SvgPicture.asset(
-                iconPath,
-                colorFilter: ColorFilter.mode(accentColor, BlendMode.srcIn),
+              child: Center(
+                child: SvgPicture.asset(
+                  iconAsset ?? "",
+                  height: context.responsive(22),
+                  width: context.responsive(22),
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black87,
+                    BlendMode.srcIn,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 16),
-            
+            SizedBox(width: context.responsive(16)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Color(0xFF111111),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: context.responsive(14),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF6B7280),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                  if (subtitle != null) ...[
+                    SizedBox(height: context.responsive(2)),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: context.responsive(11),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF9CA3AF),
-              size: 20,
-            ),
+            if (trailingWidget != null) ...[
+              trailingWidget,
+              SizedBox(width: context.responsive(8)),
+            ],
+            if (showChevron)
+              Icon(
+                Icons.chevron_right_rounded,
+                color: const Color(0xFF9CA3AF),
+                size: context.responsive(20),
+              ),
           ],
         ),
       ),
@@ -458,350 +450,22 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
   }
 }
 
-
-class _InteractiveMultiCardFan extends StatefulWidget {
-  const _InteractiveMultiCardFan();
-
+class _HeaderClipper extends CustomClipper<Path> {
   @override
-  State<_InteractiveMultiCardFan> createState() => _InteractiveMultiCardFanState();
-}
-
-class _InteractiveMultiCardFanState extends State<_InteractiveMultiCardFan> with SingleTickerProviderStateMixin {
-  late AnimationController _breathingController;
-  late Animation<double> _breathingAnimation;
-
-  
-  double _dragX = 0.0;
-  double _dragY = 0.0;
-  bool _isDragging = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _breathingController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
-    _breathingAnimation = CurvedAnimation(
-      parent: _breathingController,
-      curve: Curves.easeInOutSine,
+  Path getClip(Size size) {
+    Path path = Path();
+    path.lineTo(0, size.height - 40);
+    path.quadraticBezierTo(
+      size.width / 2,
+      size.height + 40,
+      size.width,
+      size.height - 40,
     );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
   }
 
   @override
-  void dispose() {
-    _breathingController.dispose();
-    super.dispose();
-  }
-
-  void _onPanUpdate(DragUpdateDetails details) {
-    setState(() {
-      _isDragging = true;
-      
-      _dragX = (_dragX + details.delta.dx * 0.005).clamp(-0.4, 0.4);
-      _dragY = (_dragY + details.delta.dy * 0.005).clamp(-0.4, 0.4);
-    });
-  }
-
-  void _onPanEnd(DragEndDetails details) {
-    setState(() {
-      _isDragging = false;
-    });
-    
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(milliseconds: 16));
-      if (_isDragging) return false;
-      setState(() {
-        _dragX *= 0.85;
-        _dragY *= 0.85;
-      });
-      return _dragX.abs() > 0.001 || _dragY.abs() > 0.001;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      onPanCancel: () => _onPanEnd(DragEndDetails()),
-      child: AnimatedBuilder(
-        animation: _breathingAnimation,
-        builder: (context, child) {
-          final progress = _breathingAnimation.value;
-          
-          
-          final leftBaseRot = -0.20 + (progress * 0.05); 
-          final rightBaseRot = 0.20 - (progress * 0.05);  
-          
-          
-          final leftRot = leftBaseRot + _dragX * 0.5;
-          final rightRot = rightBaseRot + _dragX * 0.5;
-          final centerRot = _dragX * 0.4;
-
-          final leftOffset = -42.0 + (progress * 10) + (_dragX * 40.0);
-          final rightOffset = 42.0 - (progress * 10) + (_dragX * 40.0);
-          
-          final centerOffsetY = -6.0 + (progress * 8) + (_dragY * 30.0);
-          final centerOffsetX = _dragX * 25.0;
-
-          return Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              
-              Positioned.fill(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF070509), Color(0xFF14101A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-              ),
-              
-              
-              Positioned(
-                left: -20 + (_dragX * 50),
-                top: -30 + (_dragY * 30),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFE53935).withOpacity(0.09 + (progress * 0.04)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFE53935).withOpacity(0.12),
-                        blurRadius: 50,
-                        spreadRadius: 20,
-                      )
-                    ]
-                  ),
-                ),
-              ),
-              
-              
-              Positioned(
-                right: -20 - (_dragX * 50),
-                bottom: -30 - (_dragY * 30),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  width: 170,
-                  height: 170,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF4CAF50).withOpacity(0.07 + ((1 - progress) * 0.03)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF4CAF50).withOpacity(0.10),
-                        blurRadius: 60,
-                        spreadRadius: 20,
-                      )
-                    ]
-                  ),
-                ),
-              ),
-
-              
-              Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001) 
-                  ..rotateX(-_dragY * 0.4)
-                  ..rotateY(_dragX * 0.4),
-                alignment: FractionalOffset.center,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    
-                    Transform.translate(
-                      offset: Offset(leftOffset, 12 + (_dragY * 15)),
-                      child: Transform.rotate(
-                        angle: leftRot,
-                        child: _buildMiniPrepaidCard(
-                          title: "TRANSCORP",
-                          subtitle: "OBSIDIAN ELITE",
-                          colors: [const Color(0xFF111111), const Color(0xFF2C2C2C)],
-                          glowColor: const Color(0xFFE53935),
-                          number: "•••• 4012",
-                        ),
-                      ),
-                    ),
-
-                    
-                    Transform.translate(
-                      offset: Offset(rightOffset, 16 + (_dragY * 15)),
-                      child: Transform.rotate(
-                        angle: rightRot,
-                        child: _buildMiniPrepaidCard(
-                          title: "TRANSCORP",
-                          subtitle: "EMERALD NEON",
-                          colors: [const Color(0xFF0D533A), const Color(0xFF00C853)],
-                          glowColor: const Color(0xFF69F0AE),
-                          number: "•••• 9012",
-                        ),
-                      ),
-                    ),
-
-                    
-                    Transform.translate(
-                      offset: Offset(centerOffsetX, centerOffsetY),
-                      child: Transform.rotate(
-                        angle: centerRot,
-                        child: _buildMiniPrepaidCard(
-                          title: "TRANSCORP",
-                          subtitle: "CRIMSON Spark",
-                          colors: [const Color(0xFFB71C1C), const Color(0xFFE53935)],
-                          glowColor: const Color(0xFFFF5252),
-                          number: "•••• 5678",
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              
-              Positioned(
-                bottom: 8,
-                child: Opacity(
-                  opacity: _isDragging ? 0.0 : 0.4,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.swipe_rounded, color: Colors.white, size: 10),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Swipe to tilt cards in 3D",
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 7,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildMiniPrepaidCard({
-    required String title,
-    required String subtitle,
-    required List<Color> colors,
-    required Color glowColor,
-    required String number,
-  }) {
-    return Container(
-      width: 170,
-      height: 108,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: glowColor.withOpacity(0.18),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-        border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              
-              Container(
-                height: 12,
-                width: 16,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD700).withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            number,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.85),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "PREPAID CARD",
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 5,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                "VISA",
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 8,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

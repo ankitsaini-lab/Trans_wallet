@@ -1,8 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:get/get.dart';
-import 'package:flutter/services.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'addmoney_Controller.dart';
+import 'package:transwallet/widgets/custombutton.dart';
 
 class AddmoneyView extends StatelessWidget {
   final bool showGeneralWalletOption;
@@ -12,404 +14,454 @@ class AddmoneyView extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.put(AddmoneyController());
 
-    
-    if (!showGeneralWalletOption) {
-      controller.fundingSource.value = "Other (UPI/Bank)";
-    } else if (controller.fundingSource.value == "Other (UPI/Bank)") {
-      controller.fundingSource.value = "General Wallet";
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: false,
-      body: GestureDetector(
-        onVerticalDragUpdate: (details) {
-          if (details.primaryDelta! > 10) {
-            Get.back();
-          }
-        },
-        child: Stack(
-          children: [
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(color: Colors.black.withOpacity(0.3)),
+    return MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(padding: EdgeInsets.only(top: Get.mediaQuery.padding.top)),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(gradient: appBarGradient),
+          ),
+          elevation: 0,
+          leadingWidth: context.responsive(60),
+          leading: const AppBarBackButton(),
+          title: const Text(
+            "Add Money",
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              letterSpacing: -0.5,
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Obx(() {
-                final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-                final screenHeight = MediaQuery.of(context).size.height;
-                final topSafeArea = MediaQuery.of(context).padding.top;
-                final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-                final maxSheetHeight = screenHeight - topSafeArea - 80;
-
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.fastOutSlowIn,
-                  constraints: BoxConstraints(
-                    maxWidth: 500,
-                    maxHeight: maxSheetHeight,
-                  ),
-                  margin: EdgeInsets.only(top: topSafeArea + 60),
-                  padding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 20,
-                    
-                    
-                    
-                    
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(30),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          height: 5,
-                          width: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade400,
-                            borderRadius: BorderRadius.circular(20),
+                        SizedBox(height: context.responsive(16)),
+
+                        // Available Balance Card
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.responsive(20),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        if (showGeneralWalletOption) ...[
-                          Obx(
-                            () => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8F9FA),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(0xFFECECEC),
-                                ),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: controller.fundingSource.value,
-                                  isExpanded: true,
-                                  icon: const Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.grey,
-                                  ),
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  items: ["General Wallet", "Other (UPI/Bank)"].map((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red.withOpacity(
-                                                0.1,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              value == "General Wallet"
-                                                  ? Icons
-                                                        .account_balance_wallet_rounded
-                                                  : Icons
-                                                        .account_balance_rounded,
-                                              color: Colors.red,
-                                              size: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(value),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (newValue) {
-                                    if (newValue != null) {
-                                      controller.fundingSource.value = newValue;
-                                    }
-                                  },
-                                ),
-                              ),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.responsive(16),
+                              vertical: context.responsive(16),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            controller.circleBtn(Icons.remove, () {
-                              if (controller.sliderValue.value > 5) {
-                                controller.sliderValue.value -= 5;
-                                controller.enteredAmount.value = controller
-                                    .sliderValue
-                                    .value
-                                    .toInt()
-                                    .toString();
-                              }
-                            }),
-                            const SizedBox(width: 15),
-
-                            Expanded(
-                              child: Center(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    "₹${controller.formatAmount(controller.isCustom.value ? controller.enteredAmount.value : controller.sliderValue.value.toInt().toString())}",
-                                    maxLines: 1,
-                                    style: TextStyle(
-                                      fontSize: controller.getFontSize(
-                                        controller.enteredAmount.value,
-                                      ),
-                                      fontWeight: FontWeight.w700,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(
+                                context.responsive(18),
+                              ),
+                              border: Border.all(
+                                color: const Color(0xFFF0F0F0),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: context.responsive(16),
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  height: context.responsive(42),
+                                  width: context.responsive(42),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF6EE),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFFFD6C4),
+                                      width: 1.2,
                                     ),
                                   ),
+                                  child: Icon(
+                                    Icons.account_balance_wallet_outlined,
+                                    color: const Color(0xFF6B5850),
+                                    size: context.responsive(18),
+                                  ),
                                 ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 20),
-
-                            controller.circleBtn(Icons.add, () {
-                              controller.sliderValue.value += 5;
-                              controller.enteredAmount.value = controller
-                                  .sliderValue
-                                  .value
-                                  .toInt()
-                                  .toString();
-                            }),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        Slider(
-                          min: 5,
-                          max: 1000,
-                          value: controller.sliderValue.value,
-                          onChanged: (val) {
-                            controller.isCustom.value = false;
-                            controller.sliderValue.value = val;
-                            controller.enteredAmount.value = val
-                                .toInt()
-                                .toString();
-                            FocusScope.of(context).unfocus();
-                          },
-                          activeColor: Colors.red,
-                        ),
-
-                        GridView.count(
-                          crossAxisCount: 4,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 1.5,
-                          children: [100, 200, 500, -1]
-                              .map(
-                                (e) => GestureDetector(
-                                  onTap: () {
-                                    if (e == -1) {
-                                      controller.isCustom.value = true;
-                                      controller.enteredAmount.value = "";
-                                      controller.customController.clear();
-
-                                      Future.delayed(
-                                        const Duration(milliseconds: 100),
-                                        () {
-                                          FocusScope.of(context).requestFocus(
-                                            controller.customFocus,
-                                          );
-                                        },
-                                      );
-                                    } else {
-                                      controller.isCustom.value = false;
-                                      controller.sliderValue.value = e
-                                          .toDouble();
-                                      controller.enteredAmount.value = e
-                                          .toString();
-                                      FocusScope.of(context).unfocus();
-                                    }
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          (e == -1 &&
-                                                  controller.isCustom.value) ||
-                                              (e != -1 &&
-                                                  !controller.isCustom.value &&
-                                                  controller
-                                                          .sliderValue
-                                                          .value ==
-                                                      e)
-                                          ? Colors.red
-                                          : Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Center(
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          e == -1 ? "Custom" : "₹$e",
-                                          style: TextStyle(
-                                            color:
-                                                (e == -1 &&
-                                                        controller
-                                                            .isCustom
-                                                            .value) ||
-                                                    (e != -1 &&
-                                                        !controller
-                                                            .isCustom
-                                                            .value &&
-                                                        controller
-                                                                .sliderValue
-                                                                .value ==
-                                                            e)
-                                                ? Colors.white
-                                                : Colors.black,
-                                          ),
+                                SizedBox(width: context.responsive(12)),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Available Balance",
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: context.responsive(14),
                                         ),
                                       ),
-                                    ),
+                                      SizedBox(height: context.responsive(2)),
+                                      Text(
+                                        "₹10,000",
+                                        style: TextStyle(
+                                          color: const Color(0xFF8E8E93),
+                                          fontSize: context.responsive(12),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              )
-                              .toList(),
-                        ),
-
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          height: controller.isCustom.value ? 45 : 0,
-                          margin: const EdgeInsets.only(top: 5),
-                          child: controller.isCustom.value
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: context.responsive(12),
+                                    vertical: context.responsive(6),
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: TextField(
-                                    controller: controller.customController,
-                                    focusNode: controller.customFocus,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                      LengthLimitingTextInputFormatter(9),
-                                    ],
-                                    decoration: const InputDecoration(
-                                      contentPadding: EdgeInsets.only(
-                                        left: 8,
-                                        bottom: 3,
-                                      ),
-                                      border: InputBorder.none,
-                                      hintText: "Enter amount",
+                                    color: const Color(0xFFF4F5F7),
+                                    borderRadius: BorderRadius.circular(
+                                      context.responsive(20),
                                     ),
-                                    onChanged: (val) {
-                                      controller.enteredAmount.value = val;
-                                    },
                                   ),
-                                )
-                              : const SizedBox(),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        GestureDetector(
-                          onTap: controller.isProcessing.value
-                              ? null
-                              : controller.payNow,
-                          child: Obx(
-                            () => Container(
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: controller.isProcessing.value
-                                    ? const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          SizedBox(
-                                            height: 18,
-                                            width: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          SizedBox(width: 10),
-                                          Text(
-                                            "Processing...",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : const Text(
-                                        "Pay Now",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                              ),
+                                  child: Text(
+                                    "For transactions",
+                                    style: TextStyle(
+                                      color: const Color(0xFF8E8E93),
+                                      fontSize: context.responsive(11),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        SizedBox(height: context.responsive(34)),
+
+                        // ENTER AMOUNT text
+                        Text(
+                          "ENTER AMOUNT",
+                          style: TextStyle(
+                            color: const Color(0xFF9E9E9E),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            fontSize: context.responsive(11),
+                          ),
+                        ),
+
+                        SizedBox(height: context.responsive(12)),
+
+                        // Amount Display
+                        Obx(() {
+                          final amountStr =
+                              controller.enteredAmount.value.isEmpty
+                              ? "0"
+                              : controller.formatAmount(
+                                  controller.enteredAmount.value,
+                                );
+                          return Text(
+                            "₹ $amountStr",
+                            style: TextStyle(
+                              fontSize: context.responsive(42),
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                              color: Colors.black,
+                            ),
+                          );
+                        }),
+
+                        SizedBox(height: context.responsive(8)),
+
+                        // Subtitle
+                        Text(
+                          "Minimum ₹1 · Maximum ₹1,00,000",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: context.responsive(11.5),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+
+                        SizedBox(height: context.responsive(28)),
+
+                        // Presets
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.responsive(20),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: _presetPill(
+                                  context,
+                                  controller,
+                                  500,
+                                  "₹500",
+                                ),
+                              ),
+                              SizedBox(width: context.responsive(8)),
+                              Expanded(
+                                child: _presetPill(
+                                  context,
+                                  controller,
+                                  1000,
+                                  "₹1,000",
+                                ),
+                              ),
+                              SizedBox(width: context.responsive(8)),
+                              Expanded(
+                                child: _presetPill(
+                                  context,
+                                  controller,
+                                  2000,
+                                  "₹2,000",
+                                ),
+                              ),
+                              SizedBox(width: context.responsive(8)),
+                              Expanded(
+                                child: _presetPill(
+                                  context,
+                                  controller,
+                                  5000,
+                                  "₹5,000",
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Keypad
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.responsive(36),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "1",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "2",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "3",
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.responsive(16)),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "4",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "5",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "6",
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.responsive(16)),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "7",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "8",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "9",
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.responsive(16)),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      ".",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "0",
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _keypadButton(
+                                      context,
+                                      controller,
+                                      "back",
+                                      isIcon: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Submit Button
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.responsive(20),
+                          ),
+                          child: Obx(
+                            () => CustomButton(
+                              text: "Add Money",
+                              btncolor: Colors.black,
+                              textColor: Colors.white,
+                              height: context.responsive(54),
+                              textsize: context.responsive(16),
+                              borderRadius: context.responsive(50),
+                              onPressed: controller.amount > 0
+                                  ? () => controller.payNow()
+                                  : () {},
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: context.responsive(20)),
                       ],
                     ),
                   ),
-                );
-              }),
-            ),
-
-            Obx(
-              () => controller.showSuccess.value
-                  ? Center(
-                      child: AnimatedScale(
-                        scale: controller.showSuccess.value ? 1 : 0,
-                        duration: const Duration(milliseconds: 400),
-                        child: Container(
-                          padding: const EdgeInsets.all(30),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                        ),
-                      ),
-                    )
-                  : const SizedBox(),
-            ),
-          ],
+                ),
+              );
+            },
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _presetPill(
+    BuildContext context,
+    AddmoneyController controller,
+    int value,
+    String label,
+  ) {
+    return Obx(() {
+      final isSelected = controller.selectedPreset.value == value;
+      return GestureDetector(
+        onTap: () {
+          controller.setPreset(value);
+        },
+        child: Container(
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(vertical: context.responsive(9)),
+          decoration: BoxDecoration(
+            color: isSelected ? primaryRed : Colors.white,
+            borderRadius: BorderRadius.circular(context.responsive(24)),
+            border: Border.all(
+              color: isSelected ? primaryRed : const Color(0xFFE5E7EB),
+              width: 1.2,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: context.responsive(13.5),
+              color: isSelected ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _keypadButton(
+    BuildContext context,
+    AddmoneyController controller,
+    String value, {
+    bool isIcon = false,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (value == '.') return; // Ignore dot for now
+        controller.setAmount(value);
+      },
+      child: Container(
+        height: context.responsive(46),
+        alignment: Alignment.center,
+        child: isIcon
+            ? Icon(
+                Icons.backspace_outlined,
+                size: context.responsive(22),
+                color: Colors.black,
+              )
+            : Text(
+                value,
+                style: TextStyle(
+                  fontSize: value == '.'
+                      ? context.responsive(28)
+                      : context.responsive(24),
+                  fontWeight: value == '.' ? FontWeight.w900 : FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
       ),
     );
   }

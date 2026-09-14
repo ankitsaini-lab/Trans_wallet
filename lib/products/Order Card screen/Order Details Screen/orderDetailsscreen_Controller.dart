@@ -1,19 +1,24 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/utilities/getStorage.dart';
 
 class OrderdetailsscreenController extends GetxController {
   var amount = 150.obs;
   var cardGradient = <Color>[const Color(0xFF111111), const Color(0xFF2C2C2C)].obs;
   var cardStyleName = "Obsidian Black".obs;
-  var receiverName = "Jane Doe".obs;
-  var deliveryAddress = "123 Ring Road, Delhi - 110001".obs;
+  var receiverName = "".obs;
+  var deliveryAddress = "".obs;
   var deliveryDateStr = "".obs;
   var referenceId = "".obs;
+  var paymentMethod = "General Wallet".obs;
+  var cardBgImage = 'assets/unioncardblack.png'.obs;
 
   @override
   void onInit() {
     super.onInit();
+    receiverName.value = box.read('name') ?? "User";
+    deliveryAddress.value = box.read('address') ?? "123 Ring Road, Delhi - 110001";
     
     
     final rand = Random();
@@ -43,6 +48,12 @@ class OrderdetailsscreenController extends GetxController {
       }
       if (args.containsKey('deliveryAddress')) {
         deliveryAddress.value = args['deliveryAddress'].toString();
+      }
+      if (args.containsKey('paymentMethod')) {
+        paymentMethod.value = args['paymentMethod'].toString();
+      }
+      if (args.containsKey('cardBgImage')) {
+        cardBgImage.value = args['cardBgImage'].toString();
       }
     }
   }

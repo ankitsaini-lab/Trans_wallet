@@ -4,20 +4,24 @@ import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/utilities/getStorage.dart';
+import 'package:transwallet/services/biometric_service.dart';
 
 class AddmoneyController extends GetxController {
-  var balance = 1600.0.obs;
-  var enteredAmount = '50'.obs;
-  var sliderValue = 50.0.obs;
-  var isCustom = false.obs;
+  var balance = 0.0.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    balance.value = (box.read('balance') ?? 1600).toDouble();
+  }
+  var enteredAmount = '5000'.obs;
+  var selectedPreset = 5000.obs;
   var isProcessing = false.obs;
   var showSuccess = false.obs;
-  var fundingSource = "General Wallet".obs;
+  var fundingSource = "UPI · ankit@upi".obs;
 
   final LocalAuthentication auth = LocalAuthentication();
-
-  TextEditingController customController = TextEditingController();
-  FocusNode customFocus = FocusNode();
 
   double get amount =>
       double.tryParse(
@@ -34,22 +38,53 @@ class AddmoneyController extends GetxController {
     );
   }
 
-  double getFontSize(String value) {
-    if (value.length > 9) return 24;
-    if (value.length > 7) return 24;
-    return 27;
+  void setAmount(String value) {
+    if (value == 'back') {
+      if (enteredAmount.value.isNotEmpty) {
+        enteredAmount.value = enteredAmount.value.substring(
+          0,
+          enteredAmount.value.length - 1,
+        );
+      }
+    } else {
+      if (enteredAmount.value == '0') {
+        enteredAmount.value = value;
+      } else if (enteredAmount.value.length < 7) {
+        // max 1,00,000 so 6 digits max maybe? Let's just limit length to 7
+        enteredAmount.value += value;
+      }
+    }
+    _updateSelectedPreset();
+  }
+
+  void setPreset(int amount) {
+    enteredAmount.value = amount.toString();
+    selectedPreset.value = amount;
+  }
+
+  void _updateSelectedPreset() {
+    final currentAmount = double.tryParse(enteredAmount.value) ?? 0.0;
+    if ([500, 1000, 2000, 5000].contains(currentAmount)) {
+      selectedPreset.value = currentAmount.toInt();
+    } else {
+      selectedPreset.value = 0;
+    }
   }
 
   Future<bool> authenticate() async {
+    if (Get.isRegistered<BiometricService>()) {
+      final result = await BiometricService.to.authenticate(
+        localizedReason: 'Confirm payment',
+        biometricOnly: true,
+      );
+      return result.success;
+    }
     try {
       final canCheck = await auth.canCheckBiometrics;
-
       if (!canCheck) return false;
-
       return await auth.authenticate(
         localizedReason: 'Confirm payment',
         biometricOnly: true,
-        
       );
     } catch (_) {
       return false;
@@ -86,13 +121,11 @@ class AddmoneyController extends GetxController {
     balance.value += amount;
 
     await Future.delayed(const Duration(milliseconds: 1200));
-    Get.to(
-      () => PaymentReceiptView(
-        amount: amount,
-        balance: balance.value,
-        paymentMode: fundingSource.value,
-      ),
-    );
+    Get.toNamed('/payment_receipt', arguments: {
+        'amount': amount,
+        'balance': balance.value,
+        'paymentMode': fundingSource.value,
+      });
     isProcessing.value = false;
   }
 
@@ -284,7 +317,7 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryRed = Color(0xFFE53935);
+    const Color primaryRed = Color(0xFFED292A);
     const Color textColor = Color(0xFF111111);
     const Color secondaryText = Color(0xFF6B7280);
 
@@ -318,12 +351,12 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: primaryRed.withOpacity(0.08),
+                color: primaryRed.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.shield_outlined,
-                color: primaryRed,
+                color: Color(0xFF111111),
                 size: 28,
               ),
             ),

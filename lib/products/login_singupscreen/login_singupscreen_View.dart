@@ -1,497 +1,934 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:video_player/video_player.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/login_singupscreen/login_singupscreen_Controller.dart';
+import 'package:transwallet/widgets/constsize.dart';
 
 class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
   const LoginSingupscreenView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => LoginSingupscreenController());
+    Get.put(LoginSingupscreenController(), permanent: true);
 
-    const primaryRed = Color(0xFFD64550);
-    const darkRed = Color(0xFFB22B37);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      
+      backgroundColor: lightprimaryred,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: 0,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Obx(() {
-            if (controller.isVideoInitialized.value) {
-              return SizedBox.expand(
-                child: Stack(
-                  children: [
-                    SizedBox.expand(
-                      child: FittedBox(
-                        fit: BoxFit.cover,
-                        child: SizedBox(
-                          width: controller.videoController.value.size.width,
-                          height: controller.videoController.value.size.height,
-                          child: VideoPlayer(controller.videoController),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              return Container(color: Colors.black);
-            }
-          }),
+          // Pinned Top Illustration
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: screenHeight * 0.5,
+            child: Image.asset(
+              "assets/loginBG.png",
+              fit: BoxFit.fill,
+              alignment: Alignment.topCenter,
+            ),
+          ),
 
+          // Scrollable White Card Layer
           Positioned.fill(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 60),
+            child: SingleChildScrollView(
+              controller: controller.scrollController,
+              physics: const ClampingScrollPhysics(),
+              child: Column(
+                children: [
+                  // Transparent spacer so top illustration is visible
+                  SizedBox(height: screenHeight * 0.46),
 
-                    Image.asset("assets/WHITE TRANSCORP .png", height: 24),
-
-                    const SizedBox(height: 40),
-
-                    Obx(
-                      () => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(32),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 26,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.86),
-                                borderRadius: BorderRadius.circular(32),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.4),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.18),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 15),
+                  // White curved card that scrolls together with all its content
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.elliptical(450, 40),
+                    ),
+                    child: Container(
+                      width: double.infinity,
+                      constraints: BoxConstraints(
+                        minHeight: screenHeight * 0.72,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x0D000000),
+                            blurRadius: 10,
+                            offset: Offset(0, -4),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.responsive(24),
+                            vertical: context.responsive(20),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Column(
+                                children: [
+                                  Text(
+                                    "Welcome",
+                                    style: TextStyle(
+                                      fontSize: context.responsive(23),
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  SizedBox(height: context.responsive(4)),
+                                  Text(
+                                    "Step into simpler payments",
+                                    style: TextStyle(
+                                      fontSize: context.responsive(13.5),
+                                      color: Colors.grey.shade600,
+                                    ),
                                   ),
                                 ],
                               ),
-                              child: Column(
-                                children: [
-                                  Obx(() {
-                                    if (controller.isOtpSent.value) {
-                                      return Column(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: primaryRed.withOpacity(
-                                                0.08,
-                                              ),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: primaryRed.withOpacity(
-                                                  0.25,
-                                                ),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: const Icon(
-                                              Icons.mark_email_read_rounded,
-                                              color: primaryRed,
-                                              size: 32,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 20),
-                                        ],
-                                      );
-                                    }
-                                    return const SizedBox.shrink();
-                                  }),
-                                  Obx(
-                                    () => Text(
-                                      controller.isOtpSent.value
-                                          ? "Verify Code"
-                                          : "Welcome",
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.5,
-                                        color: Color(0xFF111111),
-                                      ),
+                              SizedBox(height: context.responsive(18)),
+
+                              Obx(
+                                () => Container(
+                                  height: 46,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(23),
+                                    border: Border.all(
+                                      color: const Color(0xFFE5E7EB),
+                                      width: 1,
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
-                                  Obx(
-                                    () => Text(
-                                      controller.isOtpSent.value
-                                          ? "Enter the 4-digit code sent to +91 ******${controller.phone.value.length >= 4 ? controller.phone.value.substring(controller.phone.value.length - 4) : controller.phone.value}"
-                                          : "Login to Transcorp app to securely access your wallet & make effortless payments.",
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.black54,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  if (!controller.isOtpSent.value)
-                                    Obx(() {
-                                      final bool hasError = controller
-                                          .phoneError
-                                          .value
-                                          .isNotEmpty;
-                                      final bool isFocused =
-                                          controller.isPhoneFocused.value;
-
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          AnimatedContainer(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () =>
+                                              controller.setLoginMethod('OTP'),
+                                          behavior: HitTestBehavior.opaque,
+                                          child: AnimatedContainer(
                                             duration: const Duration(
                                               milliseconds: 200,
                                             ),
-                                            curve: Curves.easeOutCubic,
+                                            curve: Curves.easeInOut,
                                             decoration: BoxDecoration(
-                                              color: isFocused
-                                                  ? Colors.white
-                                                  : const Color(0xFFF5F6F8),
+                                              color: controller.isOtpLogin
+                                                  ? primaryRed
+                                                  : Colors.transparent,
                                               borderRadius:
-                                                  BorderRadius.circular(20),
-                                              border: Border.all(
-                                                color: hasError
-                                                    ? Colors.red
-                                                    : (isFocused
-                                                          ? primaryRed
-                                                          : const Color(
-                                                              0xFFE5E7EB,
-                                                            )),
-                                                width: isFocused ? 2.0 : 1.5,
-                                              ),
-                                              boxShadow: isFocused
+                                                  BorderRadius.circular(19),
+                                              boxShadow: controller.isOtpLogin
                                                   ? [
                                                       BoxShadow(
-                                                        color: primaryRed
-                                                            .withOpacity(0.08),
-                                                        blurRadius: 12,
+                                                        color: Colors.black
+                                                            .withValues(
+                                                              alpha: 0.08,
+                                                            ),
+                                                        blurRadius: 6,
                                                         offset: const Offset(
                                                           0,
-                                                          4,
+                                                          2,
                                                         ),
                                                       ),
                                                     ]
                                                   : [],
                                             ),
-                                            child: Row(
-                                              children: [
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        left: 18,
-                                                        right: 12,
-                                                      ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      const Text(
-                                                        "🇮🇳",
-                                                        style: TextStyle(
-                                                          fontSize: 20,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        "+91",
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                          color: Colors.black
-                                                              .withOpacity(0.8),
-                                                          fontSize: 15.5,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Container(
-                                                  width: 1.5,
-                                                  height: 24,
-                                                  color: const Color(
-                                                    0xFFE5E7EB,
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: TextField(
-                                                    controller: controller
-                                                        .phoneController,
-                                                    focusNode: controller
-                                                        .phoneFocusNode,
-                                                    keyboardType:
-                                                        TextInputType.phone,
-                                                    onChanged:
-                                                        controller.updatePhone,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 16,
-                                                      color: Color(0xFF111111),
-                                                      letterSpacing: 0.5,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(
+                                                8.0,
+                                              ),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.sms_outlined,
+                                                      size: 16,
+                                                      color:
+                                                          controller.isOtpLogin
+                                                          ? Colors.white
+                                                          : Colors.black,
                                                     ),
-                                                    inputFormatters: [
-                                                      FilteringTextInputFormatter
-                                                          .digitsOnly,
-                                                      LengthLimitingTextInputFormatter(
-                                                        10,
-                                                      ),
-                                                    ],
-                                                    decoration: const InputDecoration(
-                                                      hintText:
-                                                          "Enter Phone Number",
-                                                      hintStyle: TextStyle(
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      "Login with OTP",
+                                                      style: TextStyle(
+                                                        fontSize: context
+                                                            .responsive(13),
                                                         fontWeight:
-                                                            FontWeight.normal,
-                                                        color: Colors.grey,
-                                                        fontSize: 14,
+                                                            controller
+                                                                .isOtpLogin
+                                                            ? FontWeight.w700
+                                                            : FontWeight.w500,
+                                                        color:
+                                                            controller
+                                                                .isOtpLogin
+                                                            ? Colors.white
+                                                            : Colors.black,
                                                       ),
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(
-                                                            horizontal: 16,
-                                                            vertical: 18,
-                                                          ),
-                                                      border: InputBorder.none,
-                                                      enabledBorder:
-                                                          InputBorder.none,
-                                                      focusedBorder:
-                                                          InputBorder.none,
-                                                      errorBorder:
-                                                          InputBorder.none,
-                                                      focusedErrorBorder:
-                                                          InputBorder.none,
                                                     ),
-                                                  ),
+                                                  ],
                                                 ),
-                                              ],
+                                              ),
                                             ),
                                           ),
-                                          if (hasError)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                left: 16,
-                                                top: 6,
-                                              ),
-                                              child: Text(
-                                                controller.phoneError.value,
-                                                style: const TextStyle(
-                                                  color: Colors.red,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
+                                        ),
+                                      ),
+
+                                      // Option 2: Login with MPIN
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () =>
+                                              controller.setLoginMethod('MPIN'),
+                                          behavior: HitTestBehavior.opaque,
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 200,
                                             ),
-                                        ],
-                                      );
-                                    }),
-
-                                  const SizedBox(height: 15),
-
-                                  if (!controller.isOtpSent.value)
-                                    Row(
-                                      children: [
-                                        SizedBox(
-                                          height: 24,
-                                          width: 24,
-                                          child: Checkbox(
-                                            activeColor: primaryRed,
-                                            shape: RoundedRectangleBorder(
+                                            curve: Curves.easeInOut,
+                                            decoration: BoxDecoration(
+                                              color: controller.isMpinLogin
+                                                  ? primaryRed
+                                                  : Colors.transparent,
                                               borderRadius:
-                                                  BorderRadius.circular(4),
+                                                  BorderRadius.circular(19),
+                                              boxShadow: controller.isMpinLogin
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withValues(
+                                                              alpha: 0.08,
+                                                            ),
+                                                        blurRadius: 6,
+                                                        offset: const Offset(
+                                                          0,
+                                                          2,
+                                                        ),
+                                                      ),
+                                                    ]
+                                                  : [],
                                             ),
-                                            value: controller.isChecked.value,
-                                            onChanged: controller.toggleCheck,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Wrap(
-                                            children: [
-                                              const Text(
-                                                "I agree to ",
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.black54,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(
+                                                8.0,
+                                              ),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .lock_outline_rounded,
+                                                      size: 16,
+                                                      color:
+                                                          controller.isMpinLogin
+                                                          ? Colors.white
+                                                          : Colors.black,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      "Login with MPIN",
+                                                      style: TextStyle(
+                                                        fontSize: context
+                                                            .responsive(13),
+                                                        fontWeight:
+                                                            controller
+                                                                .isMpinLogin
+                                                            ? FontWeight.w700
+                                                            : FontWeight.w500,
+                                                        color:
+                                                            controller
+                                                                .isMpinLogin
+                                                            ? Colors.white
+                                                            : Colors.black,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                              InkWell(
-                                                onTap: () {},
-                                                child: const Text(
-                                                  "Terms & Conditions",
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: context.responsive(18)),
+
+                              // Phone Field
+                              _buildPhoneInputField(
+                                context,
+                                controller,
+                              ),
+
+                              // Error message if any
+                              Obx(() {
+                                if (controller.phoneError.value.isNotEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: 8,
+                                      left: 16,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        controller.phoneError.value,
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: context.responsive(12),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              }),
+
+                              // MPIN Field (Shown only when controller.isMpinLogin is true)
+                              Obx(() {
+                                if (controller.isMpinLogin) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(height: context.responsive(16)),
+                                      Container(
+                                        height: 55,
+                                        decoration: BoxDecoration(
+                                          color: const Color.fromRGBO(
+                                            249,
+                                            249,
+                                            249,
+                                            1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: primaryRed,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                  ),
+                                              child: Icon(
+                                                Icons.lock_outline_rounded,
+                                                color: Colors.black87,
+                                                size: 20,
+                                              ),
+                                            ),
+                                            Container(
+                                              width: 1.0,
+                                              height: 24,
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            Expanded(
+                                              child: Obx(
+                                                () => TextField(
+                                                  controller:
+                                                      controller.mpinController,
+                                                  focusNode:
+                                                      controller.mpinFocusNode,
+                                                  keyboardType:
+                                                      TextInputType.number,
+                                                  obscureText: controller
+                                                      .isMpinObscure
+                                                      .value,
+                                                  onChanged:
+                                                      controller.updateMpin,
                                                   style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.blueAccent,
                                                     fontWeight: FontWeight.w600,
+                                                    fontSize: context
+                                                        .responsive(16),
+                                                    letterSpacing:
+                                                        controller
+                                                            .isMpinObscure
+                                                            .value
+                                                        ? 6
+                                                        : 2,
+                                                    color: Colors.black,
+                                                  ),
+                                                  inputFormatters: [
+                                                    FilteringTextInputFormatter
+                                                        .digitsOnly,
+                                                    LengthLimitingTextInputFormatter(
+                                                      4,
+                                                    ),
+                                                  ],
+                                                  decoration: InputDecoration(
+                                                    hintText:
+                                                        "Enter 4-digit MPIN",
+                                                    hintStyle: TextStyle(
+                                                      color:
+                                                          Colors.grey.shade400,
+                                                      fontSize: context
+                                                          .responsive(15),
+                                                      letterSpacing: 0,
+                                                    ),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(
+                                                          horizontal: context
+                                                              .responsive(16),
+                                                          vertical: context
+                                                              .responsive(15),
+                                                        ),
+                                                    border: InputBorder.none,
                                                   ),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                  if (controller.isOtpSent.value)
-                                    controller.otpField(onCompleted: (otp) {}),
-
-                                  const SizedBox(height: 15),
-
-                                  GestureDetector(
-                                    onTap: controller.sendOtp,
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 18,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [primaryRed, darkRed],
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: primaryRed.withOpacity(0.3),
-                                            blurRadius: 15,
-                                            offset: const Offset(0, 8),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Center(
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              controller.isOtpSent.value
-                                                  ? "VERIFY & PROCEED"
-                                                  : "SEND OTP",
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w900,
-                                                letterSpacing: 1.1,
+                                            ),
+                                            Obx(
+                                              () => IconButton(
+                                                icon: Icon(
+                                                  controller.isMpinObscure.value
+                                                      ? Icons
+                                                            .visibility_off_outlined
+                                                      : Icons
+                                                            .visibility_outlined,
+                                                  color: Colors.grey.shade600,
+                                                  size: 20,
+                                                ),
+                                                onPressed: controller
+                                                    .toggleMpinObscure,
                                               ),
                                             ),
-                                            if (controller.isOtpSent.value) ...[
-                                              const SizedBox(width: 8),
-                                              const Icon(
-                                                Icons.arrow_forward_rounded,
-                                                color: Colors.white,
-                                                size: 18,
+                                          ],
+                                        ),
+                                      ),
+
+                                      // MPIN Error message if any
+                                      Obx(() {
+                                        if (controller
+                                            .mpinError
+                                            .value
+                                            .isNotEmpty) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8,
+                                              left: 16,
+                                            ),
+                                            child: Text(
+                                              controller.mpinError.value,
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                                fontSize: context.responsive(
+                                                  12,
+                                                ),
                                               ),
-                                            ],
+                                            ),
+                                          );
+                                        }
+                                        return const SizedBox.shrink();
+                                      }),
+
+                                      // Forgot MPIN link
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8,
+                                          right: 8,
+                                        ),
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: GestureDetector(
+                                            onTap: () => controller
+                                                .setLoginMethod('OTP'),
+                                            child: Text(
+                                              "Forgot MPIN?",
+                                              style: TextStyle(
+                                                fontSize: context.responsive(
+                                                  13,
+                                                ),
+                                                fontWeight: FontWeight.w600,
+                                                color: primaryRed,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              }),
+
+                              SizedBox(height: context.responsive(16)),
+
+                              // Terms & Conditions Checkbox
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: Obx(
+                                      () => Checkbox(
+                                        value: controller.isChecked.value,
+                                        onChanged: controller.toggleCheck,
+                                        activeColor: primaryRed,
+                                        checkColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        side: BorderSide(
+                                          color: controller.isChecked.value
+                                              ? primaryRed
+                                              : Colors.grey.shade700,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {},
+                                      child: Text.rich(
+                                        TextSpan(
+                                          text: "I agree to ",
+                                          style: TextStyle(
+                                            fontSize: context.responsive(14),
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.black,
+                                          ),
+                                          children: [
+                                            TextSpan(
+                                              text: "Terms & Conditions",
+                                              style: TextStyle(
+                                                fontSize: context.responsive(
+                                                  14,
+                                                ),
+                                                fontWeight: FontWeight.w600,
+                                                color: primaryRed,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
                                     ),
                                   ),
+                                ],
+                              ),
 
-                                  
-                                  if (controller.isOtpSent.value) ...[
-                                    const SizedBox(height: 12),
+                              SizedBox(height: context.responsive(18)),
+
+                              // Send OTP or Login with MPIN Button
+                              Obx(
+                                () => GestureDetector(
+                                  onTap: controller.onPrimaryActionPressed,
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: context.responsive(14),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black,
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        controller.isOtpLogin
+                                            ? "Send OTP"
+                                            : "Login with MPIN",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: context.responsive(16),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: context.responsive(16)),
+
+                              // Biometric Login Option (Shown as per available device features)
+                              Obx(() {
+                                if (!controller.isBiometricAvailable.value) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Column(
+                                  children: [
                                     Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        TextButton.icon(
-                                          onPressed: controller.changeNumber,
-                                          style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 4,
-                                              vertical: 6,
-                                            ),
-                                            minimumSize: Size.zero,
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
+                                        Expanded(
+                                          child: Divider(
+                                            color: Colors.grey.shade300,
+                                            thickness: 1,
                                           ),
-                                          icon: const Icon(
-                                            Icons.edit_rounded,
-                                            color: Colors.black45,
-                                            size: 14,
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
                                           ),
-                                          label: const Text(
-                                            "Change Number",
+                                          child: Text(
+                                            "OR",
                                             style: TextStyle(
-                                              color: Colors.black45,
-                                              fontSize: 13,
+                                              fontSize: context.responsive(12),
                                               fontWeight: FontWeight.w600,
+                                              color: Colors.grey.shade500,
                                             ),
                                           ),
                                         ),
-                                        Obx(
-                                          () => TextButton.icon(
-                                            onPressed:
-                                                controller.canResend.value
-                                                ? controller.resendOtp
-                                                : null,
-                                            style: TextButton.styleFrom(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                    vertical: 6,
-                                                  ),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                            icon: Icon(
-                                              Icons.replay_rounded,
-                                              color: controller.canResend.value
-                                                  ? primaryRed
-                                                  : Colors.grey,
-                                              size: 14,
-                                            ),
-                                            label: Text(
-                                              controller.canResend.value
-                                                  ? "Resend OTP"
-                                                  : "Resend in ${controller.seconds.value}s",
-                                              style: TextStyle(
-                                                color:
-                                                    controller.canResend.value
-                                                    ? primaryRed
-                                                    : Colors.grey,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 13,
-                                              ),
-                                            ),
+                                        Expanded(
+                                          child: Divider(
+                                            color: Colors.grey.shade300,
+                                            thickness: 1,
                                           ),
                                         ),
                                       ],
                                     ),
+                                    SizedBox(height: context.responsive(12)),
+                                    InkWell(
+                                      onTap: controller.loginWithBiometrics,
+                                      borderRadius: BorderRadius.circular(30),
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: context.responsive(12),
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
+                                          border: Border.all(
+                                            color: primaryRed.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                            width: 1.5,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: primaryRed.withValues(
+                                                alpha: 0.06,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: controller
+                                                  .isBiometricLoading.value
+                                              ? SizedBox(
+                                                  height: context.responsive(20),
+                                                  width: context.responsive(20),
+                                                  child: const CircularProgressIndicator(
+                                                    strokeWidth: 2.5,
+                                                    color: primaryRed,
+                                                  ),
+                                                )
+                                              : FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.center,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        controller
+                                                            .biometricIcon
+                                                            .value,
+                                                        color: primaryRed,
+                                                        size: context.responsive(
+                                                          22,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        "Login with ${controller.biometricLabel.value}",
+                                                        style: TextStyle(
+                                                          color: Colors
+                                                              .black87,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          fontSize: context
+                                                              .responsive(14),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                    ),
                                   ],
-                                ],
-                              ),
-                            ),
+                                );
+                              }),
+                              SizedBox(height: context.responsive(24)),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 30),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
+
+          // OTP Verification Modal Overlay
+          Obx(() {
+            if (controller.isOtpSent.value) {
+              return Positioned.fill(
+                child: GestureDetector(
+                  onTap: controller.changeNumber, // Tap outside to dismiss
+                  child: Container(
+                    color: Colors.black.withValues(
+                      alpha: 0.65,
+                    ), // Dim background
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {}, // Consume tap to prevent dismissing
+                        child: Container(
+                          margin: EdgeInsets.symmetric(
+                            horizontal: context.responsive(24),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.responsive(24),
+                            vertical: context.responsive(32),
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.elliptical(
+                                context.responsive(500),
+                                context.responsive(50),
+                              ),
+                              topRight: Radius.elliptical(
+                                context.responsive(500),
+                                context.responsive(50),
+                              ),
+                              bottomLeft: Radius.circular(
+                                context.responsive(30),
+                              ),
+                              bottomRight: Radius.circular(
+                                context.responsive(30),
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                "Verify Code",
+                                style: TextStyle(
+                                  fontSize: context.responsive(22),
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: context.responsive(16)),
+                              Text(
+                                "We have sent 6- digit verification code to\n+91 ******${controller.phone.value.length >= 4 ? controller.phone.value.substring(controller.phone.value.length - 4) : controller.phone.value}",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: context.responsive(14),
+                                  color: Colors.grey,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+
+                              // OTP Field
+                              controller.otpField(onCompleted: (otp) {}),
+
+                              Obx(() {
+                                if (controller.otpError.value.isNotEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      controller.otpError.value,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontSize: context.responsive(12),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              }),
+
+                              const SizedBox(height: 20),
+
+                              // Resend Code
+                              GestureDetector(
+                                onTap: () {
+                                  if (controller.canResend.value) {
+                                    controller.resendOtp();
+                                  }
+                                },
+                                child: Text.rich(
+                                  TextSpan(
+                                    text: controller.canResend.value
+                                        ? "Didn't receive? "
+                                        : "Resend code in ",
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: context.responsive(14),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: controller.canResend.value
+                                            ? "Resend OTP"
+                                            : "${controller.seconds.value}s",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: controller.canResend.value
+                                              ? Colors.blueAccent
+                                              : primaryRed,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(height: context.responsive(32)),
+
+                              // Verify & Proceed Button
+                              GestureDetector(
+                                onTap: controller.sendOtp, // Calls _verifyOtp
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: context.responsive(18),
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black,
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      "Verify & Proceed",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        fontSize: context.responsive(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
         ],
       ),
     );
   }
+
+  Widget _buildPhoneInputField(
+    BuildContext context,
+    LoginSingupscreenController controller,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 55,
+          decoration: BoxDecoration(
+            color: const Color.fromRGBO(249, 249, 249, 1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border(bottom: BorderSide(color: primaryRed, width: 1.5)),
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Text(
+                      "+91",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: context.responsive(15),
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(width: 1.0, height: 24, color: Colors.grey.shade300),
+              Expanded(
+                child: TextField(
+                  controller: controller.phoneController,
+                  focusNode: controller.phoneFocusNode,
+                  keyboardType: TextInputType.phone,
+                  autofocus: false,
+                  onChanged: controller.updatePhone,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: context.responsive(15),
+                    color: Colors.black,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  decoration: InputDecoration(
+                    hintText: "Enter Phone Number",
+                    hintStyle: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: context.responsive(15),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: context.responsive(16),
+                      vertical: context.responsive(15),
+                    ),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
+

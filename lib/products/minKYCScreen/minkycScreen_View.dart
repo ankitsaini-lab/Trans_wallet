@@ -1,347 +1,259 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
 import 'package:transwallet/products/minKYCScreen/minkycScreen_Controller.dart';
-import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/upercasetextformatter.dart';
 
 class MinkycscreenView extends GetView<MinkycscreenController> {
   const MinkycscreenView({super.key});
 
-  static const _primaryRed = Color(0xFFE53935);
-
   @override
   Widget build(BuildContext context) {
     Get.lazyPut(() => MinkycscreenController());
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: lightprimaryred, // Dark background
       appBar: AppBar(
-        title: const Text(
-          'Min KYC',
-          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Get.back(),
+        toolbarHeight: 0,
+
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 12),
-
-            
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_primaryRed, Color(0xFFFF6B6B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: _primaryRed.withOpacity(0.3),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  
-                  Positioned(
-                    top: -20,
-                    right: -20,
-                    child: Container(
-                      height: 100,
-                      width: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.07),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -30,
-                    left: -30,
-                    child: Container(
-                      height: 90,
-                      width: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.06),
-                      ),
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.verified_user_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'KYC Verification',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Verify your identity to unlock\nfull wallet features & benefits.',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      
-                      Row(
-                        children: [
-                          _StepPill(label: '1  Details', done: true),
-                          const SizedBox(width: 8),
-                          _StepPill(label: '2  PAN', active: true),
-                          const SizedBox(width: 8),
-                          _StepPill(label: '3  Done'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            
-            Row(
-              children: [
-                Expanded(
-                  child: _InfoTile(
-                    icon: Icons.security_rounded,
-                    label: '256-bit\nEncrypted',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _InfoTile(
-                    icon: Icons.timer_rounded,
-                    label: '2 Min\nProcess',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _InfoTile(
-                    icon: Icons.lock_rounded,
-                    label: '100%\nSecure',
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            
-            const Text(
-              'PAN Card Number',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111111),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            
-            Obx(
-              () => TextField(
-                onChanged: controller.onPanChanged,
-                style: const TextStyle(
-                  letterSpacing: 3,
-                  fontWeight: FontWeight.w600,
-                ),
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(10),
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-                  UpperCaseTextFormatter(),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'ABCDE1234F',
-                  hintStyle: const TextStyle(
-                    letterSpacing: 2,
-                    color: Colors.grey,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.credit_card_rounded,
-                    color: _primaryRed,
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFF5F5F5),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  errorText: controller.panError.value.isEmpty
-                      ? null
-                      : controller.panError.value,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: _primaryRed,
-                      width: 1.2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Colors.red, width: 1.2),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Colors.red, width: 1.2),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-            Row(
-              children: const [
-                Icon(Icons.info_outline_rounded, size: 13, color: Colors.grey),
-                SizedBox(width: 5),
-                Text(
-                  'OTP will be sent to your registered mobile',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            CustomButton(
-              text: 'Continue',
-              btncolor: const Color(0xFF111111),
-              onPressed: () {
-                if (controller.pan.value.isEmpty) {
-                  controller.panError.value = 'PAN number is required';
-                  return;
-                }
-                if (!controller.isButtonEnabled.value) {
-                  controller.panError.value =
-                      'Invalid PAN format (e.g. ABCDE1234F)';
-                  return;
-                }
-                controller.showOtpBottomSheet(context);
-              },
-            ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StepPill extends StatelessWidget {
-  final String label;
-  final bool active;
-  final bool done;
-  const _StepPill({
-    required this.label,
-    this.active = false,
-    this.done = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: (active || done)
-            ? Colors.white.withOpacity(0.22)
-            : Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(active ? 0.6 : 0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      extendBodyBehindAppBar: true,
+      body: Stack(
         children: [
-          if (done)
-            const Icon(
-              Icons.check_circle_rounded,
-              color: Colors.white,
-              size: 12,
-            ),
-          if (done) const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(active || done ? 1.0 : 0.5),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          // Background Image (Top Half)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Image.asset(
+              "assets/minkycbg.png",
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
 
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _InfoTile({required this.icon, required this.label});
+          // Custom Back Button in the top left
+          Positioned(
+            top: MediaQuery.of(context).padding.top + kToolbarHeight * 0.2,
+            left: 20,
+            child: GestureDetector(
+              onTap: () => Get.back(),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 6,
+                    ), // Align arrow aesthetically in circle
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.black,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF5F5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE53935).withOpacity(0.1)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: const Color(0xFFE53935), size: 22),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
-              height: 1.4,
+          // White Bottom Sheet Container
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.elliptical(400, 30),
+              ),
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(color: Colors.white),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.responsive(24),
+                      vertical: context.responsive(24),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // "Verify your identity" centered
+                        Center(
+                          child: Text(
+                            "Verify your identity",
+                            style: TextStyle(
+                              fontSize: context.responsive(22),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: context.responsive(12)),
+                        Center(
+                          child: Text(
+                            "RBI requires a PAN check before we can open your\nwallet. It takes about 30 seconds and no documents\nare stored on your device.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: context.responsive(13),
+                              color: Colors.grey,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: context.responsive(24)),
+
+                        // "PAN Card Number"
+                        Text(
+                          "PAN Card Number",
+                          style: TextStyle(
+                            fontSize: context.responsive(13),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: context.responsive(12)),
+
+                        Obx(
+                          () => TextField(
+                            onChanged: controller.onPanChanged,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                              fontSize: 14,
+                            ),
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(10),
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[a-zA-Z0-9]'),
+                              ),
+                              UpperCaseTextFormatter(),
+                            ],
+                            decoration: InputDecoration(
+                              hintText: 'ABCDE1234F',
+                              hintStyle: TextStyle(
+                                letterSpacing: 0,
+                                color: Colors.grey.shade400,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.badge_outlined, // ID badge icon
+                                color: Colors.grey.shade700,
+                                size: 22,
+                              ),
+                              suffixIcon: controller.isPanVerified.value
+                                  ? const Icon(
+                                      Icons.check_circle,
+                                      color: Color(0xFF22C55E),
+                                      size: 22,
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: const Color(0xFFF9F9FB),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 18,
+                              ),
+                              errorText: controller.panError.value.isEmpty
+                                  ? null
+                                  : controller.panError.value,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 1.0,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 1.0,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: const BorderSide(
+                                  color: Colors.black,
+                                  width: 1.5,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: const BorderSide(
+                                  color: Colors.red,
+                                  width: 1.2,
+                                ),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: const BorderSide(
+                                  color: Colors.red,
+                                  width: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        height40,
+
+                        Obx(
+                          () => GestureDetector(
+                            onTap: controller.isLoading.value
+                                ? null
+                                : () => controller.handleButtonAction(),
+                            child: Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                vertical: context.responsive(18),
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: Center(
+                                child: controller.isLoading.value
+                                    ? SizedBox(
+                                        height: context.responsive(20),
+                                        width: context.responsive(20),
+                                        child: const CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        controller.isPanVerified.value
+                                            ? "Continue"
+                                            : "Verify",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: context.responsive(16),
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        height10,
+                        // const SizedBox(height: 10),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],

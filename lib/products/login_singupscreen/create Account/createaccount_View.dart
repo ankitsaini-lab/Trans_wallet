@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
 import 'package:transwallet/products/login_singupscreen/create%20Account/createaccount_Controller.dart';
-import 'package:transwallet/widgets/constsize.dart';
-import 'package:transwallet/widgets/custombutton.dart';
 
 class CreateaccountView extends GetView<CreateaccountController> {
   const CreateaccountView({super.key});
@@ -12,97 +10,128 @@ class CreateaccountView extends GetView<CreateaccountController> {
   @override
   Widget build(BuildContext context) {
     Get.lazyPut(() => CreateaccountController());
-
-    const primaryRed = Color(0xFFD64550);
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 40),
+      backgroundColor: lightprimaryred,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: 0,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      ),
+      extendBodyBehindAppBar: true,
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              backgroundColor: Colors.white,
+              expandedHeight:
+                  MediaQuery.of(context).size.height * 0.35 +
+                  (222 + topPadding),
+              collapsedHeight: 222 + topPadding,
+              toolbarHeight: 0,
+              pinned: true,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              flexibleSpace: LayoutBuilder(
+                builder: (context, constraints) {
+                  final collapsedHeight = 222 + topPadding;
+                  final expandedHeight =
+                      MediaQuery.of(context).size.height * 0.35 +
+                      collapsedHeight;
+                  double expansion = 1.0;
+                  if (expandedHeight > collapsedHeight) {
+                    expansion =
+                        (constraints.maxHeight - collapsedHeight) /
+                        (expandedHeight - collapsedHeight);
+                    expansion = expansion.clamp(0.0, 1.0);
+                  }
+                  double curveRadius = 28 * expansion;
 
-                TweenAnimationBuilder(
-                  duration: const Duration(milliseconds: 800),
-                  tween: Tween<double>(begin: 30.0, end: 0.0),
-                  curve: Curves.easeOutQuart,
-                  builder: (context, double value, child) {
-                    return Transform.translate(
-                      offset: Offset(0, value),
-                      child: Opacity(
-                        opacity: (1 - (value / 30)).clamp(0.0, 1.0),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Image.asset("assets/Layer_1.png", height: 22),
-                ),
-
-                const SizedBox(height: 30),
-
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primaryRed.withOpacity(0.05),
-                        blurRadius: 40,
-                        offset: const Offset(0, 15),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  return Stack(
                     children: [
-                      const Text(
-                        "Create Account",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111111),
-                          letterSpacing: -0.5,
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: MediaQuery.of(context).size.height * 0.47,
+                        child: Image.asset(
+                          "assets/createaccountbg.png",
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        "Step into simpler payments",
-                        style: TextStyle(color: Colors.black38, fontSize: 12),
-                      ),
-
-                      const SizedBox(height: 25),
-
-                      Row(
-                        children: [
-                          Expanded(child: controller.buildStep("Details", 1)),
-                          const SizedBox(width: 12),
-                          Expanded(child: controller.buildStep("Address", 2)),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      Obx(
-                        () => AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          switchInCurve: Curves.easeIn,
-                          switchOutCurve: Curves.easeOut,
-                          child: controller.step.value == 1
-                              ? controller.buildStepOene(context)
-                              : controller.buildStepTwo(),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.elliptical(300, curveRadius),
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            color: Colors.white,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  height: topPadding * (1.0 - expansion),
+                                ),
+                                const SizedBox(height: 24),
+                                const Text(
+                                  "Create Account",
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  "Step into simpler payments",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                // Custom Stepper
+                                controller.buildCustomStepper(context),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],
+                  );
+                },
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Obx(
+                  () => AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: controller.step.value == 1
+                        ? controller.buildStepOene(context)
+                        : controller.buildStepTwo(context),
                   ),
                 ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

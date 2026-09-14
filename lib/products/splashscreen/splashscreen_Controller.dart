@@ -1,27 +1,17 @@
 import 'package:get/get.dart';
+import 'package:transwallet/services/auth_service.dart';
 
 class SplashscreenController extends GetxController {
-    void splash() async {
-
+  void splash() async {
     try {
-      
-      
+      await Future.delayed(const Duration(seconds: 5));
 
-      
-      
-      
-
-      await Future.delayed(const Duration(seconds: 3));
-
-      
+      // Direct login: If session exists, navigate to dashboard, else onboarding
+      if (Get.isRegistered<AuthService>() && AuthService.to.isLoggedIn) {
+        Get.offAllNamed('/dashboard');
+      } else {
         Get.offAllNamed('/onboarding');
-      
-        
-      
-    } catch (e) {
-      
-      
-    }
+      }
+    } catch (e) {}
   }
-
 }

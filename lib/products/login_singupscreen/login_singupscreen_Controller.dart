@@ -1,17 +1,38 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:video_player/video_player.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/utilities/getStorage.dart';
+import 'package:transwallet/services/auth_service.dart';
+import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/models/send_otp_model.dart';
+import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/services/biometric_service.dart';
 
 class LoginSingupscreenController extends GetxController {
-  late VideoPlayerController videoController;
-  var isVideoInitialized = false.obs;
-
   final phoneFocusNode = FocusNode();
   var isPhoneFocused = false.obs;
+
+  // Reactive biometric state
+  final RxBool isBiometricAvailable = true.obs;
+  final RxBool canLoginWithBiometrics = true.obs;
+  final RxString biometricLabel =
+      (Platform.isIOS ? 'Face ID' : 'Fingerprint').obs;
+  final Rx<IconData> biometricIcon =
+      (Platform.isIOS ? Icons.face_rounded : Icons.fingerprint_rounded).obs;
+  void updateBiometricState() {
+    if (Get.isRegistered<BiometricService>()) {
+      final service = BiometricService.to;
+      isBiometricAvailable.value = service.isBiometricAvailable;
+      canLoginWithBiometrics.value = service.canLoginWithBiometrics;
+      biometricLabel.value = service.biometricTypeLabel;
+      biometricIcon.value = service.biometricIcon;
+    }
+  }
 
   @override
   void onInit() {
@@ -19,72 +40,279 @@ class LoginSingupscreenController extends GetxController {
     phoneFocusNode.addListener(() {
       isPhoneFocused.value = phoneFocusNode.hasFocus;
     });
-    videoController = VideoPlayerController.asset("assets/videomp_.mp4")
-      ..initialize().then((_) {
-        isVideoInitialized.value = true;
-        videoController.setLooping(true);
-        videoController.play();
-        videoController.setVolume(0.0); 
+
+    if (Get.isRegistered<BiometricService>()) {
+      BiometricService.to.checkBiometricSupport().then((_) {
+        updateBiometricState();
       });
+    }
+    updateBiometricState();
+  }
+
+  var isBiometricLoading = false.obs;
+
+  Future<void> loginWithBiometrics() async {
+    if (isBiometricLoading.value) return;
+
+    if (!Get.isRegistered<BiometricService>()) {
+      AppSnackbar.error("Biometric service is not initialized");
+      return;
+    }
+
+    final service = BiometricService.to;
+    if (!service.isBiometricEnabled.value) {
+      AppSnackbar.info("Biometric login is disabled in settings.");
+      return;
+    }
+
+    final enteredPhone = phoneController.text.trim();
+    final savedPhone = box.read('phone')?.toString();
+    final phoneToUse = enteredPhone.isNotEmpty ? enteredPhone : savedPhone;
+
+    if (phoneToUse != null && phoneToUse.isNotEmpty) {
+      box.write('phone', phoneToUse);
+    }
+
+    isBiometricLoading.value = true;
+
+    try {
+      final success = await service.authenticateAndLogin(
+        mobileNumber: phoneToUse,
+      );
+      if (!success) {
+        log("[Login Biometrics] Biometric login canceled or failed.");
+      }
+    } catch (e) {
+      log("[Login Biometrics] Error: $e");
+    } finally {
+      if (Get.isRegistered<LoginSingupscreenController>()) {
+        isBiometricLoading.value = false;
+      }
+    }
   }
 
   var phone = ''.obs;
   var isChecked = false.obs;
   var isOtpSent = false.obs;
   var isPressed = false.obs;
-  var isCheckedpopup = false.obs;
   final phoneController = TextEditingController();
 
+  // Login Method: 'OTP' or 'MPIN'
+  var loginMethod = 'OTP'.obs;
+  bool get isOtpLogin => loginMethod.value == 'OTP';
+  bool get isMpinLogin => loginMethod.value == 'MPIN';
+
+  void setLoginMethod(String method) {
+    loginMethod.value = method;
+    phoneError.value = '';
+    mpinError.value = '';
+    otpError.value = '';
+    _mpinVisibilityTimer?.cancel();
+    isMpinObscure.value = true;
+    if (method == 'OTP' && scrollController.hasClients) {
+      if (scrollController.offset > 0) {
+        scrollController.jumpTo(0.0);
+      }
+    }
+  }
+
+  final scrollController = ScrollController();
+
+  // MPIN fields
+  final mpinController = TextEditingController();
+  final mpinFocusNode = FocusNode();
+  var mpin = ''.obs;
+  RxString mpinError = ''.obs;
+  var isMpinObscure = true.obs;
+  Timer? _mpinVisibilityTimer;
+
+  bool get isValidMpin => mpin.value.length == 4;
+
+  void updateMpin(String value) {
+    mpin.value = value;
+    if (mpinError.value.isNotEmpty) {
+      mpinError.value = '';
+    }
+  }
+
+  void toggleMpinObscure() {
+    _mpinVisibilityTimer?.cancel();
+    isMpinObscure.value = !isMpinObscure.value;
+
+    // When made visible, automatically obscure after 2.5 seconds
+    if (!isMpinObscure.value) {
+      _mpinVisibilityTimer = Timer(const Duration(milliseconds: 2500), () {
+        isMpinObscure.value = true;
+      });
+    }
+  }
+
+  void onPrimaryActionPressed() {
+    if (isOtpLogin) {
+      sendOtp();
+    } else {
+      loginWithMpin();
+    }
+  }
+
+  Future<void> loginWithMpin() async {
+    final enteredPhone = phoneController.text.trim();
+    final enteredMpin = mpinController.text.trim();
+
+    if (enteredPhone.isEmpty) {
+      phoneError.value = "Mobile number is required";
+      return;
+    }
+    if (enteredPhone.length != 10) {
+      phoneError.value = "Enter valid 10 digit number";
+      return;
+    }
+    phoneError.value = "";
+
+    if (enteredMpin.isEmpty) {
+      mpinError.value = "MPIN is required";
+      return;
+    }
+    if (enteredMpin.length != 4) {
+      mpinError.value = "Enter 4-digit MPIN";
+      return;
+    }
+    mpinError.value = "";
+
+    if (!isChecked.value) {
+      AppSnackbar.error("Please accept the Terms & Conditions");
+      return;
+    }
+
+    // Show loading indicator
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: primaryRed)),
+      barrierDismissible: false,
+    );
+
+    try {
+      final requestBody = {"mobileNumber": enteredPhone, "mpin": enteredMpin};
+      log(
+        "[Login MPIN] Calling /api/v1/auth/mpin/login with body: $requestBody",
+      );
+
+      final response = await ApiService.to.postRequest<Map<String, dynamic>>(
+        '/api/v1/auth/mpin/login',
+        requestBody,
+      );
+
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+
+      if (response.status.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+
+        if (isSuccess) {
+          final data = body['data'];
+          String? accessToken;
+          String? refreshToken;
+          String? tokenType;
+          dynamic expiresIn;
+
+          if (data is Map) {
+            accessToken =
+                data['accessToken']?.toString() ?? data['token']?.toString();
+            refreshToken = data['refreshToken']?.toString();
+            tokenType = data['tokenType']?.toString() ?? 'Bearer';
+            expiresIn = data['expiresIn'];
+
+            if (data['user'] is Map) {
+              final user = data['user'] as Map;
+              if (user['name'] != null) box.write('name', user['name']);
+              if (user['email'] != null) box.write('email', user['email']);
+              if (user['phone'] != null) box.write('phone', user['phone']);
+            }
+          }
+
+          if (accessToken != null && accessToken.isNotEmpty) {
+            box.write('accessToken', accessToken);
+            box.write('auth_token', accessToken);
+            box.write('token', accessToken);
+          }
+          if (refreshToken != null && refreshToken.isNotEmpty) {
+            box.write('refreshToken', refreshToken);
+            box.write('refresh_token', refreshToken);
+          }
+          if (tokenType != null) box.write('tokenType', tokenType);
+          if (expiresIn != null) {
+            box.write('expiresIn', expiresIn);
+          }
+
+          if (Get.isRegistered<AuthService>()) {
+            await AuthService.to.saveSession(
+              token: accessToken ?? '',
+              refreshToken: refreshToken,
+              tokenType: tokenType,
+              expiresIn: expiresIn,
+              userId: enteredPhone,
+              userData: {
+                'phone': enteredPhone,
+                'tokenType': tokenType ?? 'Bearer',
+                'expiresIn': expiresIn,
+              },
+            );
+          }
+
+          box.write('has_mpin', true);
+          box.write('mpin_set', true);
+          box.write('saved_mpin', enteredMpin);
+          box.write('phone', enteredPhone);
+          box.write('is_logged_in', true);
+
+          AppSnackbar.success(
+            body['message']?.toString() ?? "Login successful",
+          );
+          Get.offAllNamed('/dashboard');
+        } else {
+          final errorMsg =
+              body['message']?.toString() ??
+              body['exception']?.toString() ??
+              "Invalid MPIN";
+          mpinError.value = errorMsg;
+          AppSnackbar.error(errorMsg);
+        }
+      } else {
+        final String errorMsg =
+            (response.body != null &&
+                (response.body!['message'] != null ||
+                    response.body!['error'] != null))
+            ? (response.body!['message']?.toString() ??
+                  response.body!['error']?.toString() ??
+                  "Server error. Please try again after some time.")
+            : "Server error. Please try again after some time.";
+        mpinError.value = errorMsg;
+        AppSnackbar.error(errorMsg);
+      }
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+      log("[Login MPIN] Error: $e");
+      const errorMsg = "Server error. Please try again after some time.";
+      mpinError.value = errorMsg;
+      AppSnackbar.error(errorMsg);
+    }
+  }
+
   RxString phoneError = ''.obs;
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  Widget _bodyText(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: const TextStyle(fontSize: 13.5, height: 1.5)),
-    );
-  }
-
-  Widget _bullet(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 6, bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("• ", style: TextStyle(fontSize: 14)),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13.5, height: 1.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void toggleCheckbox(bool? value) {
-    isCheckedpopup.value = value ?? false;
-  }
+  RxString otpError = ''.obs;
 
   var otp = ''.obs;
 
-  
   var seconds = 60.obs;
   var canResend = false.obs;
   Timer? _timer;
 
   bool get isValidPhone => phone.value.length == 10;
   bool get canSendOtp => isValidPhone && isChecked.value;
-  bool get isOtpComplete => otp.value.length == 4;
+  bool get isOtpComplete => otp.value.length == 6;
 
   void updatePhone(String value) {
     phone.value = value;
@@ -102,10 +330,9 @@ class LoginSingupscreenController extends GetxController {
     }
   }
 
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     final phone = phoneController.text.trim();
 
-    
     if (phone.isEmpty) {
       phoneError.value = "Mobile number is required";
       return;
@@ -116,266 +343,277 @@ class LoginSingupscreenController extends GetxController {
       return;
     }
 
-    
     phoneError.value = "";
 
-    
-    showPrivacyBottomSheet();
-  }
-
-  void showPrivacyBottomSheet() {
-    Get.bottomSheet(
-      Container(
-        height: Get.height * 0.85,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: Column(
-          children: [
-            
-            Container(
-              width: 40,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-
-            
-            const Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue),
-                SizedBox(width: 8),
-                Text(
-                  "User Data Privacy Policy",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionTitle("1. Introduction"),
-
-                    _bodyText(
-                      'Transcorp International Ltd. ("Transcorp", "we", "our", "us") is committed to protecting the privacy and security of your personal data. This Policy explains how we collect, use, disclose, and safeguard your information when you use the TransWallet App or related services.',
-                    ),
-
-                    _sectionTitle("2. Information We Collect"),
-
-                    const Text(
-                      "We collect information necessary to provide our services, including:",
-                      style: TextStyle(fontSize: 13.5, height: 1.5),
-                    ),
-
-                    _bullet(
-                      "Personal Information: Name, contact details, DOB, address.",
-                    ),
-
-                    _bullet(
-                      "KYC & Identity Data: PAN, Aadhaar, government-issued ID proofs, biometrics.",
-                    ),
-
-                    _bullet(
-                      "Transaction Information: Account numbers, wallet transactions, payments, wallet loading and spends.",
-                    ),
-
-                    _bullet(
-                      "Device & Technical Data: IP address, device type, operating system, location.",
-                    ),
-
-                    _bullet(
-                      "Communication & Feedback: Emails, calls, chats with support.",
-                    ),
-
-                    _sectionTitle("3. Use of Information"),
-
-                    const Text(
-                      "We use your information to:",
-                      style: TextStyle(fontSize: 13.5, height: 1.5),
-                    ),
-
-                    _bullet("Verify identity and complete KYC"),
-
-                    _bullet("Provide wallet and payment services."),
-
-                    _bullet("Detect and prevent fraud."),
-
-                    _bullet("Enhance app functionality."),
-
-                    _bullet("Comply with legal requirements."),
-
-                    _bullet("Send alerts and updates."),
-
-                    _sectionTitle("4. Sharing of Information"),
-
-                    const Text(
-                      "We may share your information with:",
-                      style: TextStyle(fontSize: 13.5, height: 1.5),
-                    ),
-
-                    _bullet("Banks, payment networks, and service providers."),
-
-                    _bullet("Government authorities where legally required."),
-
-                    _bullet(
-                      "Third-party vendors under confidentiality agreements.",
-                    ),
-
-                    _sectionTitle("5. Data Security"),
-
-                    _bodyText(
-                      "We implement industry-standard security measures including encryption and access controls.",
-                    ),
-
-                    _sectionTitle("6. Your Rights"),
-
-                    const Text(
-                      "You have the right to:",
-                      style: TextStyle(fontSize: 13.5, height: 1.5),
-                    ),
-
-                    _bullet("Access or correct your data."),
-
-                    _bullet("Withdraw consent where applicable."),
-
-                    _bullet("Raise concerns with support."),
-
-                    _sectionTitle("7. Data Retention"),
-
-                    _bodyText(
-                      "Personal data is retained only as long as necessary.",
-                    ),
-
-                    _sectionTitle("8. Updates to Policy"),
-
-                    _bodyText("We may update this policy periodically."),
-
-                    
-                    _sectionTitle("9. Consent"),
-
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Obx(
-                          () => Checkbox(
-                            value: isCheckedpopup.value,
-                            onChanged: toggleCheckbox,
-                            activeColor: Colors.green,
-                          ),
-                        ),
-
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => toggleCheckbox(!isCheckedpopup.value),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                "By registering or using the TransWallet App, you agree to the collection and use of your data as described in this policy.",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  height: 1.5,
-                                  color: Colors.blue.shade700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            
-            Row(
-              children: [
-                
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: () {
-                      isOtpSent.value = false;
-                      Get.back();
-                    },
-                    child: const Text(
-                      "Decline",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 10),
-
-                
-                Expanded(
-                  child: Obx(
-                    () => ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isCheckedpopup.value
-                            ? Colors.black
-                            : Colors.grey.shade300,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: isCheckedpopup.value
-                          ? () {
-                              isOtpSent.value = true;
-
-                              startTimer();
-
-                              Get.back();
-
-                              log("OTP Sent");
-                            }
-                          : null,
-                      child: const Text(
-                        "Agree & Continue",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    // Show loading indicator
+    Get.dialog(
+      const Center(child: CircularProgressIndicator(color: primaryRed)),
+      barrierDismissible: false,
     );
+
+    try {
+      final requestModel = SendOtpRequest(
+        // entityId: "ANKIT9470",
+        mobileNumber: phone,
+      );
+      log("check response>> $requestModel");
+      final response = await ApiService.to.postRequest<Map<String, dynamic>>(
+        '/api/v1/auth/otp/send',
+        requestModel.toJson(),
+      );
+
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+
+      if (response.status.isOk && response.body != null) {
+        final otpResponse = SendOtpResponse.fromJson(response.body!);
+        if (otpResponse.success && otpResponse.data != null) {
+          final providerRef = otpResponse.data!.providerRef;
+          final flow = otpResponse.data!.flow;
+          box.write('entityId', providerRef);
+          box.write('providerRef', providerRef);
+          box.write('otpFlow', flow);
+          log(
+            "OTP Sent successfully. Stored providerRef: $providerRef, flow: $flow",
+          );
+
+          isOtpSent.value = true;
+          startTimer();
+          AppSnackbar.success("OTP has been sent successfully");
+        } else {
+          final errorMsg = otpResponse.exception ?? "Failed to send OTP";
+          AppSnackbar.error(errorMsg);
+        }
+      } else {
+        final String errorMsg =
+            (response.body != null &&
+                (response.body!['message'] != null ||
+                    response.body!['error'] != null))
+            ? (response.body!['message']?.toString() ??
+                  response.body!['error']?.toString() ??
+                  "Server error. Please try again after some time.")
+            : "Server error. Please try again after some time.";
+        phoneError.value = errorMsg;
+        AppSnackbar.error(errorMsg);
+      }
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+      log("[Send OTP] Error: $e");
+      const errorMsg = "Server error. Please try again after some time.";
+      phoneError.value = errorMsg;
+      AppSnackbar.error(errorMsg);
+    }
   }
 
-  void _verifyOtp() {
+  Future<void> _verifyOtp() async {
     if (!isOtpComplete) {
-      Get.snackbar("Error", "Please enter complete OTP");
+      otpError.value = "Please enter complete OTP";
+      AppSnackbar.error("Please enter complete OTP");
       return;
     }
+    otpError.value = '';
 
-    log("OTP Verified");
-    Get.toNamed('/createaccountview');
+    final enteredPhone = phoneController.text.trim();
+
+    // Show loading indicator
+    if (Get.context != null) {
+      Get.dialog(
+        const Center(child: CircularProgressIndicator(color: primaryRed)),
+        barrierDismissible: false,
+      );
+    }
+
+    try {
+      final String flow = box.read('otpFlow') ?? 'REGISTER';
+      final String providerRef =
+          box.read('providerRef') ?? box.read('entityId') ?? '';
+
+      final requestModel = VerifyOtpRequest(
+        mobileNumber: enteredPhone,
+        otp: otp.value,
+        purpose: flow,
+        providerRef: providerRef,
+      );
+
+      log("Verifying OTP with body: ${requestModel.toJson()}");
+
+      final response = await ApiService.to.postRequest<Map<String, dynamic>>(
+        '/api/v1/auth/otp/verify',
+        requestModel.toJson(),
+      );
+
+      if (Get.isDialogOpen ?? false) {
+        Get.back(); // Dismiss loading indicator
+      }
+
+      if (response.status.isOk && response.body != null) {
+        final verifyResponse = VerifyOtpResponse.fromJson(response.body!);
+        if (verifyResponse.success) {
+          log("OTP Verified successfully: ${verifyResponse.data}");
+          otpError.value = '';
+
+          final data = verifyResponse.data;
+          final responseBody = response.body!;
+
+          // Determine the flow: LOGIN vs REGISTER
+          // Check response data/body first, then fallback to stored otpFlow from send OTP
+          final flowCandidate =
+              (data?['flow'] ??
+                      responseBody['flow'] ??
+                      data?['purpose'] ??
+                      data?['type'] ??
+                      data?['action'] ??
+                      box.read('otpFlow') ??
+                      flow)
+                  ?.toString()
+                  .trim()
+                  .toUpperCase();
+
+          bool isLoginFlow = false;
+          if (flowCandidate != null && flowCandidate.isNotEmpty) {
+            if (flowCandidate == 'LOGIN' || flowCandidate.contains('LOG')) {
+              isLoginFlow = true;
+            } else if (flowCandidate == 'REGISTER' ||
+                flowCandidate.contains('REG') ||
+                flowCandidate == 'SIGNUP') {
+              isLoginFlow = false;
+            }
+          }
+
+          // Check explicit user registration flags if present in response
+          if (data != null) {
+            if (data['isNewUser'] == true || data['newUser'] == true) {
+              isLoginFlow = false;
+            } else if (data['isRegistered'] == true ||
+                data['registered'] == true ||
+                data['isExistingUser'] == true) {
+              isLoginFlow = true;
+            } else if (data['isRegistered'] == false ||
+                data['registered'] == false) {
+              isLoginFlow = false;
+            } else if (data['registrationToken'] != null &&
+                data['registrationToken'].toString().isNotEmpty &&
+                data['accessToken'] == null) {
+              isLoginFlow = false;
+            }
+          }
+
+          if (isLoginFlow) {
+            log(
+              "[OTP Verify] Flow is LOGIN -> Validating token and redirecting to /dashboard",
+            );
+
+            String? accessToken;
+            String? refreshToken;
+            String? tokenType;
+            dynamic expiresIn;
+
+            if (data != null) {
+              accessToken =
+                  data['accessToken']?.toString() ??
+                  data['token']?.toString() ??
+                  data['authToken']?.toString();
+              refreshToken = data['refreshToken']?.toString();
+              tokenType = data['tokenType']?.toString() ?? 'Bearer';
+              expiresIn = data['expiresIn'];
+
+              if (data['user'] is Map) {
+                final user = data['user'] as Map;
+                if (user['name'] != null) box.write('name', user['name']);
+                if (user['email'] != null) box.write('email', user['email']);
+                if (user['phone'] != null) box.write('phone', user['phone']);
+              }
+            }
+
+            if (accessToken != null && accessToken.isNotEmpty) {
+              box.write('accessToken', accessToken);
+              box.write('auth_token', accessToken);
+              box.write('token', accessToken);
+            }
+
+            if (refreshToken != null && refreshToken.isNotEmpty) {
+              box.write('refreshToken', refreshToken);
+              box.write('refresh_token', refreshToken);
+            }
+            if (tokenType != null) box.write('tokenType', tokenType);
+            if (expiresIn != null) {
+              box.write('expiresIn', expiresIn);
+            }
+
+            box.write('otpFlow', 'LOGIN');
+            box.write('is_logged_in', true);
+            box.write('phone', enteredPhone);
+
+            if (Get.isRegistered<AuthService>()) {
+              await AuthService.to.saveSession(
+                token: accessToken ?? '',
+                refreshToken: refreshToken,
+                tokenType: tokenType,
+                expiresIn: expiresIn,
+                userId: enteredPhone,
+                userData: {
+                  'phone': enteredPhone,
+                  'tokenType': tokenType ?? 'Bearer',
+                  'expiresIn': expiresIn,
+                },
+              );
+            }
+
+            AppSnackbar.success(verifyResponse.message ?? "Login successful");
+            Get.offAllNamed('/dashboard');
+          } else {
+            log(
+              "[OTP Verify] Flow is REGISTER -> Saving registrationToken and redirecting to /createaccountview",
+            );
+            box.write('otpFlow', 'REGISTER');
+            box.write('phone', enteredPhone);
+
+            if (data != null) {
+              final regToken =
+                  data['registrationToken'] ??
+                  data['token'] ??
+                  data['authToken'];
+              if (regToken != null && regToken.toString().isNotEmpty) {
+                box.write('registrationToken', regToken.toString());
+              }
+            }
+
+            AppSnackbar.success(
+              verifyResponse.message ?? "OTP verified successfully",
+            );
+            Get.toNamed('/createaccountview');
+          }
+        } else {
+          final errorMsg = verifyResponse.message ?? "OTP verification failed";
+          otpError.value = errorMsg;
+          AppSnackbar.error(errorMsg);
+        }
+      } else {
+        final String errorMsg =
+            (response.body != null &&
+                (response.body!['message'] != null ||
+                    response.body!['error'] != null))
+            ? (response.body!['message']?.toString() ??
+                  response.body!['error']?.toString() ??
+                  "Server error. Please try again after some time.")
+            : "Server error. Please try again after some time.";
+        otpError.value = errorMsg;
+        AppSnackbar.error(errorMsg);
+      }
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+      log("[OTP Verify] Error: $e");
+      const errorMsg = "Server error. Please try again after some time.";
+      otpError.value = errorMsg;
+      AppSnackbar.error(errorMsg);
+    }
   }
 
-  
   void startTimer() {
     seconds.value = 60;
     canResend.value = false;
@@ -397,7 +635,7 @@ class LoginSingupscreenController extends GetxController {
 
     clearOtp();
 
-    startTimer();
+    _sendOtp();
   }
 
   void changeNumber() {
@@ -408,6 +646,7 @@ class LoginSingupscreenController extends GetxController {
 
   void clearOtp() {
     otp.value = '';
+    otpError.value = '';
     for (var c in otpControllers) {
       c.clear();
     }
@@ -415,47 +654,61 @@ class LoginSingupscreenController extends GetxController {
 
   @override
   void onClose() {
-    phoneFocusNode.dispose();
-    videoController.dispose();
+    _mpinVisibilityTimer?.cancel();
     _timer?.cancel();
+    phoneFocusNode.dispose();
+    phoneController.dispose();
+    mpinController.dispose();
+    mpinFocusNode.dispose();
+    scrollController.dispose();
     super.onClose();
   }
 
   final List<TextEditingController> otpControllers = List.generate(
-    4,
+    6,
     (_) => TextEditingController(),
   );
 
-  final List<FocusNode> otpFocusNodes = List.generate(4, (_) => FocusNode());
+  final List<FocusNode> otpFocusNodes = List.generate(6, (_) => FocusNode());
 
   Widget otpField({required Function(String otp) onCompleted}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(4, (index) {
-        return PremiumOtpCell(
-          controller: otpControllers[index],
-          focusNode: otpFocusNodes[index],
-          index: index,
-          onChanged: (value) {
-            otp.value = otpControllers.map((e) => e.text).join();
+      children: List.generate(6, (index) {
+        return Expanded(
+          child: Container(
+            height: 40,
 
-            if (value.isNotEmpty) {
-              if (index < 3) {
-                FocusScope.of(
-                  Get.context!,
-                ).requestFocus(otpFocusNodes[index + 1]);
-              } else {
-                FocusScope.of(Get.context!).unfocus();
-                onCompleted(otp.value);
-              }
-            } else {
-              if (index > 0) {
-                FocusScope.of(
-                  Get.context!,
-                ).requestFocus(otpFocusNodes[index - 1]);
-              }
-            }
-          },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: PremiumOtpCell(
+                controller: otpControllers[index],
+                focusNode: otpFocusNodes[index],
+                index: index,
+                onChanged: (value) {
+                  otpError.value = '';
+                  otp.value = otpControllers.map((e) => e.text).join();
+
+                  if (value.isNotEmpty) {
+                    if (index < 5) {
+                      FocusScope.of(
+                        Get.context!,
+                      ).requestFocus(otpFocusNodes[index + 1]);
+                    } else {
+                      FocusScope.of(Get.context!).unfocus();
+                      onCompleted(otp.value);
+                    }
+                  } else {
+                    if (index > 0) {
+                      FocusScope.of(
+                        Get.context!,
+                      ).requestFocus(otpFocusNodes[index - 1]);
+                    }
+                  }
+                },
+              ),
+            ),
+          ),
         );
       }),
     );
@@ -503,9 +756,6 @@ class _PremiumOtpCellState extends State<PremiumOtpCell> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryRed = Color(0xFFD64550);
-    final bool hasText = widget.controller.text.isNotEmpty;
-
     return AnimatedScale(
       scale: _isFocused ? 1.06 : 1.0,
       duration: const Duration(milliseconds: 250),
@@ -513,92 +763,43 @@ class _PremiumOtpCellState extends State<PremiumOtpCell> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        width: 54,
-        height: 58,
+        height: 40,
         decoration: BoxDecoration(
-          color: _isFocused ? Colors.white : const Color(0xFFF5F6F8),
-          borderRadius: BorderRadius.circular(20),
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: _isFocused
-                ? primaryRed
-                : (hasText
-                      ? const Color.fromARGB(62, 17, 17, 17)
-                      : const Color(0xFFE5E7EB)),
+            color: _isFocused ? primaryRed : const Color(0xFFE5E7EB),
             width: _isFocused ? 2.0 : 1.5,
           ),
-          boxShadow: [
-            if (_isFocused)
-              BoxShadow(
-                color: primaryRed.withOpacity(0.18),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              )
-            else if (hasText)
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-          ],
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.center,
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: widget.focusNode,
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  maxLength: 1,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: Color.fromARGB(255, 17, 17, 17),
-                    letterSpacing: 0,
-                  ),
-                  showCursor: false,
-                  decoration: InputDecoration(
-                    counterText: "",
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    hintText: "•",
-                    hintStyle: TextStyle(
-                      color: primaryRed.withOpacity(0.25),
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                    ),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  onChanged: (val) {
-                    setState(() {});
-                    widget.onChanged(val);
-                  },
-                ),
-              ),
+        child: Center(
+          child: TextField(
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            maxLength: 1,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color.fromARGB(255, 17, 17, 17),
+              letterSpacing: 0,
             ),
-            Positioned(
-              bottom: 8,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                height: 3,
-                width: _isFocused ? 24 : (hasText ? 8 : 4),
-                decoration: BoxDecoration(
-                  color: _isFocused
-                      ? primaryRed
-                      : (hasText
-                            ? const Color(0xFF111111)
-                            : const Color(0xFFD1D5DB)),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+            showCursor: false,
+            decoration: const InputDecoration(
+              counterText: "",
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
-          ],
+            onChanged: (val) {
+              setState(() {});
+              widget.onChanged(val);
+            },
+          ),
         ),
       ),
     );

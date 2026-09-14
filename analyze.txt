@@ -1,0 +1,364 @@
+Analyzing transwallet...                                        
+
+warning • Unused import: 'package:transwallet/widgets/common_webview_screen.dart' • lib/main.dart:46:8 • unused_import
+   info • 'textScaleFactor' is deprecated and shouldn't be used. Use textScaler instead. Use of textScaleFactor was deprecated in preparation for the upcoming nonlinear text scaling support. This feature was deprecated after v3.12.0-2.0.pre • lib/main.dart:96:49 • deprecated_member_use
+   info • The file name 'contact_Support_screen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Contact Support screen/contact_Support_screen_Controller.dart:1:1 • file_names
+   info • The file name 'contact_Support_screen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Contact Support screen/contact_Support_screen_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:79:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:81:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:187:39 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:238:70 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:349:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:552:35 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:565:30 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Contact Support screen/contact_Support_screen_View.dart:690:54 • deprecated_member_use
+warning • Unused import: 'dart:developer' • lib/products/Dashboard screen/controllers/wallet_card_controller.dart:2:8 • unused_import
+   info • The file name 'dashboardscreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Dashboard screen/dashboardscreen_Controller.dart:1:1 • file_names
+warning • Unused import: 'dart:developer' • lib/products/Dashboard screen/dashboardscreen_Controller.dart:1:8 • unused_import
+   info • Unnecessary override • lib/products/Dashboard screen/dashboardscreen_Controller.dart:24:8 • unnecessary_overrides
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_Controller.dart:42:35 • deprecated_member_use
+   info • Unnecessary use of string interpolation • lib/products/Dashboard screen/dashboardscreen_Controller.dart:54:32 • unnecessary_string_interpolations
+   info • 'color' is deprecated and shouldn't be used. Use colorFilter instead • lib/products/Dashboard screen/dashboardscreen_Controller.dart:54:53 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_Controller.dart:81:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_Controller.dart:90:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_Controller.dart:258:44 • deprecated_member_use
+   info • Don't invoke 'print' in production code • lib/products/Dashboard screen/dashboardscreen_Controller.dart:301:5 • avoid_print
+   info • Missing type annotation • lib/products/Dashboard screen/dashboardscreen_Controller.dart:314:31 • strict_top_level_inference
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_Controller.dart:331:39 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_Controller.dart:455:52 • deprecated_member_use
+   info • Don't invoke 'print' in production code • lib/products/Dashboard screen/dashboardscreen_Controller.dart:665:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/products/Dashboard screen/dashboardscreen_Controller.dart:668:11 • avoid_print
+warning • Unused import: 'dart:ui' • lib/products/Dashboard screen/dashboardscreen_view.dart:2:8 • unused_import
+warning • Duplicate import • lib/products/Dashboard screen/dashboardscreen_view.dart:5:8 • duplicate_import
+   info • The import of 'package:flutter/widgets.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:6:8 • unnecessary_import
+warning • Unused import: 'package:transwallet/utilities/getStorage.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:15:8 • unused_import
+warning • Unused import: 'package:transwallet/widgets/premium_visa_card.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:16:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/recharge_bills_screens.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:17:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:21:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/card_popups.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:22:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/premium_balance_section.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:23:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/all_cards_screen.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:26:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/pay_bill_screen.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:27:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/services_more_screen.dart' • lib/products/Dashboard screen/dashboardscreen_view.dart:28:8 • unused_import
+   info • The constant name '_PrimarylightYellow' isn't a lowerCamelCase identifier • lib/products/Dashboard screen/dashboardscreen_view.dart:32:13 • constant_identifier_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:92:44 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:197:44 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:198:44 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:397:35 • deprecated_member_use
+warning • The declaration '_buildBillersSection' isn't referenced • lib/products/Dashboard screen/dashboardscreen_view.dart:532:10 • unused_element
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:611:40 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:614:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:702:46 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:792:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:989:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:1000:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:1010:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:1020:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:1031:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:1117:56 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/dashboardscreen_view.dart:1232:36 • deprecated_member_use
+warning • Unused import: 'package:transwallet/widgets/constsize.dart' • lib/products/Dashboard screen/widgets/all_cards_screen.dart:5:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Notification%20screen/notification_View.dart' • lib/products/Dashboard screen/widgets/all_cards_screen.dart:9:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Dashboard screen/widgets/all_cards_screen.dart:59:18 • unnecessary_const
+   info • Unnecessary use of multiple underscores • lib/products/Dashboard screen/widgets/all_cards_screen.dart:100:31 • unnecessary_underscores
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/all_cards_screen.dart:130:47 • deprecated_member_use
+warning • The declaration '_copyNumber' isn't referenced • lib/products/Dashboard screen/widgets/card_popups.dart:66:8 • unused_element
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:94:52 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:131:38 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:149:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:161:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:365:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:390:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:468:52 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:490:60 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:553:61 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:686:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/card_popups.dart:727:37 • deprecated_member_use
+   info • The local variable '_primaryRed' starts with an underscore • lib/products/Dashboard screen/widgets/mpin_verify_sheet.dart:85:17 • no_leading_underscores_for_local_identifiers
+   info • The local variable '_textColor' starts with an underscore • lib/products/Dashboard screen/widgets/mpin_verify_sheet.dart:86:17 • no_leading_underscores_for_local_identifiers
+   info • The local variable '_secondaryText' starts with an underscore • lib/products/Dashboard screen/widgets/mpin_verify_sheet.dart:87:17 • no_leading_underscores_for_local_identifiers
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/mpin_verify_sheet.dart:118:34 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/mpin_verify_sheet.dart:157:37 • deprecated_member_use
+   info • Unnecessary 'const' keyword • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:102:18 • unnecessary_const
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:122:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:123:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:129:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:136:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:234:38 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:237:40 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/pay_bill_screen.dart:247:44 • deprecated_member_use
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/card_popups.dart' • lib/products/Dashboard screen/widgets/premium_balance_section.dart:6:8 • unused_import
+   info • The local variable '_textColor' starts with an underscore • lib/products/Dashboard screen/widgets/premium_balance_section.dart:69:17 • no_leading_underscores_for_local_identifiers
+   info • The local variable '_secondaryText' starts with an underscore • lib/products/Dashboard screen/widgets/premium_balance_section.dart:70:17 • no_leading_underscores_for_local_identifiers
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/premium_balance_section.dart:141:58 • deprecated_member_use
+warning • Unused import: 'package:transwallet/products/Dashboard screen/widgets/all_cards_screen.dart' • lib/products/Dashboard screen/widgets/premium_cards_section.dart:7:8 • unused_import
+warning • The value of the field '_primaryRed' isn't used • lib/products/Dashboard screen/widgets/quick_action_button.dart:22:22 • unused_field
+warning • The value of the field '_textColor' isn't used • lib/products/Dashboard screen/widgets/quick_action_button.dart:23:22 • unused_field
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/quick_action_button.dart:42:35 • deprecated_member_use
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/all_cards_screen.dart' • lib/products/Dashboard screen/widgets/realistic_wallet_widget.dart:7:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Order%20Card%20screen/order%20card%20screen/ordercard_View.dart' • lib/products/Dashboard screen/widgets/realistic_wallet_widget.dart:9:8 • unused_import
+warning • The value of the field '_isSwipeHint' isn't used • lib/products/Dashboard screen/widgets/realistic_wallet_widget.dart:35:8 • unused_field
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:38:39 • deprecated_member_use
+   info • Unnecessary 'const' keyword • lib/products/Dashboard screen/widgets/services_more_screen.dart:53:18 • unnecessary_const
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:72:48 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:84:36 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:186:25 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:192:34 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:193:27 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:211:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:292:31 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:297:35 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Dashboard screen/widgets/services_more_screen.dart:310:35 • deprecated_member_use
+   info • The file name 'historyscreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/History screen/historyscreen_Controller.dart:1:1 • file_names
+   info • The file name 'historyscreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/History screen/historyscreen_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/History screen/historyscreen_View.dart:276:35 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/History screen/historyscreen_View.dart:358:35 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/History screen/historyscreen_View.dart:359:35 • deprecated_member_use
+   info • The file name 'transactiondetails_View.dart' isn't a lower_case_with_underscores identifier • lib/products/History screen/transactiondetails_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/History screen/transactiondetails_View.dart:60:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/History screen/transactiondetails_View.dart:116:44 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/History screen/transactiondetails_View.dart:182:43 • deprecated_member_use
+   info • The file name 'managecard_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Manage Card/managecard_Controller.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/widgets/constsize.dart' • lib/products/Manage Card/managecard_Controller.dart:4:8 • unused_import
+warning • Unused import: 'package:transwallet/utilities/getStorage.dart' • lib/products/Manage Card/managecard_Controller.dart:5:8 • unused_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_Controller.dart:162:62 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_Controller.dart:278:62 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_Controller.dart:596:50 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_Controller.dart:751:57 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_Controller.dart:753:51 • deprecated_member_use
+   info • The file name 'managecard_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Manage Card/managecard_View.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/products/Notification%20screen/notification_View.dart' • lib/products/Manage Card/managecard_View.dart:5:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Contact%20Support%20screen/contact_Support_screen_View.dart' • lib/products/Manage Card/managecard_View.dart:6:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Manage Card/managecard_View.dart:41:18 • unnecessary_const
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_View.dart:92:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_View.dart:95:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Manage Card/managecard_View.dart:314:48 • deprecated_member_use
+   info • The file name 'notification_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Notification screen/notification_Controller.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Notification screen/notification_Controller.dart:63:39 • deprecated_member_use
+   info • The file name 'notification_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Notification screen/notification_View.dart:1:1 • file_names
+warning • Unused import: 'package:flutter_svg/svg.dart' • lib/products/Notification screen/notification_View.dart:2:8 • unused_import
+   info • The file name 'onboardingscreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Onboarding Screen/onboardingscreen_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:56:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:59:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:104:48 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:119:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:347:39 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:352:52 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Onboarding Screen/onboardingscreen_View.dart:368:45 • deprecated_member_use
+   info • The file name 'orderDetailsscreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_Controller.dart:1:1 • file_names
+   info • The file name 'orderDetailsscreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/widgets/constsize.dart' • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:5:8 • unused_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:33:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:48:50 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:285:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:300:50 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:383:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:499:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:594:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:739:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:751:54 • deprecated_member_use
+warning • The declaration '_CardMeshPainter' isn't referenced • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:913:7 • unused_element
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:917:30 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Order Details Screen/orderDetailsscreen_View.dart:1071:29 • deprecated_member_use
+   info • The file name 'payment_Method_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/Payment Method/payment_Method_Controller.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/products/Send%20money%20screen/send%20money%20process/sendmoneyProcess_Controller.dart' • lib/products/Order Card screen/Payment Method/payment_Method_Controller.dart:6:8 • unused_import
+   info • The file name 'payment_Method_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:1:1 • file_names
+   info • The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:1:8 • unnecessary_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:114:53 • deprecated_member_use
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:125:33 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:126:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:171:68 • deprecated_member_use
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:213:33 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:214:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:246:49 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:248:68 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:306:40 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/Payment Method/payment_Method_View.dart:371:33 • deprecated_member_use
+   info • The file name 'review_order_details_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/Review order Details/review_order_details_Controller.dart:1:1 • file_names
+   info • Statements in an if should be enclosed in a block • lib/products/Order Card screen/Review order Details/review_order_details_Controller.dart:67:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/products/Order Card screen/Review order Details/review_order_details_Controller.dart:74:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/products/Order Card screen/Review order Details/review_order_details_Controller.dart:87:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/products/Order Card screen/Review order Details/review_order_details_Controller.dart:94:7 • curly_braces_in_flow_control_structures
+   info • The file name 'review_order_details_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/Review order Details/review_order_details_View.dart:1:1 • file_names
+   info • The file name 'ordercard_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/order card screen/ordercard_Controller.dart:1:1 • file_names
+   info • The file name 'ordercard_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/order card screen/ordercard_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Order Card screen/order card screen/ordercard_View.dart:306:49 • deprecated_member_use
+   info • The file name 'proceedorder_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/proceed order/proceedorder_Controller.dart:1:1 • file_names
+   info • The file name 'proceedorder_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Order Card screen/proceed order/proceedorder_View.dart:1:1 • file_names
+   info • The file name 'payment_details_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Payment Details/payment_details_Controller.dart:1:1 • file_names
+   info • The file name 'Profilescreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Profile screen/Profilescreen_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/Profilescreen_View.dart:67:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/Profilescreen_View.dart:68:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/Profilescreen_View.dart:89:51 • deprecated_member_use
+   info • 'activeColor' is deprecated and shouldn't be used. Use activeTrackColor instead. This feature was deprecated after v3.24.0-0.2.pre • lib/products/Profile screen/Profilescreen_View.dart:210:23 • deprecated_member_use
+   info • 'trackColor' is deprecated and shouldn't be used. Use inactiveTrackColor instead. This feature was deprecated after v3.24.0-0.2.pre • lib/products/Profile screen/Profilescreen_View.dart:211:23 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/Profilescreen_View.dart:326:39 • deprecated_member_use
+warning • A value for optional parameter 'icon' isn't ever given • lib/products/Profile screen/Profilescreen_View.dart:345:15 • unused_element_parameter
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/Profilescreen_View.dart:362:38 • deprecated_member_use
+   info • The file name 'profile_details_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Profile screen/profile details/profile_details_Controller.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_Controller.dart:37:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_Controller.dart:51:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_Controller.dart:52:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_view.dart:41:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_view.dart:83:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_view.dart:84:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_view.dart:102:49 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_view.dart:195:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profile details/profile_details_view.dart:206:60 • deprecated_member_use
+   info • The file name 'profilescreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Profile screen/profilescreen_Controller.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profilescreen_Controller.dart:97:35 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profilescreen_Controller.dart:120:39 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Profile screen/profilescreen_Controller.dart:219:32 • deprecated_member_use
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/broadband_bill_screen.dart:8:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/broadband_bill_screen.dart:113:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/credit_card_bill_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/credit_card_bill_screen.dart:108:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/dth_recharge_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/dth_recharge_screen.dart:106:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/electricity_bill_screen.dart:8:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/electricity_bill_screen.dart:113:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/fastag_recharge_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/fastag_recharge_screen.dart:107:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/gas_bill_screen.dart:8:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/gas_bill_screen.dart:113:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/insurance_premium_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/insurance_premium_screen.dart:105:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/loan_emi_payment_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/loan_emi_payment_screen.dart:105:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/mobile_recharge_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/mobile_recharge_screen.dart:129:18 • unnecessary_const
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Recharge and Bills/payment_success_screen.dart:103:39 • deprecated_member_use
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/tuition_fees_screen.dart:7:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/tuition_fees_screen.dart:107:18 • unnecessary_const
+warning • Unused import: 'package:transwallet/products/Recharge and Bills/payment_success_screen.dart' • lib/products/Recharge and Bills/water_bill_screen.dart:8:8 • unused_import
+   info • Unnecessary 'const' keyword • lib/products/Recharge and Bills/water_bill_screen.dart:113:18 • unnecessary_const
+   info • The file name 'sendMoney_Password_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendMoney_Password_Controller.dart:1:1 • file_names
+   info • The file name 'sendMoney_Password_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendMoney_Password_View.dart:1:1 • file_names
+   info • Unnecessary 'const' keyword • lib/products/Send money screen/send money process/sendMoney_Password_View.dart:39:18 • unnecessary_const
+   info • The file name 'sendMoney_Receipt_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendMoney_Receipt_Controller.dart:1:1 • file_names
+   info • The file name 'sendMoney_Receipt_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendMoney_Receipt_View.dart:1:1 • file_names
+   info • The imported package 'intl' isn't a dependency of the importing package • lib/products/Send money screen/send money process/sendMoney_Receipt_View.dart:4:8 • depend_on_referenced_packages
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendMoney_Receipt_View.dart:55:48 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendMoney_Receipt_View.dart:144:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendMoney_Receipt_View.dart:204:34 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendMoney_Receipt_View.dart:254:30 • deprecated_member_use
+   info • The file name 'sendMoney_Success_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendMoney_Success_Controller.dart:1:1 • file_names
+   info • The file name 'sendMoney_Success_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendMoney_Success_View.dart:1:1 • file_names
+   info • The imported package 'intl' isn't a dependency of the importing package • lib/products/Send money screen/send money process/sendMoney_Success_View.dart:6:8 • depend_on_referenced_packages
+warning • The value of the local variable 'primaryYellow' isn't used • lib/products/Send money screen/send money process/sendMoney_Success_View.dart:14:17 • unused_local_variable
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendMoney_Success_View.dart:39:48 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendMoney_Success_View.dart:100:43 • deprecated_member_use
+   info • The file name 'sendmoneyProcess_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:1:1 • file_names
+warning • Unused import: 'dart:developer' • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:1:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_Controller.dart' • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:6:8 • unused_import
+warning • The declaration '_executeSendMoney' isn't referenced • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:77:16 • unused_element
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:188:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:407:60 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:473:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:620:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:904:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_Controller.dart:925:54 • deprecated_member_use
+   info • The file name 'sendmoneyProcess_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/send money process/sendmoneyProcess_View.dart:1:1 • file_names
+   info • Unnecessary 'const' keyword • lib/products/Send money screen/send money process/sendmoneyProcess_View.dart:48:18 • unnecessary_const
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_View.dart:108:62 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/send money process/sendmoneyProcess_View.dart:144:54 • deprecated_member_use
+   info • Statements in an if should be enclosed in a block • lib/products/Send money screen/send money process/sendmoneyProcess_View.dart:378:11 • curly_braces_in_flow_control_structures
+   info • The file name 'sendMoney_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/sendMoney_Controller.dart:1:1 • file_names
+   info • The file name 'sendMoney_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Send money screen/sendMoney_View.dart:1:1 • file_names
+   info • Unnecessary 'const' keyword • lib/products/Send money screen/sendMoney_View.dart:40:18 • unnecessary_const
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/sendMoney_View.dart:77:61 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/sendMoney_View.dart:107:61 • deprecated_member_use
+   info • Unnecessary use of multiple underscores • lib/products/Send money screen/sendMoney_View.dart:172:41 • unnecessary_underscores
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/sendMoney_View.dart:187:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Send money screen/sendMoney_View.dart:199:54 • deprecated_member_use
+   info • The file name 'addmoney_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/Add Money/addmoney_Controller.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/Add Money/addmoney_Controller.dart:349:35 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/Add Money/addmoney_Controller.dart:387:38 • deprecated_member_use
+   info • The file name 'addmoney_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/Add Money/addmoney_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/Add Money/addmoney_View.dart:86:56 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/Add Money/addmoney_View.dart:262:60 • deprecated_member_use
+   info • Use a 'SizedBox' to add whitespace to a layout • lib/products/Wallet Screen/Add Money/addmoney_View.dart:437:14 • sized_box_for_whitespace
+   info • The file name 'walletdetails_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/Wallet details/walletdetails_View.dart:1:1 • file_names
+warning • The member 'value' can only be used within instance members of subclasses of 'RxMap' • lib/products/Wallet Screen/Wallet details/walletdetails_controller.dart:14:45 • invalid_use_of_protected_member
+warning • The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used • lib/products/Wallet Screen/Wallet details/walletdetails_controller.dart:27:42 • invalid_null_aware_operator
+   info • The file name 'addmoneysuccess_Screen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/addmoneysuccess_Screen/addmoneysuccess_Screen_Controller.dart:1:1 • file_names
+   info • The file name 'addmoneysuccess_Screen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/addmoneysuccess_Screen/addmoneysuccess_Screen_View.dart:1:1 • file_names
+   info • The file name 'walletscreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/walletscreen_Controller.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_Controller.dart:129:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_Controller.dart:234:44 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_Controller.dart:236:63 • deprecated_member_use
+   info • The file name 'walletscreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/Wallet Screen/walletscreen_View.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/products/Recharge%20and%20Bills/theme.dart' • lib/products/Wallet Screen/walletscreen_View.dart:8:8 • unused_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_View.dart:56:54 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_View.dart:165:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_View.dart:202:49 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_View.dart:294:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_View.dart:610:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/Wallet Screen/walletscreen_View.dart:647:36 • deprecated_member_use
+   info • The file name 'createaccount_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/login_singupscreen/create Account/createaccount_Controller.dart:1:1 • file_names
+   info • The file name 'createaccount_View.dart' isn't a lower_case_with_underscores identifier • lib/products/login_singupscreen/create Account/createaccount_View.dart:1:1 • file_names
+   info • The file name 'login_singupscreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/login_singupscreen/login_singupscreen_Controller.dart:1:1 • file_names
+   info • The file name 'login_singupscreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/login_singupscreen/login_singupscreen_View.dart:1:1 • file_names
+   info • The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/products/login_singupscreen/login_singupscreen_View.dart:1:8 • unnecessary_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/login_singupscreen/login_singupscreen_View.dart:261:41 • deprecated_member_use
+   info • The file name 'minkycScreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/minKYCScreen/minkycScreen_Controller.dart:1:1 • file_names
+warning • The value of the field '_primaryRed' isn't used • lib/products/minKYCScreen/minkycScreen_Controller.dart:64:16 • unused_field
+warning • The value of the field '_canResend' isn't used • lib/products/minKYCScreen/minkycScreen_Controller.dart:74:8 • unused_field
+   info • Statements in a for should be enclosed in a block • lib/products/minKYCScreen/minkycScreen_Controller.dart:122:35 • curly_braces_in_flow_control_structures
+   info • Statements in a for should be enclosed in a block • lib/products/minKYCScreen/minkycScreen_Controller.dart:123:34 • curly_braces_in_flow_control_structures
+warning • The declaration '_resend' isn't referenced • lib/products/minKYCScreen/minkycScreen_Controller.dart:146:8 • unused_element
+   info • Statements in a for should be enclosed in a block • lib/products/minKYCScreen/minkycScreen_Controller.dart:147:35 • curly_braces_in_flow_control_structures
+warning • The declaration '_timerLabel' isn't referenced • lib/products/minKYCScreen/minkycScreen_Controller.dart:152:14 • unused_element
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:391:41 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:419:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:427:43 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:530:40 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:533:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:643:58 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:656:46 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:757:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/minKYCScreen/minkycScreen_Controller.dart:883:43 • deprecated_member_use
+   info • The file name 'minkycScreen_View.dart' isn't a lower_case_with_underscores identifier • lib/products/minKYCScreen/minkycScreen_View.dart:1:1 • file_names
+   info • The file name 'splashscreen_Controller.dart' isn't a lower_case_with_underscores identifier • lib/products/splashscreen/splashscreen_Controller.dart:1:1 • file_names
+   info • Empty catch block • lib/products/splashscreen/splashscreen_Controller.dart:9:17 • empty_catches
+   info • The file name 'update_KYC_View.dart' isn't a lower_case_with_underscores identifier • lib/products/update_KYC/update_KYC_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/update_KYC/update_KYC_View.dart:267:26 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/update_KYC/update_KYC_View.dart:268:26 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/update_KYC/update_KYC_View.dart:269:26 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/update_KYC/update_KYC_View.dart:277:33 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/update_KYC/update_KYC_View.dart:373:27 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/products/update_KYC/update_KYC_View.dart:392:48 • deprecated_member_use
+   info • The file name 'update_KYC_controller.dart' isn't a lower_case_with_underscores identifier • lib/products/update_KYC/update_KYC_controller.dart:1:1 • file_names
+   info • The file name 'getStorage.dart' isn't a lower_case_with_underscores identifier • lib/utilities/getStorage.dart:1:1 • file_names
+warning • Unused import: 'pdf_viewer_screen.dart' • lib/widgets/common_webview_screen.dart:5:8 • unused_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/custombutton.dart:68:39 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/custombutton.dart:73:50 • deprecated_member_use
+   info • The file name 'customdropdown_Controller.dart' isn't a lower_case_with_underscores identifier • lib/widgets/customdropdown/customdropdown_Controller.dart:1:1 • file_names
+   info • The file name 'customdropdown_View.dart' isn't a lower_case_with_underscores identifier • lib/widgets/customdropdown/customdropdown_View.dart:1:1 • file_names
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/glass_card.dart:19:33 • deprecated_member_use
+   info • The file name 'GlobalbottomBar_Controller.dart' isn't a lower_case_with_underscores identifier • lib/widgets/globalbottombar/GlobalbottomBar_Controller.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/products/Dashboard%20screen/widgets/services_more_screen.dart' • lib/widgets/globalbottombar/GlobalbottomBar_Controller.dart:3:8 • unused_import
+warning • Unused import: 'package:transwallet/products/Profile%20screen/Profilescreen_View.dart' • lib/widgets/globalbottombar/GlobalbottomBar_Controller.dart:4:8 • unused_import
+   info • The file name 'Globalbottombar_View.dart' isn't a lower_case_with_underscores identifier • lib/widgets/globalbottombar/Globalbottombar_View.dart:1:1 • file_names
+warning • Unused import: 'package:transwallet/products/Profile%20screen/Profilescreen_View.dart' • lib/widgets/globalbottombar/Globalbottombar_View.dart:5:8 • unused_import
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:82:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:99:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:103:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:121:38 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:122:38 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:123:38 • deprecated_member_use
+   info • Unnecessary use of multiple underscores • lib/widgets/globalbottombar/Globalbottombar_View.dart:134:34 • unnecessary_underscores
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:146:46 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:219:41 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/globalbottombar/Globalbottombar_View.dart:225:52 • deprecated_member_use
+   info • Parameter 'key' could be a super parameter • lib/widgets/premium_visa_card.dart:18:9 • use_super_parameters
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:51:44 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:56:34 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:90:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:91:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:92:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:185:47 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:193:51 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:196:55 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/widgets/premium_visa_card.dart:231:51 • deprecated_member_use
+

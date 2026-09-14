@@ -1,29 +1,36 @@
 import 'dart:async';
+import 'package:transwallet/widgets/notification_button.dart';
 import 'dart:ui' show ImageFilter;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/widgets/user_avatar.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
 import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
+import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
+import 'package:transwallet/utilities/getStorage.dart';
+import 'package:transwallet/widgets/premium_visa_card.dart';
+import 'package:transwallet/products/Recharge and Bills/recharge_bills_screens.dart';
 
-const Color _primaryRed = Color(0xFFE53935);
-const Color _secondaryRed = Color(0xFFFF6B6B);
-const Color _textColor = Color(0xFF111111);
-const Color _secondaryText = Color(0xFF6B7280);
-const Color _borderColor = Color(0xFFECECEC);
-const Color _backgroundColor = Colors.white;
+import 'package:transwallet/products/Dashboard%20screen/widgets/pressable_scale.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/bezier_chart_painter.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/card_popups.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/premium_balance_section.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/premium_cards_section.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/quick_action_button.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/all_cards_screen.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/pay_bill_screen.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/services_more_screen.dart';
 
 class DashboardscreenView extends StatefulWidget {
   const DashboardscreenView({super.key});
-
-  static const Color primaryRed = _primaryRed;
-  static const Color secondaryRed = _secondaryRed;
-  static const Color textColor = _textColor;
-  static const Color secondaryText = _secondaryText;
-  static const Color borderColor = _borderColor;
-  static const Color backgroundColor = Colors.white;
 
   @override
   State<DashboardscreenView> createState() => _DashboardscreenViewState();
@@ -31,164 +38,143 @@ class DashboardscreenView extends StatefulWidget {
 
 class _DashboardscreenViewState extends State<DashboardscreenView> {
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => DashboardscreenController());
-
+    final controller = Get.put(DashboardscreenController());
     final String greeting = _getGreeting();
+    final box = GetStorage();
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      extendBody: true,
+      backgroundColor: Colors.white,
       bottomNavigationBar: GlobalbottombarView(seletedIndex: 0.obs),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-
-                _animateWidget(
-                  delayIndex: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: context.responsive(80),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        flexibleSpace: Obx(
+          () => AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            decoration: BoxDecoration(
+              gradient: controller.isScrolled.value
+                  ? appBarGradient
+                  : headerGradient,
+            ),
+          ),
+        ),
+        title: _animateWidget(
+          delayIndex: 0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const UserAvatar(size: 48),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _primaryRed.withOpacity(0.15),
-                                width: 2,
-                              ),
-                              image: const DecorationImage(
-                                image: AssetImage(
-                                  "assets/360_F_244436923_vkMe10KKKiw5bjhZeRDT05moxWcPpdmb.jpg",
-                                ),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                greeting,
-                                style: const TextStyle(
-                                  color: _secondaryText,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.1,
-                                ),
-                              ),
-                              const Text(
-                                "Jane Doe",
-                                style: TextStyle(
-                                  color: _textColor,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                  letterSpacing: -0.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      Text(
+                        greeting,
+                        style: TextStyle(
+                          color: secondaryText,
+                          fontSize: context.responsive(13),
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                        ),
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          Get.bottomSheet(
-                            NotificationView(),
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: _borderColor, width: 1.5),
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.notifications_none_rounded,
-                            color: _textColor,
-                            size: 24,
-                          ),
+                      Text(
+                        box.read('name') ?? "User",
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: context.responsive(20),
+                          letterSpacing: -0.4,
                         ),
                       ),
                     ],
                   ),
+                ],
+              ),
+              Row(children: [const NotificationButton()]),
+            ],
+          ),
+        ),
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          controller: controller.scrollController,
+          physics: const BouncingScrollPhysics(),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 180,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.elliptical(400, 50),
+                  ),
+                  child: Image.asset(
+                    "assets/dashboardbg.png",
+                    fit: BoxFit.cover,
+                  ),
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Divider(color: Color.fromRGBO(0, 0, 0, 0.1), height: 1),
+                    height40,
 
-                const SizedBox(height: 18),
+                    _animateWidget(
+                      delayIndex: 1,
+                      child: const PremiumCardsSection(),
+                    ),
 
-                _animateWidget(
-                  delayIndex: 1,
-                  child: const _PremiumBalanceSection(),
+                    _animateWidget(delayIndex: 4, child: _buildKycBanner()),
+                    height30,
+
+                    _animateWidget(delayIndex: 2, child: _buildQuickActions()),
+
+                    height30,
+
+                    _animateWidget(
+                      delayIndex: 3,
+                      child: _buildRechargeAndBillsSection(),
+                    ),
+
+                    height30,
+
+                    _animateWidget(
+                      delayIndex: 5,
+                      child: _buildAnalyticsSection(),
+                    ),
+
+                    height30,
+
+                    _animateWidget(
+                      delayIndex: 6,
+                      child: _buildRecentTransactionsSection(),
+                    ),
+
+                    height30,
+
+                    _animateWidget(delayIndex: 7, child: _buildOffersSection()),
+                    SizedBox(height: context.responsive(140)),
+                  ],
                 ),
-
-                const SizedBox(height: 18),
-
-                _animateWidget(
-                  delayIndex: 2,
-                  child: const _PremiumCardsSection(),
-                ),
-
-                const SizedBox(height: 18),
-
-                _animateWidget(
-                  delayIndex: 3,
-                  child: _buildQuickActions(),
-                ),
-
-                const SizedBox(height: 18),
-
-                _animateWidget(
-                  delayIndex: 4,
-                  child: _buildKycBanner(),
-                ),
-
-                const SizedBox(height: 18),
-
-                _animateWidget(
-                  delayIndex: 5,
-                  child: _buildAnalyticsSection(),
-                ),
-
-                const SizedBox(height: 18),
-
-                _animateWidget(
-                  delayIndex: 6,
-                  child: _buildRecentTransactionsSection(),
-                ),
-
-                const SizedBox(height: 18),
-
-                _animateWidget(
-                  delayIndex: 7,
-                  child: _buildOffersSection(),
-                ),
-
-                const SizedBox(height: 22),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -207,43 +193,282 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   Widget _buildQuickActions() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.send_rounded,
-            label: "Transfer",
-            onTap: () => Get.toNamed("/sendmoney"),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.add_rounded,
-            label: "Top-up",
-            onTap: _openTopUpSheet,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _QuickActionButton(
-            icon: Icons.receipt_long_rounded,
-            label: "Pay Bill",
-            onTap: () => Get.to(() => const _PayBillScreen(), transition: Transition.cupertino),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: QuickActionButton(
+                icon: Image.asset(
+                  "assets/sendmoney.png",
+                  height: 50,
+                  width: 44,
+                ),
+                label: "Send Money",
+                onTap: () => Get.toNamed("/sendmoney"),
+              ),
+            ),
+
+            const SizedBox(width: 12),
+            Expanded(
+              child: QuickActionButton(
+                icon: Image.asset("assets/addmoney.png", height: 50, width: 44),
+                label: "Add Money",
+                onTap: _openTopUpSheet,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: QuickActionButton(
+                icon: Image.asset(
+                  "assets/transaction.png",
+                  height: 50,
+                  width: 44,
+                ),
+                label: "Transactions",
+                onTap: () => Get.toNamed("/history"),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
+  Widget _buildRechargeAndBillsSection() {
+    final items = [
+      {
+        "icon": "assets/recharge.svg",
+        "label": "Recharge",
+        "color": utilitiesFillColor,
+        "route": "/mobile_recharge",
+      },
+      {
+        "icon": "assets/Electricity.svg",
+        "label": "Electricity",
+        "color": utilitiesFillColor,
+        "route": "/electricity_bill",
+      },
+      {
+        "icon": "assets/fastag.svg",
+        "label": "Fastag",
+        "color": utilitiesFillColor,
+        "route": "/fastag_recharge", //fastag screen
+      },
+      {
+        "icon": "assets/Gas.svg",
+        "label": "Gas",
+        "color": utilitiesFillColor,
+        "route": "/gas_bill",
+      },
+      {
+        "icon": "assets/Broadband.svg",
+        "label": "Broadband",
+        "color": utilitiesFillColor,
+        "route": "/broadband_bill",
+      },
+      {
+        "icon": "assets/water.svg",
+        "label": "Water",
+        "color": utilitiesFillColor,
+        "route": "/water_bill",
+      },
+      {
+        "icon": "assets/tuition.svg",
+        "label": "Tuition",
+        "color": utilitiesFillColor,
+        "route": "/tuition_fees",
+      },
+      {
+        "icon": "assets/more.svg",
+        "label": "More",
+        "color": utilitiesFillColor,
+        "route": "/pay_bill",
+      },
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final scale = (width / 380.0).clamp(0.85, 1.15);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.elliptical(150, 23),
+              topRight: Radius.elliptical(150, 23),
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.13),
+                blurRadius: 10,
+                spreadRadius: 0,
+                offset: const Offset(2, 3),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                height14,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Utilities & Bills",
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: context.responsive(18),
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    // GestureDetector(
+                    //   onTap: () => Get.to(
+                    //     () => const PayBillScreen(),
+                    //     transition: Transition.cupertino,
+                    //   ),
+                    //   child: const Row(
+                    //     children: [
+                    //       Text(
+                    //         'View More',
+                    //         style: TextStyle(
+                    //           color: Colors.black,
+                    //           fontSize: 14,
+                    //           fontWeight: FontWeight.bold,
+                    //         ),
+                    //       ),
+                    //       SizedBox(width: 4),
+                    //       Icon(
+                    //         Icons.arrow_forward_ios_rounded,
+                    //         color: Colors.black,
+                    //         size: 14,
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
+                  ],
+                ),
+                height14,
+                Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: items
+                          .take(4)
+                          .map((item) => _buildGridItem(item, scale))
+                          .toList(),
+                    ),
+                    SizedBox(height: 16 * scale),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: items
+                          .skip(4)
+                          .take(4)
+                          .map((item) => _buildGridItem(item, scale))
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridItem(Map<String, dynamic> item, double scale) {
+    final color = item["color"] as Color;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: PressableScale(
+          onTap: () {
+            final route = item["route"];
+            if (route != null) {
+              Get.toNamed(route as String);
+            }
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                height: 56 * scale,
+                width: 56 * scale,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: utilitiesBorderColor, width: 1),
+                ),
+                child: Center(
+                  child: SvgPicture.asset(
+                    item["icon"] as String,
+                    height: 24 * scale,
+                    width: 24 * scale,
+                  ),
+                ),
+              ),
+              SizedBox(height: 8 * scale),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Text(
+                  item["label"] as String,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 13 * scale,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBillersSection() {
     final billers = [
-      {"icon": Icons.bolt_rounded, "label": "Electricity", "color": const Color(0xFFFFA726)},
-      {"icon": Icons.phone_android_rounded, "label": "Mobile", "color": const Color(0xFF42A5F5)},
-      {"icon": Icons.tv_rounded, "label": "DTH", "color": const Color(0xFF7E57C2)},
-      {"icon": Icons.water_drop_rounded, "label": "Water", "color": const Color(0xFF26C6DA)},
-      {"icon": Icons.local_gas_station_rounded, "label": "Gas", "color": const Color(0xFF66BB6A)},
-      {"icon": Icons.wifi_rounded, "label": "Broadband", "color": const Color(0xFFEF5350)},
+      {
+        "icon": Icons.bolt_rounded,
+        "label": "Electricity",
+        "color": const Color(0xFFFFA726),
+      },
+      {
+        "icon": Icons.phone_android_rounded,
+        "label": "Mobile",
+        "color": const Color(0xFF42A5F5),
+      },
+      {
+        "icon": Icons.tv_rounded,
+        "label": "DTH",
+        "color": const Color(0xFF7E57C2),
+      },
+      {
+        "icon": Icons.water_drop_rounded,
+        "label": "Water",
+        "color": const Color(0xFF26C6DA),
+      },
+      {
+        "icon": Icons.local_gas_station_rounded,
+        "label": "Gas",
+        "color": const Color(0xFF66BB6A),
+      },
+      {
+        "icon": Icons.wifi_rounded,
+        "label": "Broadband",
+        "color": const Color(0xFFEF5350),
+      },
     ];
 
     return Column(
@@ -252,23 +477,23 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "Pay Bills",
               style: TextStyle(
-                color: _textColor,
-                fontSize: 18,
+                color: textColor,
+                fontSize: context.responsive(18),
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.4,
               ),
             ),
             TextButton(
               onPressed: () => _showComingSoonBottomSheet("All Billers"),
-              child: const Text(
+              child: Text(
                 "See All",
                 style: TextStyle(
-                  color: _primaryRed,
+                  color: primaryRed,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: context.responsive(14),
                 ),
               ),
             ),
@@ -293,16 +518,23 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                         decoration: BoxDecoration(
                           color: color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: color.withOpacity(0.18), width: 1.5),
+                          border: Border.all(
+                            color: color.withOpacity(0.18),
+                            width: 1.5,
+                          ),
                         ),
-                        child: Icon(b["icon"] as IconData, color: color, size: 26),
+                        child: Icon(
+                          b["icon"] as IconData,
+                          color: color,
+                          size: 26,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         b["label"] as String,
-                        style: const TextStyle(
-                          color: _textColor,
-                          fontSize: 11,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: context.responsive(11),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -318,7 +550,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   Widget _buildKycBanner() {
-    return _PressableScale(
+    return PressableScale(
       onTap: () => Get.toNamed("/updateKyc"),
       child: Container(
         width: double.infinity,
@@ -326,10 +558,14 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _borderColor, width: 1.5),
+          border: Border.all(color: borderColor, width: 1.5),
+          image: const DecorationImage(
+            image: AssetImage("assets/fullKyc.png"),
+            fit: BoxFit.cover,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Color.fromRGBO(0, 0, 0, 0.09),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -337,75 +573,66 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         ),
         child: Row(
           children: [
-            Container(
-              height: 48,
-              width: 48,
-              decoration: BoxDecoration(
-                color: _primaryRed.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.verified_user_rounded,
-                color: _primaryRed,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "Complete your Full KYC",
                     style: TextStyle(
-                      color: _textColor,
-                      fontSize: 15,
+                      color: Colors.white,
+                      fontSize: context.responsive(16),
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    "Unlock higher wallet limits and premium neobank benefits.",
+                  Text(
+                    "Unlock higher wallet limits and \npremium benefits.",
                     style: TextStyle(
-                      color: _secondaryText,
-                      fontSize: 11,
+                      color: Colors.white,
+                      fontSize: context.responsive(12),
                       fontWeight: FontWeight.w500,
                       height: 1.3,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: _primaryRed,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: _primaryRed.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Row(
-                children: [
-                  Text(
-                    "Verify",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                  height10,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 10,
+                    decoration: BoxDecoration(
+                      color: primaryRed,
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryRed.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Verify",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: context.responsive(13),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -417,114 +644,206 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   Widget _buildAnalyticsSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Spending Analytics",
-                style: TextStyle(
-                  color: _textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _primaryRed.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  "This Month",
-                  style: TextStyle(
-                    color: _primaryRed,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 120,
-            width: double.infinity,
-            child: CustomPaint(painter: _BezierChartPainter()),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatItem("Income", "₹58,400", const Color(0xFF4CAF50)),
-              _buildStatItem("Expenses", "₹18,240", _primaryRed),
-              _buildStatItem("Savings", "₹40,160", const Color(0xFF2196F3)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, Color indicatorColor) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 8,
-          width: 8,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: indicatorColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              label,
-              style: const TextStyle(
-                color: _secondaryText,
-                fontSize: 11,
+              "Spending Analytics",
+              style: TextStyle(
+                color: textColor,
+                fontSize: context.responsive(18),
                 fontWeight: FontWeight.w500,
+                letterSpacing: 0,
               ),
             ),
-            Text(
-              value,
-              style: const TextStyle(
-                color: _textColor,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 14,
+                    color: textColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    "This Month",
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: context.responsive(12),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 20),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(0, 32, 0, 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: const Color.fromRGBO(0, 0, 0, 0.08),
+                blurRadius: 5,
+                spreadRadius: 0,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SizedBox(
+                  height: 100,
+                  width: double.infinity,
+                  child: CustomPaint(painter: BezierChartPainter()),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "W1",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: context.responsive(13),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      "W2",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: context.responsive(13),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      "W3",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: context.responsive(13),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      "W4",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: context.responsive(13),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                child: Divider(
+                  color: Colors.grey.shade200,
+                  thickness: 1,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Obx(() {
+                  final controller = Get.find<DashboardscreenController>();
+                  final incomeStr =
+                      "₹${controller.totalIncome.value.toStringAsFixed(0)}";
+                  final expenseStr =
+                      "₹${controller.totalExpenses.value.toStringAsFixed(0)}";
+                  final savingsStr =
+                      "₹${controller.totalSavings.value.toStringAsFixed(0)}";
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildStatItem(
+                        "Income",
+                        incomeStr,
+                        const Color(0xFF10B981),
+                      ),
+                      _buildStatItem(
+                        "Expenses",
+                        expenseStr,
+                        const Color(0xFFFF4500),
+                      ),
+                      _buildStatItem(
+                        "Savings",
+                        savingsStr,
+                        const Color(0xFF2196F3),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  
+  Widget _buildStatItem(String label, String value, Color indicatorColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              height: 8,
+              width: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: indicatorColor,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: context.responsive(14),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            color: textColor,
+            fontSize: context.responsive(16),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRecentTransactionsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,265 +851,314 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "Recent Transactions",
               style: TextStyle(
-                color: _textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
+                color: textColor,
+                fontSize: context.responsive(18),
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0,
               ),
             ),
-            TextButton(
-              onPressed: () {
+            GestureDetector(
+              onTap: () {
                 Get.toNamed("/history");
               },
-              child: const Text(
-                "See All",
-                style: TextStyle(
-                  color: _primaryRed,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.responsive(12),
+                  vertical: context.responsive(6),
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      "All",
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: context.responsive(13),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: context.responsive(12),
+                      color: textColor,
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Container(
           width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _borderColor, width: 1.5),
+            border: Border.all(color: borderColor, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+                color: const Color.fromRGBO(0, 0, 0, 0.08),
+                blurRadius: 5,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
-            children: [
-              _buildTransactionItem(
-                initial: "B",
-                merchant: "Blinkit",
-                category: "Groceries",
-                amount: "- ₹240",
-                isCredit: false,
-                isLast: false,
-              ),
-              _buildTransactionItem(
-                initial: "Z",
-                merchant: "Zomato",
-                category: "Food Delivery",
-                amount: "- ₹635",
-                isCredit: false,
-                isLast: false,
-              ),
-              _buildTransactionItem(
-                initial: "J",
-                merchant: "Jane Doe",
-                category: "Bank Transfer",
-                amount: "+ ₹2,500",
-                isCredit: true,
-                isLast: true,
-              ),
-            ],
-          ),
+          child: Obx(() {
+            final controller = Get.find<DashboardscreenController>();
+            final txList = controller.recentTransactions;
+
+            if (txList.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 36,
+                  horizontal: 20,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      height: 56,
+                      width: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long_outlined,
+                        size: 26,
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "No Transactions Yet",
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "Your recent transactions will appear here",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: List.generate(txList.length, (index) {
+                final tx = txList[index];
+                final bool isCredit = tx['isCredit'] == true;
+                return _buildTransactionItem(
+                  icon: isCredit
+                      ? Icons.south_west_rounded
+                      : Icons.arrow_outward_rounded,
+                  iconColor: isCredit
+                      ? const Color(0xFF059669)
+                      : const Color(0xFFD84315),
+                  iconBgColor: isCredit
+                      ? const Color(0xFF059669).withOpacity(0.08)
+                      : const Color(0xFFD84315).withOpacity(0.08),
+                  title: tx['title']?.toString() ?? "Transaction",
+                  subtitle: tx['subtitle']?.toString() ?? "",
+                  amount: tx['amount']?.toString() ?? "",
+                  amountColor: isCredit
+                      ? const Color(0xFF059669)
+                      : const Color(0xFFD84315),
+                  isFailed: tx['isFailed'] == true,
+                  isLast: index == txList.length - 1,
+                );
+              }),
+            );
+          }),
         ),
       ],
     );
   }
 
   Widget _buildTransactionItem({
-    required String initial,
-    required String merchant,
-    required String category,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
     required String amount,
-    required bool isCredit,
+    required Color amountColor,
+    bool isFailed = false,
     required bool isLast,
   }) {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                height: 44,
-                width: 44,
+                height: context.responsive(48),
+                width: context.responsive(48),
                 decoration: BoxDecoration(
-                  color: _primaryRed.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(14),
+                  color: iconBgColor,
+                  shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  initial,
-                  style: const TextStyle(
-                    color: _primaryRed,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: context.responsive(20),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      merchant,
-                      style: const TextStyle(
-                        color: _textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                      title,
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: context.responsive(16),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
-                      category,
-                      style: const TextStyle(
-                        color: _secondaryText,
-                        fontSize: 11,
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: context.responsive(13),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              Text(
-                amount,
-                style: TextStyle(
-                  color: isCredit ? const Color(0xFF4CAF50) : _primaryRed,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    amount,
+                    style: TextStyle(
+                      color: amountColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: context.responsive(16),
+                    ),
+                  ),
+                  if (isFailed) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD84315).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "Failed",
+                        style: TextStyle(
+                          color: const Color(0xFFD84315),
+                          fontSize: context.responsive(11),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
         ),
         if (!isLast)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Divider(color: _borderColor, height: 1, thickness: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              color: Colors.grey.shade100,
+              height: 1,
+              thickness: 1.5,
+            ),
           ),
       ],
     );
   }
 
-  
   Widget _buildOffersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Offers & Insights",
-          style: TextStyle(
-            color: _textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Offers & Insights",
+              style: TextStyle(
+                color: textColor,
+                fontSize: context.responsive(18),
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0,
+              ),
+            ),
+            // GestureDetector(
+            //   onTap: () {
+            //     Get.toNamed("/history");
+            //   },
+            //   child: Container(
+            //     padding: EdgeInsets.symmetric(
+            //       horizontal: context.responsive(12),
+            //       vertical: context.responsive(6),
+            //     ),
+            //     decoration: BoxDecoration(
+            //       color: Colors.grey.shade100,
+            //       borderRadius: BorderRadius.circular(16),
+            //     ),
+            //     child: Row(
+            //       children: [
+            //         Text(
+            //           "All",
+            //           style: TextStyle(
+            //             color: textColor,
+            //             fontWeight: FontWeight.w600,
+            //             fontSize: context.responsive(13),
+            //           ),
+            //         ),
+            //         const SizedBox(width: 4),
+            //         Icon(
+            //           Icons.arrow_forward_ios_rounded,
+            //           size: context.responsive(12),
+            //           color: textColor,
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
+          ],
         ),
-        const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              _buildOfferCard(
-                title: "5% Instant Cashback",
-                subtitle:
-                    "Unlock reward points on utility bills paid via wallet card.",
-                tag: "CASHBACK",
-              ),
-              const SizedBox(width: 16),
-              _buildOfferCard(
-                title: "Premium Membership",
-                subtitle:
-                    "Get zero fee transfers and special rates on foreign spends.",
-                tag: "LUXURY",
-              ),
-              const SizedBox(width: 16),
-              _buildOfferCard(
-                title: "Reward Points Program",
-                subtitle:
-                    "Earn 2x rewards on every online purchase this weekend.",
-                tag: "POINTS",
-              ),
-            ],
-          ),
+        height14,
+        const _AutoScrollOffersWidget(
+          offerImages: ["assets/offer1.png", "assets/offer2.png"],
         ),
       ],
     );
   }
 
-  Widget _buildOfferCard({
-    required String title,
-    required String subtitle,
-    required String tag,
-  }) {
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _primaryRed.withOpacity(0.12), width: 1.5),
-        gradient: LinearGradient(
-          colors: [
-            _primaryRed.withOpacity(0.08),
-            _secondaryRed.withOpacity(0.02),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _primaryRed,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              tag,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              color: _textColor,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: _secondaryText,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  
   void _openTopUpSheet() {
     Get.bottomSheet(
       const AddmoneyView(showGeneralWalletOption: false),
@@ -801,7 +1169,6 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
     );
   }
 
-  
   void _showComingSoonBottomSheet(String feature) {
     Get.bottomSheet(
       Container(
@@ -817,12 +1184,12 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
               height: 56,
               width: 56,
               decoration: BoxDecoration(
-                color: _primaryRed.withOpacity(0.1),
+                color: primaryRed.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.hourglass_empty_rounded,
-                color: _primaryRed,
+                color: primaryRed,
                 size: 28,
               ),
             ),
@@ -830,7 +1197,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             Text(
               "$feature Coming Soon",
               style: const TextStyle(
-                color: _textColor,
+                color: textColor,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
@@ -839,7 +1206,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             const Text(
               "We are working hard to bring this feature to your wallet app very soon. Stay tuned!",
               textAlign: TextAlign.center,
-              style: TextStyle(color: _secondaryText, fontSize: 13, height: 1.4),
+              style: TextStyle(color: secondaryText, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -847,7 +1214,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
               child: ElevatedButton(
                 onPressed: () => Get.back(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _textColor,
+                  backgroundColor: textColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -867,7 +1234,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
       backgroundColor: Colors.transparent,
     );
   }
- 
+
   Widget _animateWidget({required int delayIndex, required Widget child}) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -886,1379 +1253,79 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
     );
   }
 }
- 
-class _PremiumBalanceSection extends StatefulWidget {
-  const _PremiumBalanceSection();
+
+class _AutoScrollOffersWidget extends StatefulWidget {
+  final List<String> offerImages;
+  const _AutoScrollOffersWidget({required this.offerImages});
 
   @override
-  State<_PremiumBalanceSection> createState() => _PremiumBalanceSectionState();
+  State<_AutoScrollOffersWidget> createState() =>
+      _AutoScrollOffersWidgetState();
 }
 
-class _PremiumBalanceSectionState extends State<_PremiumBalanceSection> {
-  bool _isRevealed = false;
-  Timer? _autoHideTimer;
-
-  void _toggleBalance() {
-    if (_isRevealed) {
-      _autoHide();
-    } else {
-      _showMpinSheet();
-    }
-  }
-
-  void _reveal() {
-    setState(() {
-      _isRevealed = true;
-    });
-
-    _autoHideTimer?.cancel();
-    _autoHideTimer = Timer(const Duration(seconds: 8), () {
-      if (mounted) {
-        setState(() {
-          _isRevealed = false;
-        });
-      }
-    });
-  }
-
-  void _autoHide() {
-    _autoHideTimer?.cancel();
-    setState(() {
-      _isRevealed = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _autoHideTimer?.cancel();
-    super.dispose();
-  }
-
-  void _showMpinSheet() {
-    Get.bottomSheet(
-      _MpinVerifySheet(
-        onSuccess: _reveal,
-        title: "Enter MPIN to View Balance",
-        subtitle: "For your security, enter your 4-digit mobile PIN",
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  void _showViewCardMpin() {
-    Get.bottomSheet(
-      _MpinVerifySheet(
-        onSuccess: () {
-          _showFullCardPopup();
-        },
-        title: "Verify MPIN",
-        subtitle: "Enter MPIN to view your card",
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  void _showFullCardPopup() {
-    Get.dialog(const _FullCardDetailsPopup(), barrierColor: Colors.transparent);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const Color _primaryRed = Color(0xFFE53935);
-    const Color _textColor = Color(0xFF111111);
-    const Color _secondaryText = Color(0xFF6B7280);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    "Total Balance",
-                    style: TextStyle(
-                      color: _secondaryText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.1,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _toggleBalance,
-                    child: Icon(
-                      _isRevealed
-                          ? Icons.visibility_rounded
-                          : Icons.visibility_off_rounded,
-                      color: _primaryRed,
-                      size: 17,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: _toggleBalance,
-                behavior: HitTestBehavior.opaque,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    AnimatedCrossFade(
-                      firstChild: const Text(
-                        "₹ ••••••",
-                        style: TextStyle(
-                          color: _textColor,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      secondChild: const Text(
-                        "₹45,280.50",
-                        style: TextStyle(
-                          color: _textColor,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.8,
-                        ),
-                      ),
-                      crossFadeState: _isRevealed
-                          ? CrossFadeState.showSecond
-                          : CrossFadeState.showFirst,
-                      duration: const Duration(milliseconds: 250),
-                    ),
-                    if (!_isRevealed) ...[
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _primaryRed.withOpacity(0.07),
-                        ),
-                        child: const Icon(
-                          Icons.lock_outline_rounded,
-                          color: _primaryRed,
-                          size: 13,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: _primaryRed.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _primaryRed.withOpacity(0.12)),
-            ),
-            child: const Text(
-              "PREMIUM",
-              style: TextStyle(
-                color: _primaryRed,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-const List<Map<String, dynamic>> _kCards = [
-  {
-    'label': 'Prepaid Card',
-    'number': '•••• •••• •••• 1234',
-    'fullNumber': '1234  5678  9012  1234',
-    'expiry': '12/28',
-    'holder': 'JANE DOE',
-    'cvv': '123',
-    'colors': [Color(0xFFB71C1C), Color(0xFFD32F2F), Color(0xFFFF5252)],
-  },
-  {
-    'label': 'Digital Fuel',
-    'number': '•••• •••• •••• 5678',
-    'fullNumber': '1234  5678  9012  5678',
-    'expiry': '09/27',
-    'holder': 'JANE DOE',
-    'cvv': '456',
-    'colors': [Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB)],
-  },
-  {
-    'label': 'Healthcare',
-    'number': '•••• •••• •••• 9012',
-    'fullNumber': '1234  5678  9012  9012',
-    'expiry': '03/26',
-    'holder': 'JANE DOE',
-    'cvv': '789',
-    'colors': [Color(0xFF004D40), Color(0xFF00695C), Color(0xFF00897B)],
-  },
-];
-
-class _PremiumCardsSection extends StatefulWidget {
-  const _PremiumCardsSection();
-
-  @override
-  State<_PremiumCardsSection> createState() => _PremiumCardsSectionState();
-}
-
-class _PremiumCardsSectionState extends State<_PremiumCardsSection> {
-  int _activeIndex = 0;
-
-  void _onCardTap(int index) {
-    Get.bottomSheet(
-      _MpinVerifySheet(
-        onSuccess: () {
-          Get.dialog(
-            _CardDetailsPopup(card: _kCards[index]),
-            barrierColor: Colors.transparent,
-          );
-        },
-        title: 'Verify MPIN',
-        subtitle: 'Enter MPIN to view card details',
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'My Cards',
-                style: TextStyle(
-                  color: Color(0xFF111111),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Get.to(
-                  () => const _AllCardsScreen(),
-                  transition: Transition.cupertino,
-                ),
-                child: const Text(
-                  'See All',
-                  style: TextStyle(
-                    color: Color(0xFFE53935),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 190,
-          child: PageView.builder(
-            controller: PageController(viewportFraction: 0.88),
-            itemCount: _kCards.length,
-            onPageChanged: (i) => setState(() => _activeIndex = i),
-            itemBuilder: (context, index) {
-              final card = _kCards[index];
-              final colors = card['colors'] as List<Color>;
-              return _PressableScale(
-                onTap: () => _onCardTap(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.only(right: 14, bottom: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    gradient: LinearGradient(
-                      colors: colors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        top: -28,
-                        right: -28,
-                        child: Container(
-                          height: 110,
-                          width: 110,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.05),
-                          ),
-                        ),
-                      ),
-                     
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  card['label'] as String,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Text(
-                                  'VISA',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              width: 38,
-                              height: 26,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(5),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFFFECB3), Color(0xFFE5C158)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              card['number'] as String,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                letterSpacing: 1.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  card['holder'] as String,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                                Text(
-                                  card['expiry'] as String,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_kCards.length, (i) {
-            final isActive = i == _activeIndex;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: isActive ? 20 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: isActive
-                    ? const Color(0xFFE53935)
-                    : const Color(0xFFE53935).withOpacity(0.25),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-}
- 
-class _QuickActionButton extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  State<_QuickActionButton> createState() => _QuickActionButtonState();
-}
-
-class _QuickActionButtonState extends State<_QuickActionButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _primaryRed.withOpacity(0.12), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: _primaryRed.withOpacity(0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 46,
-                width: 46,
-                decoration: BoxDecoration(
-                  color: _primaryRed,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: _primaryRed.withOpacity(0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(widget.icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                widget.label,
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
- 
-class _MpinVerifySheet extends StatefulWidget {
-  final VoidCallback onSuccess;
-  final String title;
-  final String subtitle;
-
-  const _MpinVerifySheet({
-    required this.onSuccess,
-    this.title = "Enter MPIN to View Balance",
-    this.subtitle = "For your security, enter your 4-digit mobile PIN",
-  });
-
-  @override
-  State<_MpinVerifySheet> createState() => _MpinVerifySheetState();
-}
-
-class _MpinVerifySheetState extends State<_MpinVerifySheet> {
-  String _mpin = "";
-  bool _isVerifying = false;
-  bool _hasError = false;
-
-  void _keypadPress(String value) {
-    if (_mpin.length < 4 && !_isVerifying) {
-      setState(() {
-        _mpin += value;
-        _hasError = false;
-      });
-
-      if (_mpin.length == 4) {
-        _verifyMpin();
-      }
-    }
-  }
-
-  void _deletePress() {
-    if (_mpin.isNotEmpty && !_isVerifying) {
-      setState(() {
-        _mpin = _mpin.substring(0, _mpin.length - 1);
-        _hasError = false;
-      });
-    }
-  }
-
-  void _biometricPress() {
-    
-    setState(() {
-      _isVerifying = true;
-    });
-
-    Timer(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        Get.back();
-        widget.onSuccess();
-      }
-    });
-  }
-
-  void _verifyMpin() {
-    setState(() {
-      _isVerifying = true;
-    });
-
-    
-    Timer(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        if (_mpin == "1234" || _mpin == "0000" || _mpin.length == 4) {
-          Get.back();
-          widget.onSuccess();
-        } else {
-          setState(() {
-            _mpin = "";
-            _isVerifying = false;
-            _hasError = true;
-          });
-        }
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const Color _primaryRed = Color(0xFFE53935);
-    const Color _textColor = Color(0xFF111111);
-    const Color _secondaryText = Color(0xFF6B7280);
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 20,
-            offset: Offset(0, -5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFECECEC),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _primaryRed.withOpacity(0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.shield_outlined,
-              color: _primaryRed,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          Text(
-            widget.title,
-            style: const TextStyle(
-              color: _textColor,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.subtitle,
-            style: const TextStyle(color: _secondaryText, fontSize: 13),
-          ),
-          const SizedBox(height: 28),
-
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
-              final bool isFilled = index < _mpin.length;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isVerifying
-                      ? _primaryRed.withOpacity(0.3)
-                      : (isFilled ? _primaryRed : const Color(0xFFECECEC)),
-                  border: Border.all(
-                    color: _hasError ? Colors.red : Colors.transparent,
-                    width: 2,
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 24),
-
-          if (_isVerifying) ...[
-            const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(_primaryRed),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ] else if (_hasError) ...[
-            const Text(
-              "Invalid MPIN. Try again.",
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-          ] else ...[
-            const SizedBox(height: 36),
-          ],
-
-          
-          Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadNum("1"),
-                  _buildKeypadNum("2"),
-                  _buildKeypadNum("3"),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadNum("4"),
-                  _buildKeypadNum("5"),
-                  _buildKeypadNum("6"),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadNum("7"),
-                  _buildKeypadNum("8"),
-                  _buildKeypadNum("9"),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadAction(
-                    icon: Icons.fingerprint_rounded,
-                    onTap: _biometricPress,
-                  ),
-                  _buildKeypadNum("0"),
-                  _buildKeypadAction(
-                    icon: Icons.backspace_outlined,
-                    onTap: _deletePress,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text(
-              "Cancel",
-              style: TextStyle(
-                color: _secondaryText,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKeypadNum(String number) {
-    return _PressableScale(
-      onTap: () => _keypadPress(number),
-      child: Container(
-        height: 64,
-        width: Get.width * 0.25,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9F9F9),
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKeypadAction({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return _PressableScale(
-      onTap: onTap,
-      child: Container(
-        height: 64,
-        width: Get.width * 0.25,
-        decoration: const BoxDecoration(
-          color: Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: const Color(0xFF6B7280), size: 24),
-      ),
-    );
-  }
-}
-
-
-class _FullCardDetailsPopup extends StatefulWidget {
-  const _FullCardDetailsPopup();
-
-  @override
-  State<_FullCardDetailsPopup> createState() => _FullCardDetailsPopupState();
-}
-
-class _FullCardDetailsPopupState extends State<_FullCardDetailsPopup>
-    with SingleTickerProviderStateMixin {
-  bool _showCvv = false;
-  late AnimationController _scaleCtrl;
-  late Animation<double> _scaleAnim;
+class _AutoScrollOffersWidgetState extends State<_AutoScrollOffersWidget> {
+  final PageController _pageController = PageController(viewportFraction: 0.92);
+  int _currentPage = 0;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _scaleCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    );
-    _scaleAnim = CurvedAnimation(parent: _scaleCtrl, curve: Curves.easeOutBack);
-    _scaleCtrl.forward();
+    _timer = Timer.periodic(const Duration(seconds: 4), (Timer timer) {
+      if (_currentPage < widget.offerImages.length - 1) {
+        _currentPage++;
+      } else {
+        _currentPage = 0;
+      }
+
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
-    _scaleCtrl.dispose();
+    _timer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
-  void _copyCardNumber() {
-    Clipboard.setData(const ClipboardData(text: "1234 5678 9012 3456"));
-    Get.rawSnackbar(
-      message: "Card number copied",
-      duration: const Duration(seconds: 2),
-      backgroundColor: const Color(0xFF111111),
-      borderRadius: 14,
-      margin: const EdgeInsets.all(16),
-      snackStyle: SnackStyle.FLOATING,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Stack(
-        children: [
-          
-          GestureDetector(
-            onTap: () => Get.back(),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(color: Colors.black.withOpacity(0.45)),
-            ),
-          ),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final pageViewWidth = screenWidth - 32; // Column has horizontal 16 padding
+    final pageWidth = pageViewWidth * 0.92;
+    final rightPadding = context.responsive(8.0);
+    final cardHeight = (pageWidth - rightPadding) / 2.7;
 
-          
-          Center(
-            child: ScaleTransition(
-              scale: _scaleAnim,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFB71C1C),
-                            Color(0xFFD32F2F),
-                            Color(0xFFFF5252),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withOpacity(0.35),
-                            blurRadius: 30,
-                            offset: const Offset(0, 16),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          
-                          Positioned(
-                            top: -30,
-                            right: -30,
-                            child: Container(
-                              height: 120,
-                              width: 120,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.08),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: -40,
-                            left: -40,
-                            child: Container(
-                              height: 100,
-                              width: 100,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.black.withOpacity(0.08),
-                              ),
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              
-                              const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Prepaid Card",
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    "VISA",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-
-                              
-                              Container(
-                                width: 45,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFFFECB3),
-                                      Color(0xFFE5C158),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-
-                              
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    "1234  5678  9012  3456",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 19,
-                                      letterSpacing: 2,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: _copyCardNumber,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.copy_rounded,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-
-                              
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  
-                                  const Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "CARD HOLDER",
-                                        style: TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 10,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                      SizedBox(height: 3),
-                                      Text(
-                                        "JANE DOE",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  
-                                  const Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        "EXPIRY",
-                                        style: TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 10,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                      SizedBox(height: 3),
-                                      Text(
-                                        "12/28",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      const Text(
-                                        "CVV",
-                                        style: TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 10,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      GestureDetector(
-                                        onTap: () => setState(
-                                          () => _showCvv = !_showCvv,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              _showCvv ? "123" : "•••",
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Icon(
-                                              _showCvv
-                                                  ? Icons.visibility_rounded
-                                                  : Icons
-                                                        .visibility_off_rounded,
-                                              color: Colors.white70,
-                                              size: 16,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    
-                    GestureDetector(
-                      onTap: () => Get.back(),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 28,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Text(
-                          "Close",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _PressableScale extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-
-  const _PressableScale({required this.child, required this.onTap});
-
-  @override
-  State<_PressableScale> createState() => _PressableScaleState();
-}
-
-class _PressableScaleState extends State<_PressableScale> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.94 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-
-
-class _AllCardsScreen extends StatelessWidget {
-  const _AllCardsScreen();
-
-  void _onCardTap(int index) {
-    Get.bottomSheet(
-      _MpinVerifySheet(
-        onSuccess: () {
-          Get.dialog(
-            _CardDetailsPopup(card: _kCards[index]),
-            barrierColor: Colors.transparent,
-          );
+    return SizedBox(
+      height: cardHeight,
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.offerImages.length,
+        padEnds: false,
+        onPageChanged: (int page) {
+          _currentPage = page;
         },
-        title: 'Verify MPIN',
-        subtitle: 'Enter MPIN to view card details',
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: GestureDetector(
-          onTap: () => Get.back(),
-          child: Container(
-            margin: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: _borderColor, width: 1.5),
-            ),
-            child: const Icon(Icons.arrow_back_rounded, color: _textColor, size: 20),
-          ),
-        ),
-        title: const Text(
-          'My Cards',
-          style: TextStyle(color: _textColor, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.4),
-        ),
-        centerTitle: false,
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: _primaryRed.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _primaryRed.withOpacity(0.12)),
-            ),
-            child: Text(
-              '${_kCards.length} Cards',
-              style: const TextStyle(color: _primaryRed, fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-      body: ListView.separated(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        itemCount: _kCards.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 20),
         itemBuilder: (context, index) {
-          final card = _kCards[index];
-          final colors = card['colors'] as List<Color>;
-          return _PressableScale(
-            onTap: () => _onCardTap(index),
-            child: Container(
-              width: double.infinity,
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                gradient: LinearGradient(
-                  colors: colors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+          return Padding(
+            padding: EdgeInsets.only(right: rightPadding),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(context.responsive(20)),
+              child: AspectRatio(
+                aspectRatio: 2.7,
+                child: Image.asset(
+                  widget.offerImages[index],
+
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors[1].withOpacity(0.4),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: -30,
-                    right: -30,
-                    child: Container(
-                      height: 130,
-                      width: 130,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.07),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -40,
-                    left: -40,
-                    child: Container(
-                      height: 110,
-                      width: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withOpacity(0.07),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              card['label'] as String,
-                              style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                            const Text(
-                              'VISA',
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Container(
-                          width: 42,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(5),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFECB3), Color(0xFFE5C158)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          card['number'] as String,
-                          style: const TextStyle(color: Colors.white, fontSize: 17, letterSpacing: 2, fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('CARD HOLDER', style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: 0.5)),
-                                const SizedBox(height: 3),
-                                Text(card['holder'] as String, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                const Text('EXPIRY', style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: 0.5)),
-                                const SizedBox(height: 3),
-                                Text(card['expiry'] as String, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 24,
-                    right: 24,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.2)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 12),
-                          SizedBox(width: 5),
-                          Text('Tap to view', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           );
@@ -2266,490 +1333,4 @@ class _AllCardsScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-
-class _CardDetailsPopup extends StatefulWidget {
-  final Map<String, dynamic> card;
-  const _CardDetailsPopup({required this.card});
-
-  @override
-  State<_CardDetailsPopup> createState() => _CardDetailsPopupState();
-}
-
-class _CardDetailsPopupState extends State<_CardDetailsPopup>
-    with SingleTickerProviderStateMixin {
-  bool _showCvv = false;
-  late AnimationController _scaleCtrl;
-  late Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _scaleCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 350));
-    _scaleAnim = CurvedAnimation(parent: _scaleCtrl, curve: Curves.easeOutBack);
-    _scaleCtrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _scaleCtrl.dispose();
-    super.dispose();
-  }
-
-  void _copyNumber() {
-    Clipboard.setData(ClipboardData(text: widget.card['fullNumber'] as String));
-    Get.rawSnackbar(
-      message: 'Card number copied',
-      duration: const Duration(seconds: 2),
-      backgroundColor: const Color(0xFF111111),
-      borderRadius: 14,
-      margin: const EdgeInsets.all(16),
-      snackStyle: SnackStyle.FLOATING,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = widget.card['colors'] as List<Color>;
-    return Material(
-      color: Colors.transparent,
-      child: Stack(
-        children: [
-          GestureDetector(
-            onTap: () => Get.back(),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(color: Colors.black.withOpacity(0.45)),
-            ),
-          ),
-          Center(
-            child: ScaleTransition(
-              scale: _scaleAnim,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(26),
-                        gradient: LinearGradient(
-                          colors: colors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors[1].withOpacity(0.4),
-                            blurRadius: 32,
-                            offset: const Offset(0, 16),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            top: -30, right: -30,
-                            child: Container(height: 120, width: 120,
-                              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.08))),
-                          ),
-                          Positioned(
-                            bottom: -40, left: -40,
-                            child: Container(height: 100, width: 100,
-                              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withOpacity(0.08))),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(widget.card['label'] as String,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
-                                  const Text('VISA',
-                                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              Container(
-                                width: 45, height: 30,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFFFECB3), Color(0xFFE5C158)],
-                                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(widget.card['fullNumber'] as String,
-                                    style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 2, fontWeight: FontWeight.w500)),
-                                  GestureDetector(
-                                    onTap: _copyNumber,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(Icons.copy_rounded, color: Colors.white, size: 16),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    const Text('CARD HOLDER', style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.5)),
-                                    const SizedBox(height: 3),
-                                    Text(widget.card['holder'] as String,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                                  ]),
-                                  Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                                    const Text('EXPIRY', style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.5)),
-                                    const SizedBox(height: 3),
-                                    Text(widget.card['expiry'] as String,
-                                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                                  ]),
-                                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                    const Text('CVV', style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.5)),
-                                    const SizedBox(height: 3),
-                                    GestureDetector(
-                                      onTap: () => setState(() => _showCvv = !_showCvv),
-                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                        Text(_showCvv ? widget.card['cvv'] as String : '•••',
-                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                                        const SizedBox(width: 6),
-                                        Icon(_showCvv ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                                          color: Colors.white70, size: 16),
-                                      ]),
-                                    ),
-                                  ]),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: () => Get.back(),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Text('Close',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PayBillScreen extends StatelessWidget {
-  const _PayBillScreen();
-
-  static const _billers = [
-    {'icon': Icons.bolt_rounded, 'label': 'Electricity', 'color': Color(0xFFFFA726), 'sub': 'Pay your electricity bill'},
-    {'icon': Icons.credit_card, 'label': 'Credit Card Bill', 'color': Color.fromARGB(255, 38, 110, 255), 'sub': 'Pay your electricity bill'},
-    {'icon': Icons.phone_android_rounded, 'label': 'Mobile', 'color': Color(0xFF42A5F5), 'sub': 'Recharge or pay postpaid'},
-    {'icon': Icons.tv_rounded, 'label': 'DTH', 'color': Color(0xFF7E57C2), 'sub': 'Recharge your DTH'},
-    {'icon': Icons.water_drop_rounded, 'label': 'Water', 'color': Color(0xFF26C6DA), 'sub': 'Pay water utility bill'},
-    {'icon': Icons.local_gas_station_rounded, 'label': 'Gas', 'color': Color(0xFF66BB6A), 'sub': 'Pay gas pipeline bill'},
-    {'icon': Icons.wifi_rounded, 'label': 'Broadband', 'color': Color(0xFFEF5350), 'sub': 'Pay internet bill'},
-    {'icon': Icons.directions_bus_rounded, 'label': 'Transport', 'color': Color(0xFF26A69A), 'sub': 'Bus & metro recharge'},
-    {'icon': Icons.local_hospital_rounded, 'label': 'Insurance', 'color': Color(0xFFEC407A), 'sub': 'Pay insurance premium'},
-  ];
-
-  void _showComingSoon(BuildContext context, String label) {
-    Get.bottomSheet(
-      Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 56,
-              width: 56,
-              decoration: BoxDecoration(
-                color: _primaryRed.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.hourglass_empty_rounded, color: _primaryRed, size: 28),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '$label Coming Soon',
-              style: const TextStyle(color: _textColor, fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'We are working hard to bring this feature very soon. Stay tuned!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _secondaryText, fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Get.back(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _textColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                child: const Text('Got it', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
-            ),
-          ],
-        ),
-      ),
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: GestureDetector(
-          onTap: () => Get.back(),
-          child: Container(
-            margin: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFECECEC), width: 1.5),
-            ),
-            child: const Icon(Icons.arrow_back_rounded, color: _textColor, size: 20),
-          ),
-        ),
-        title: const Text(
-          'Pay Bills',
-          style: TextStyle(color: _textColor, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.4),
-        ),
-        centerTitle: false,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_primaryRed.withOpacity(0.07), _primaryRed.withOpacity(0.02)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: _primaryRed.withOpacity(0.1)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _primaryRed.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.receipt_long_rounded, color: _primaryRed, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Quick & Secure Payments', style: TextStyle(color: _textColor, fontSize: 14, fontWeight: FontWeight.w700)),
-                      SizedBox(height: 2),
-                      Text('Pay all your bills in one place', style: TextStyle(color: _secondaryText, fontSize: 12)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Select a Category',
-              style: TextStyle(color: _textColor, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.3),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.builder(
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1.42,
-                ),
-                itemCount: _billers.length,
-                itemBuilder: (context, index) {
-                  final b = _billers[index];
-                  final color = b['color'] as Color;
-                  return _PressableScale(
-                    onTap: () => _showComingSoon(context, b['label'] as String),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.07),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: color.withOpacity(0.18), width: 1.2),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: color.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(b['icon'] as IconData, color: color, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  b['label'] as String,
-                                  style: const TextStyle(color: _textColor, fontSize: 13, fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  b['sub'] as String,
-                                  style: const TextStyle(color: _secondaryText, fontSize: 10, fontWeight: FontWeight.w500),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BezierChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = _primaryRed
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final fillPaint = Paint()..style = PaintingStyle.fill;
-
-    final path = Path();
-    final fillPath = Path();
-
-    final points = [
-      Offset(0, size.height * 0.7),
-      Offset(size.width * 0.2, size.height * 0.55),
-      Offset(size.width * 0.4, size.height * 0.8),
-      Offset(size.width * 0.6, size.height * 0.4),
-      Offset(size.width * 0.8, size.height * 0.65),
-      Offset(size.width, size.height * 0.2),
-    ];
-
-    path.moveTo(points[0].dx, points[0].dy);
-    fillPath.moveTo(points[0].dx, size.height);
-    fillPath.lineTo(points[0].dx, points[0].dy);
-
-    for (int i = 0; i < points.length - 1; i++) {
-      final p0 = points[i];
-      final p1 = points[i + 1];
-      final controlPoint1 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p0.dy);
-      final controlPoint2 = Offset(p0.dx + (p1.dx - p0.dx) / 2, p1.dy);
-
-      path.cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        p1.dx,
-        p1.dy,
-      );
-
-      fillPath.cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        p1.dx,
-        p1.dy,
-      );
-    }
-
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-
-    const gradient = LinearGradient(
-      colors: [Color(0x28E53935), Color(0x00E53935)],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    );
-
-    fillPaint.shader = gradient.createShader(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-    );
-
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, paint);
-
-    final peakPoint = points[5];
-    final dotPaint = Paint()
-      ..color = _primaryRed
-      ..style = PaintingStyle.fill;
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawCircle(peakPoint, 6, dotPaint);
-    canvas.drawCircle(peakPoint, 6, borderPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

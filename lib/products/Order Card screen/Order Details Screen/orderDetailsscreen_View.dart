@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Order%20Card%20screen/Order%20Details%20Screen/orderDetailsscreen_Controller.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 
@@ -12,12 +13,11 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
   Widget build(BuildContext context) {
     Get.lazyPut(() => OrderdetailsscreenController());
 
-    const Color primaryRed = Color(0xFFE53935);
     const Color textColor = Color(0xFF111111);
     const Color secondaryText = Color(0xFF6B7280);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           Positioned(
@@ -67,25 +67,18 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
 
                   // Core Title & Subtitle
                   const Text(
-                    "Signature Card Ordered!",
+                    "Card Order Confirmed!",
                     style: TextStyle(
                       color: textColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.8,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Obx(
-                    () => Text(
-                      "Your premium ${controller.cardStyleName.value} card is being prepared.",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: secondaryText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Your Premium Card has been successfully ordered.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: secondaryText, fontSize: 14),
                   ),
 
                   const SizedBox(height: 28),
@@ -104,48 +97,33 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
 
                   CustomButton(
                     text: "Back to Home",
-                    btncolor: Colors.black,
+                    btncolor: primaryRed,
+                    textColor: Colors.white,
                     onPressed: () {
                       Get.offAllNamed('/dashboard');
                     },
                   ),
                   const SizedBox(height: 12),
 
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      side: const BorderSide(
-                        color: Color(0xFFECECEC),
-                        width: 1.5,
-                      ),
-                      backgroundColor: Colors.white,
-                      foregroundColor: textColor,
-                      elevation: 0,
-                    ),
+                  TextButton(
                     onPressed: () {
-                      _showShipmentTrackingSheet(context);
+                      Get.toNamed(
+                        '/trackcard',
+                        arguments: {
+                          'amount': controller.amount.value,
+                          'cardStyleName': controller.cardStyleName.value,
+                          'referenceId': controller.referenceId.value,
+                          'cardBgImage': controller.cardBgImage.value,
+                        },
+                      );
                     },
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.local_shipping_rounded,
-                          size: 16,
-                          color: primaryRed,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          "Track Live Status",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                      ],
+                    child: const Text(
+                      "Track Live Status",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 36),
@@ -162,159 +140,45 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
 
   Widget _buildPhysicalCardMockup() {
     return Obx(() {
-      final gradient = controller.cardGradient.value;
       final holderName = controller.receiverName.value;
-      final cardStyle = controller.cardStyleName.value;
+      final String cardImg = controller.cardBgImage.value;
+      final bool useBlackLogos = cardImg.contains("yellow");
+      final Color textColor = useBlackLogos ? Colors.white : Colors.white;
 
-      return Container(
-        height: 190,
-        width: 310,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: gradient.length >= 2
-                ? gradient
-                : [const Color(0xFF111111), const Color(0xFF2C2C2C)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (gradient.isNotEmpty ? gradient.first : Colors.black)
-                  .withOpacity(0.3),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
+      return AspectRatio(
+        aspectRatio: 85.60 / 53.98,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            image: DecorationImage(
+              image: AssetImage(cardImg),
+              fit: BoxFit.cover,
             ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              top: -50,
-              left: -50,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.04),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                bottom: 24,
+                left: 24,
+                child: Text(
+                  holderName,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
-            ),
-
-            Positioned.fill(child: CustomPaint(painter: _CardMeshPainter())),
-
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "TRANSCORP",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          Text(
-                            "SIGNATURE",
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2.0,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        height: 22,
-                        width: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.credit_card_rounded,
-                          color: Colors.white70,
-                          size: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  Container(
-                    height: 24,
-                    width: 32,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFE5A93C), Color(0xFFF7D070)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              holderName.toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              "STYLE: $cardStyle",
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Text(
-                        "VISA",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          fontStyle: FontStyle.italic,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     });
@@ -327,65 +191,33 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFECECEC), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.01),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                height: 36,
-                width: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF4CAF50).withOpacity(0.08),
-                ),
-                child: const Icon(
-                  Icons.local_shipping_rounded,
-                  color: Color(0xFF4CAF50),
-                  size: 16,
+              const Text(
+                "Estimated delivery",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF9CA3AF),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Estimated Delivery Date",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6B7280),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Obx(
-                      () => Text(
-                        controller.deliveryDateStr.value,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF111111),
-                        ),
-                      ),
-                    ),
-                  ],
+              Obx(
+                () => Text(
+                  controller.deliveryDateStr.value,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          const Divider(height: 1, color: Color(0xFFECECEC)),
-          const SizedBox(height: 18),
-
+          const SizedBox(height: 20),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -398,7 +230,7 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
               _TimelineStep(
                 label: "Preparing",
                 isActive: true,
-                isCompleted: true,
+                isCompleted: false,
               ),
               _TimelineStepDivider(isCompleted: false),
               _TimelineStep(
@@ -421,76 +253,53 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
 
   Widget _buildInvoiceSummary() {
     return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFECECEC), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.01),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Obx(() => _buildReceiptRow("Card", controller.cardStyleName.value)),
+          const SizedBox(height: 14),
+          Obx(() => _buildReceiptRow("Order ID", controller.referenceId.value)),
+          const SizedBox(height: 14),
+          Obx(
+            () => _buildReceiptRow(
+              "Payment Method",
+              controller.paymentMethod.value,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Obx(
+            () => _buildAddressRow(
+              "Shipment Address",
+              controller.deliveryAddress.value,
+            ),
+          ),
           const Padding(
-            padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 12),
-            child: Text(
-              "INVOICE RECEIPT",
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF6B7280),
-                letterSpacing: 1.5,
-              ),
-            ),
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(color: Color(0xFFECECEC), height: 1, thickness: 1.5),
           ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
+          Obx(
+            () => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Obx(
-                  () => controller.row(
-                    "Card Model",
-                    controller.cardStyleName.value,
+                const Text(
+                  "Total Paid Amount",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                Obx(
-                  () => controller.row(
-                    "Reference ID",
-                    controller.referenceId.value,
-                  ),
-                ),
-                controller.row("Payment Method", "General Wallet"),
-                const SizedBox(height: 6),
-              ],
-            ),
-          ),
-
-          const _CutoutDivider(),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              children: [
-                Obx(
-                  () => controller.row(
-                    "Shipment Address",
-                    controller.deliveryAddress.value,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                const SizedBox(height: 12),
-                Obx(
-                  () => controller.row(
-                    "Total Paid Amount",
-                    "₹${controller.amount.value}.00",
-                    isBold: true,
+                Text(
+                  "₹${controller.amount.value}",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -498,6 +307,60 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReceiptRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF9CA3AF),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddressRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF9CA3AF),
+          ),
+        ),
+        const SizedBox(width: 24),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -574,7 +437,7 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
               time:
                   "Today, ${DateTime.now().hour}:${(DateTime.now().minute + 1).toString().padLeft(2, '0')}",
               subtitle:
-                  "Laser etching finished. Metallic cardholder sign-off approved by Transcorp Lab.",
+                  "Laser etching finished. Metallic cardholder sign-off approved by Western Union Lab.",
               isCompleted: true,
               isLast: false,
             ),
@@ -631,14 +494,12 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
                 shape: BoxShape.circle,
                 color: isCompleted
                     ? const Color(0xFF4CAF50)
-                    : (isActive
-                          ? const Color(0xFFE53935)
-                          : const Color(0xFFE5E7EB)),
+                    : (isActive ? primaryRed : const Color(0xFFE5E7EB)),
                 border: Border.all(color: Colors.white, width: 3),
                 boxShadow: [
                   if (isActive)
                     BoxShadow(
-                      color: const Color(0xFFE53935).withOpacity(0.3),
+                      color: primaryRed.withOpacity(0.4),
                       blurRadius: 6,
                       spreadRadius: 2,
                     ),
@@ -681,9 +542,7 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: isActive
-                          ? const Color(0xFFE53935)
-                          : const Color(0xFF9CA3AF),
+                      color: isActive ? primaryRed : const Color(0xFF9CA3AF),
                     ),
                   ),
                 ],
@@ -779,52 +638,48 @@ class _PulsingSuccessIconState extends State<_PulsingSuccessIcon>
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 74 * _pulseAnimation.value,
-                    height: 74 * _pulseAnimation.value,
+                    width: 90 * _pulseAnimation.value,
+                    height: 90 * _pulseAnimation.value,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF4CAF50).withOpacity(
-                        (0.12 * (1.0 - (_pulseAnimation.value - 0.9) / 0.6))
+                      color: const Color(0xFFDCFCE7).withOpacity(
+                        (0.25 * (1.0 - (_pulseAnimation.value - 0.9) / 0.6))
                             .clamp(0.0, 1.0),
                       ),
                     ),
                   ),
 
                   Container(
-                    width: 62 * _pulseAnimation.value,
-                    height: 62 * _pulseAnimation.value,
+                    width: 76 * _pulseAnimation.value,
+                    height: 76 * _pulseAnimation.value,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF4CAF50).withOpacity(
-                        (0.2 * (1.0 - (_pulseAnimation.value - 0.9) / 0.6))
+                      color: const Color(0xFFDCFCE7).withOpacity(
+                        (0.45 * (1.0 - (_pulseAnimation.value - 0.9) / 0.6))
                             .clamp(0.0, 1.0),
                       ),
                     ),
                   ),
 
                   Container(
-                    height: 68,
-                    width: 68,
+                    height: 60,
+                    width: 60,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF66BB6A), Color(0xFF4CAF50)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                      color: Color(0xFF22C55E),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0xFF4CAF50),
+                          color: Color(0x2922C55E),
                           blurRadius: 12,
-                          offset: Offset(0, 3),
+                          offset: Offset(0, 4),
                         ),
                       ],
                     ),
                     alignment: Alignment.center,
                     child: const Icon(
-                      Icons.check_rounded,
+                      Icons.check,
                       color: Colors.white,
-                      size: 26,
+                      size: 32,
                     ),
                   ),
                 ],
@@ -903,27 +758,48 @@ class _TimelineStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget dot;
+    if (isCompleted) {
+      dot = Container(
+        height: 14,
+        width: 14,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black,
+        ),
+      );
+    } else if (isActive) {
+      dot = Container(
+        height: 18,
+        width: 18,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: primaryRed,
+          border: Border.all(color: Colors.white, width: 3.5),
+          boxShadow: [
+            BoxShadow(
+              color: primaryRed.withOpacity(0.4),
+              blurRadius: 6,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+      );
+    } else {
+      dot = Container(
+        height: 14,
+        width: 14,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0xFFE5E7EB),
+        ),
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          height: 18,
-          width: 18,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCompleted ? Colors.black : Colors.white,
-            border: Border.all(
-              color: isCompleted || isActive
-                  ? Colors.black
-                  : const Color(0xFFD1D5DB),
-              width: 2,
-            ),
-          ),
-          alignment: Alignment.center,
-          child: isCompleted
-              ? const Icon(Icons.check_rounded, color: Colors.white, size: 10)
-              : null,
-        ),
+        SizedBox(height: 18, child: Center(child: dot)),
         const SizedBox(height: 6),
         Text(
           label,
@@ -932,7 +808,7 @@ class _TimelineStep extends StatelessWidget {
                 ? const Color(0xFF111111)
                 : const Color(0xFF9CA3AF),
             fontWeight: FontWeight.bold,
-            fontSize: 9,
+            fontSize: 10,
           ),
         ),
       ],
@@ -950,7 +826,7 @@ class _TimelineStepDivider extends StatelessWidget {
     return Expanded(
       child: Container(
         height: 2,
-        margin: const EdgeInsets.only(bottom: 15),
+        margin: const EdgeInsets.only(bottom: 21),
         color: isCompleted ? Colors.black : const Color(0xFFE5E7EB),
       ),
     );
@@ -995,7 +871,7 @@ class _ConfettiShowerState extends State<_ConfettiShower>
     )..forward();
 
     final colors = [
-      const Color(0xFFE53935),
+      const Color(0xFFFFCC00),
       const Color(0xFF4CAF50),
       const Color(0xFF2196F3),
       const Color(0xFFFFEB3B),

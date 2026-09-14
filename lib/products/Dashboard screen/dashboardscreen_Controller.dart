@@ -1,5 +1,5 @@
 import 'dart:developer';
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -9,19 +9,171 @@ import 'package:get/get.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/widgets/premium_visa_card.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/services/api_service.dart';
 
 class DashboardscreenController extends GetxController {
   RxBool isFlipped = false.obs;
   RxBool isVisible = false.obs;
 
+  final ScrollController scrollController = ScrollController();
+  final RxBool isScrolled = false.obs;
+
   void flipCard() {
     isFlipped.value = !isFlipped.value;
   }
 
+  final RxNum totalBalance = RxNum(0);
+
+  Future<void> loadWalletBalance() async {
+    if (GetStorage().hasData('balance')) {
+      final stored = GetStorage().read('balance');
+      if (stored is num) {
+        totalBalance.value = stored;
+      }
+    }
+    if (Get.isRegistered<ApiService>()) {
+      final res = await ApiService.to.fetchWalletBalance();
+      if (res != null && res['balance'] != null) {
+        totalBalance.value = res['balance'] is num
+            ? res['balance']
+            : num.tryParse(res['balance'].toString()) ?? 0;
+      }
+    }
+  }
+
+  final RxList<Map<String, dynamic>> recentTransactions = <Map<String, dynamic>>[].obs;
+  final RxBool isTransactionsLoading = false.obs;
+
+  final RxDouble totalIncome = 0.0.obs;
+  final RxDouble totalExpenses = 0.0.obs;
+  final RxDouble totalSavings = 0.0.obs;
+
+  Future<void> fetchRecentTransactions() async {
+    if (!Get.isRegistered<ApiService>()) return;
+    isTransactionsLoading.value = true;
+    try {
+      final res = await ApiService.to.fetchTransactions(pageNumber: 0, pageSize: 20);
+      if (res != null && res['items'] is List) {
+        final List items = res['items'];
+        final List<Map<String, dynamic>> parsedList = [];
+
+        double calcIncome = 0.0;
+        double calcExpenses = 0.0;
+
+        for (var item in items) {
+          if (item is Map) {
+            final type = item['type']?.toString().toUpperCase() ?? '';
+            final isCredit = type == 'CREDIT';
+            final status = item['transactionStatus']?.toString().toUpperCase() ?? '';
+            final isFailed = status.contains('FAIL') || status.contains('REJECT');
+
+            final num amt = (item['amount'] is num)
+                ? item['amount']
+                : num.tryParse(item['amount']?.toString() ?? '0') ?? 0;
+
+            if (!isFailed) {
+              if (isCredit) {
+                calcIncome += amt.toDouble();
+              } else {
+                calcExpenses += amt.toDouble();
+              }
+            }
+
+            DateTime rawDate = DateTime.now();
+            if (item['time'] != null) {
+              try {
+                rawDate = DateTime.parse(item['time'].toString());
+              } catch (_) {}
+            }
+
+            String title = "Transaction";
+            if (item['otherPartyName'] != null &&
+                item['otherPartyName'] is String &&
+                (item['otherPartyName'] as String).isNotEmpty) {
+              title = item['otherPartyName'];
+            } else if (item['description'] != null &&
+                item['description'] is String &&
+                (item['description'] as String).isNotEmpty) {
+              title = item['description'];
+            } else if (item['yourWallet'] != null &&
+                item['yourWallet'].toString().isNotEmpty) {
+              title = "${item['yourWallet']} Wallet";
+            } else if (item['transactionType'] != null) {
+              title = item['transactionType'].toString();
+            }
+
+            final String formattedAmount = isCredit ? "+₹$amt" : "-₹$amt";
+            final String subtitle = _formatShortDate(rawDate);
+
+            parsedList.add({
+              "title": title,
+              "subtitle": subtitle,
+              "amount": formattedAmount,
+              "isCredit": isCredit,
+              "isFailed": isFailed,
+              "txRef": item['txRef'],
+              "status": status,
+              "yourWallet": item['yourWallet'],
+            });
+          }
+        }
+
+        recentTransactions.value = parsedList;
+        totalIncome.value = calcIncome;
+        totalExpenses.value = calcExpenses;
+        totalSavings.value = (calcIncome - calcExpenses) > 0 ? (calcIncome - calcExpenses) : 0.0;
+      } else {
+        recentTransactions.value = [];
+        totalIncome.value = 0.0;
+        totalExpenses.value = 0.0;
+        totalSavings.value = 0.0;
+      }
+    } catch (e) {
+      log('Error fetching recent transactions in DashboardscreenController: $e');
+    } finally {
+      isTransactionsLoading.value = false;
+    }
+  }
+
+  String _formatShortDate(DateTime dt) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final month = months[dt.month - 1];
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '${dt.day} $month, $hour:$minute $ampm';
+  }
+
   @override
   void onInit() {
-    
     super.onInit();
+    scrollController.addListener(() {
+      if (scrollController.hasClients) {
+        final offset = scrollController.offset;
+        if (offset > 10) {
+          if (!isScrolled.value) {
+            isScrolled.value = true;
+          }
+        } else {
+          if (isScrolled.value) {
+            isScrolled.value = false;
+          }
+        }
+      }
+    });
+
+    if (Get.isRegistered<ApiService>()) {
+      ApiService.to.fetchUserProfile();
+      fetchRecentTransactions();
+    }
+  }
+
+  @override
+  void onClose() {
+    scrollController.dispose();
+    super.onClose();
   }
 
   void toggleVisibility() {
@@ -35,7 +187,7 @@ class DashboardscreenController extends GetxController {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          
+
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),
@@ -51,10 +203,9 @@ class DashboardscreenController extends GetxController {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset("$icon", height: 25, color: Colors.black),
-              
+
               const SizedBox(height: 6),
 
-              
               Text(
                 text,
                 style: const TextStyle(
@@ -117,53 +268,34 @@ class DashboardscreenController extends GetxController {
   }
 
   Widget buildFront({Key? key}) {
-    return cardBase(
-      key: key,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          
-          topRow(),
-
-          const SizedBox(height: 20),
-
-          
-          Obx(
-            () => blurWrapper(
-              isVisible.value,
-              const Text(
-                "1234 5678 9012 3456",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w500,
-                ),
+    final box = GetStorage();
+    return Obx(
+      () => PremiumVisaCard(
+        key: key,
+        cardNumber: isVisible.value ? "1234567890123456" : "••••••••••••3456",
+        cardHolder: box.read('name') ?? "Vince Tallent",
+        expiryDate: "12/28",
+        cvv: isVisible.value ? "123" : "•••",
+        onTap: flipCard,
+        topRightAction: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Transform.rotate(
+              angle: math.pi / 2,
+              child: Icon(Icons.wifi, color: Colors.white70, size: 16),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: toggleVisibility,
+              child: Icon(
+                isVisible.value ? Icons.visibility : Icons.visibility_off,
+                color: Colors.white,
+                size: 18,
               ),
             ),
-          ),
-
-          const Spacer(),
-
-          
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
-                "VALID THRU 12/28",
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              Text(
-                "VISA",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -174,7 +306,6 @@ class DashboardscreenController extends GetxController {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          
           Container(
             height: 38,
             width: double.infinity,
@@ -220,7 +351,6 @@ class DashboardscreenController extends GetxController {
                         color: Colors.black,
                       ),
                     ),
-                    
                   ),
                 ),
               ],
@@ -229,7 +359,6 @@ class DashboardscreenController extends GetxController {
 
           const SizedBox(height: 10),
 
-          
           Align(
             alignment: Alignment.centerRight,
             child: SizedBox(
@@ -252,15 +381,12 @@ class DashboardscreenController extends GetxController {
 
           const Spacer(),
 
-          const Align(
+          Align(
             alignment: Alignment.bottomRight,
-            child: Text(
-              "VISA",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+            child: Image.asset(
+              'assets/VisaFree.png',
+              height: 20,
+              fit: BoxFit.contain,
             ),
           ),
         ],
@@ -274,73 +400,49 @@ class DashboardscreenController extends GetxController {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFB71C1C), Color(0xFFD32F2F), Color(0xFFFF5252)],
+        image: const DecorationImage(
+          image: AssetImage('assets/unioncardblack.webp'),
+          fit: BoxFit.cover,
         ),
-
-        
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withOpacity(0.35),
+            color: const Color(0xFFFFCC00).withOpacity(0.2),
             blurRadius: 25,
             offset: const Offset(0, 15),
           ),
         ],
       ),
-
-      child: Stack(
-        children: [
-          
-          Positioned(
-            top: -30,
-            right: -30,
-            child: Container(
-              height: 120,
-              width: 120,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          
-          Positioned(
-            bottom: -40,
-            left: -40,
-            child: Container(
-              height: 100,
-              width: 100,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          child,
-        ],
-      ),
+      child: Stack(children: [child]),
     );
   }
 
   Widget topRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text("Prepaid Card", style: TextStyle(color: Colors.white)),
-
-        Obx(
-          () => GestureDetector(
-            onTap: toggleVisibility,
-            child: Icon(
-              isVisible.value ? Icons.visibility : Icons.visibility_off,
-              color: Colors.white,
+        Image.asset('assets/WU.png', height: 22, fit: BoxFit.contain),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/WHITE TRANSCORP .png',
+              height: 14,
+              fit: BoxFit.contain,
             ),
-          ),
+            const SizedBox(width: 12),
+            Obx(
+              () => GestureDetector(
+                onTap: toggleVisibility,
+                child: Icon(
+                  isVisible.value ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -386,7 +488,6 @@ class DashboardscreenController extends GetxController {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                
                 const SizedBox(height: 40),
 
                 Container(
@@ -411,8 +512,6 @@ class DashboardscreenController extends GetxController {
                     ),
                   ],
                 ),
-
-                
               ],
             ),
           ),
@@ -502,7 +601,6 @@ class DashboardscreenController extends GetxController {
         color: Colors.transparent,
         child: Stack(
           children: [
-            
             BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: Container(color: Colors.black.withOpacity(0.4)),
@@ -526,7 +624,7 @@ class DashboardscreenController extends GetxController {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          height32,
+                          height30,
                           Container(
                             width: 45,
                             height: 30,
@@ -554,11 +652,9 @@ class DashboardscreenController extends GetxController {
 
                           const SizedBox(height: 10),
 
-                          
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: const [
@@ -579,7 +675,6 @@ class DashboardscreenController extends GetxController {
                                 ],
                               ),
 
-                              
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
@@ -616,7 +711,6 @@ class DashboardscreenController extends GetxController {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Icon(

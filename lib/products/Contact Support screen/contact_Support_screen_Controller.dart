@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/widgets/app_snackbar.dart';
 
 class ContactSupportScreenController extends GetxController {
   final messageController = TextEditingController();
@@ -25,14 +26,10 @@ class ContactSupportScreenController extends GetxController {
 
   void sendTicket() async {
     if (messageController.text.trim().isEmpty) {
-      Get.snackbar(
-        "Empty Query",
+      AppSnackbar.warning(
         "Please enter details of your query or issue.",
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFF111111),
-        colorText: Colors.white,
-        borderRadius: 16,
-        margin: const EdgeInsets.all(16),
+        title: "Empty Query",
+        position: SnackPosition.BOTTOM,
       );
       return;
     }

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/app_bar_back_button.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/widgets/custombutton.dart';
 
 class TransactiondetailsView extends StatelessWidget {
   const TransactiondetailsView({super.key});
@@ -9,12 +15,10 @@ class TransactiondetailsView extends StatelessWidget {
     final Map<String, dynamic> args = Get.arguments ?? {};
     final tx = args["tx"] ?? {};
 
-    
     final String name = tx["name"]?.toString() ?? "Payment Reference";
     final String date = tx["date"]?.toString() ?? "Today";
     final double amountValue = (tx["amount"] as num?)?.toDouble().abs() ?? 0.0;
 
-    
     bool isCredit = false;
     if (tx.containsKey("isCredit")) {
       isCredit = tx["isCredit"] == true;
@@ -22,7 +26,6 @@ class TransactiondetailsView extends StatelessWidget {
       isCredit = (tx["amount"] as num) > 0;
     }
 
-    
     String status = "success";
     if (tx.containsKey("isFailed")) {
       status = (tx["isFailed"] == true) ? "failed" : "success";
@@ -30,260 +33,310 @@ class TransactiondetailsView extends StatelessWidget {
       status = tx["status"]?.toString().toLowerCase() ?? "success";
     }
 
-    
     Color statusColor;
     IconData statusIcon;
     String statusText;
     Color statusBgColor;
+
+    Color mainCircleColor;
+    IconData mainCircleIcon;
 
     if (status == "failed") {
       statusColor = const Color(0xFFC62828);
       statusIcon = Icons.cancel_rounded;
       statusText = "Failed";
       statusBgColor = const Color(0xFFFFEBEE);
+      mainCircleColor = const Color(0xFFE53935);
+      mainCircleIcon = Icons.close_rounded;
     } else if (status == "pending" || status == "processing") {
       statusColor = const Color(0xFFF57C00);
       statusIcon = Icons.watch_later_rounded;
       statusText = "Pending";
       statusBgColor = const Color(0xFFFFF3E0);
+      mainCircleColor = const Color(0xFFFFB300);
+      mainCircleIcon = Icons.hourglass_bottom_rounded;
     } else {
-      statusColor = const Color(0xFF2E7D32);
+      statusColor = const Color(0xFF059669);
       statusIcon = Icons.check_circle_rounded;
-      statusText = "Success";
-      statusBgColor = const Color(0xFFE8F5E9);
+      statusText = "Successful";
+      statusBgColor = const Color(0xFF059669).withOpacity(0.1);
+      mainCircleColor = const Color.fromARGB(226, 76, 175, 79);
+      mainCircleIcon = Icons.check_rounded;
     }
+
+    final String refId = "asd${tx.hashCode.abs()}-fd11-4f8d-9d9dfget5sd55sd";
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyActions: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Get.back(),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: appBarGradient),
         ),
-        centerTitle: false,
-        titleSpacing: 0,
-        title: const Text(
-          "Transaction Receipt",
+        elevation: 0,
+        leadingWidth: context.responsive(60),
+        leading: const AppBarBackButton(),
+        title: Text(
+          "Transactions Receipt",
           style: TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
+            color: Colors.black,
+            fontWeight: FontWeight.w700,
+            fontSize: context.responsive(18),
             letterSpacing: -0.5,
           ),
         ),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.responsive(24),
+            vertical: context.responsive(32),
+          ),
           child: Column(
             children: [
-              
+              // Concentric Status Circle
               Container(
+                height: context.responsive(100),
+                width: context.responsive(100),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: const Color(0xFFECECEC)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
+                  color: mainCircleColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Container(
+                  height: context.responsive(76),
+                  width: context.responsive(76),
+                  decoration: BoxDecoration(
+                    color: mainCircleColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    mainCircleIcon,
+                    color: Colors.white,
+                    size: context.responsive(44),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.responsive(24)),
+
+              // Name
+              Text(
+                name,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: context.responsive(22),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              SizedBox(height: context.responsive(8)),
+
+              // Amount
+              Text(
+                "${isCredit ? '+' : '-'}₹ ${amountValue.toStringAsFixed(2)}",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: context.responsive(32),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              SizedBox(height: context.responsive(12)),
+
+              // Status Pill
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.responsive(14),
+                  vertical: context.responsive(6),
+                ),
+                decoration: BoxDecoration(
+                  color: statusBgColor,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      statusIcon,
+                      color: statusColor,
+                      size: context.responsive(14),
+                    ),
+                    SizedBox(width: context.responsive(6)),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: context.responsive(12),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
+              ),
+              SizedBox(height: context.responsive(32)), // Details Receipt Card
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.grey.shade100, width: 1.5),
+                ),
                 child: Column(
                   children: [
-                    
-                    Padding(
-                      padding: const EdgeInsets.only(top: 28, left: 24, right: 24, bottom: 20),
-                      child: Column(
-                        children: [
-                          avatar(name),
-                          const SizedBox(height: 16),
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              color: Color(0xFF111111),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "${isCredit ? '+' : '-'} ₹${amountValue.toStringAsFixed(2)}",
-                            style: TextStyle(
-                              color: isCredit ? const Color(0xFF2E7D32) : const Color(0xFF111111),
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: statusBgColor,
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(color: statusColor.withOpacity(0.15)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(statusIcon, color: statusColor, size: 16),
-                                const SizedBox(width: 6),
-                                Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/referenceid.png",
+                      label: "Reference ID",
+                      value: refId,
+                      isRefId: true,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/datetime.png",
+                      label: "Date & Time",
+                      value: date,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/moneysent.png",
+                      label: "Payment Source",
+                      value: "Transcorp Wallet",
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/transactiontype.png",
+                      label: "Transaction Type",
+                      value: isCredit ? "Income Received" : "Money Spent",
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/standardfee.png",
+                      label: "Standard Fee",
+                      value: "-₹ 0.00",
+                    ),
+
+                    // Total Settled Footer
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(20),
+                        vertical: context.responsive(16),
                       ),
-                    ),
-
-                    
-                    Row(
-                      children: [
-                        Container(
-                          height: 20,
-                          width: 10,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topRight: Radius.circular(10),
-                              bottomRight: Radius.circular(10),
-                            ),
-                          ),
+                      decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
                         ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: List.generate(
-                                20,
-                                (index) => Expanded(
-                                  child: Container(
-                                    height: 1.5,
-                                    color: index % 2 == 0 ? Colors.transparent : const Color(0xFFECECEC),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: primaryYellow.withOpacity(0.3),
                         ),
-                        Container(
-                          height: 20,
-                          width: 10,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(10),
-                              bottomLeft: Radius.circular(10),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          _buildDetailRow("Transaction Type", isCredit ? "Income Received" : "Money Spent"),
-                          _buildDetailRow("Reference ID", "TXN${tx.hashCode.abs().toString().padRight(10).substring(0, 10).toUpperCase()}"),
-                          _buildDetailRow("Date & Time", date),
-                          _buildDetailRow("Payment Source", "TransWallet Digital"),
-                          _buildDetailRow("Standard Fee", "₹0.00"),
-                          const Divider(color: Color(0xFFECECEC), height: 32),
-                          Row(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 "Total Settled",
                                 style: TextStyle(
-                                  color: Color(0xFF6B7280),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                  fontSize: context.responsive(14),
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               Text(
-                                "₹${amountValue.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                  color: Color(0xFF111111),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
+                                "₹ ${amountValue.toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: context.responsive(14),
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: context.responsive(32)),
 
-              
-              GestureDetector(
-                onTap: () {
+              // Actions
+              CustomButton(
+                text: "Share Receipt",
+                btncolor: Colors.black,
+                textColor: Colors.white,
+                prefixIcon: const Icon(
+                  Icons.ios_share_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                borderRadius: 50,
+                onPressed: () {
                   Get.snackbar(
                     "Success",
                     "Receipt details shared successfully!",
                     snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: const Color(0xFF111111),
+                    backgroundColor: Colors.black87,
                     colorText: Colors.white,
-                    borderRadius: 16,
                     margin: const EdgeInsets.all(16),
                   );
                 },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    "Share Receipt",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: context.responsive(16)),
               GestureDetector(
                 onTap: () => Get.back(),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(
+                    vertical: context.responsive(16),
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFECECEC)),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(context.responsive(50)),
+                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
                   ),
                   alignment: Alignment.center,
-                  child: const Text(
+                  child: Text(
                     "Back to Transactions",
                     style: TextStyle(
-                      color: Color(0xFF111111),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontSize: context.responsive(14),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -295,77 +348,117 @@ class TransactiondetailsView extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(
+    BuildContext context, {
+    required String imageAsset,
+    required String label,
+    required String value,
+    bool isRefId = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsive(16),
+        vertical: context.responsive(12),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: isRefId
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: EdgeInsets.all(context.responsive(6)),
+            decoration: BoxDecoration(
+              color: lightprimaryred,
+              shape: BoxShape.circle,
+              border: Border.all(color: primaryYellow, width: 1.5),
+            ),
+            child: Image.asset(
+              imageAsset,
+              height: context.responsive(20),
+              width: context.responsive(20),
+              fit: BoxFit.contain,
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFF111111),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
+          SizedBox(width: context.responsive(12)),
+          Expanded(
+            child: isRefId
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: context.responsive(12),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              value,
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: context.responsive(13),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: context.responsive(8)),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: value));
+                          Get.snackbar(
+                            "Copied",
+                            "Reference ID copied to clipboard",
+                            snackPosition: SnackPosition.BOTTOM,
+                            backgroundColor: Colors.black87,
+                            colorText: Colors.white,
+                            margin: const EdgeInsets.all(16),
+                            duration: const Duration(seconds: 2),
+                          );
+                        },
+                        child: Icon(
+                          Icons.copy_rounded,
+                          size: context.responsive(18),
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: context.responsive(14),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(width: context.responsive(12)),
+                      Flexible(
+                        child: Text(
+                          value,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: context.responsive(14),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget avatar(String name) {
-    final lowerName = name.toLowerCase();
-    IconData iconData = Icons.payment_rounded;
-    List<Color> gradientColors = [
-      const Color(0xFF424242),
-      const Color(0xFF212121),
-    ];
-
-    if (lowerName.contains("zomato")) {
-      iconData = Icons.restaurant_rounded;
-      gradientColors = [const Color(0xFFE53935), const Color(0xFFB71C1C)];
-    } else if (lowerName.contains("blinkit")) {
-      iconData = Icons.shopping_bag_rounded;
-      gradientColors = [const Color(0xFF43A047), const Color(0xFF1B5E20)];
-    } else if (lowerName.contains("jane") ||
-        lowerName.contains("doe") ||
-        lowerName.contains("transfer") ||
-        lowerName.contains("receive")) {
-      iconData = Icons.swap_horiz_rounded;
-      gradientColors = [const Color(0xFF1E88E5), const Color(0xFF0D47A1)];
-    } else {
-      iconData = Icons.wallet_rounded;
-      gradientColors = [const Color(0xFF757575), const Color(0xFF424242)];
-    }
-
-    return Container(
-      height: 64,
-      width: 64,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors[0].withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Icon(iconData, color: Colors.white, size: 28),
     );
   }
 }

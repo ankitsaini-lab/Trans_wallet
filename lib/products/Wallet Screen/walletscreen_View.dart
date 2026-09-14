@@ -1,19 +1,22 @@
 import 'dart:async';
+import 'package:transwallet/widgets/notification_button.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Wallet%20Screen/walletscreen_Controller.dart';
+import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/products/Notification%20screen/notification_View.dart';
+import 'package:transwallet/widgets/user_avatar.dart';
+import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/services/api_service.dart';
 
 class WalletscreenView extends GetView<WalletscreenController> {
   const WalletscreenView({super.key});
-
-  static const Color primaryRed = Color(0xFFE53935);
-  static const Color secondaryRed = Color(0xFFFF6B6B);
-  static const Color textColor = Color(0xFF111111);
-  static const Color secondaryText = Color(0xFF6B7280);
-  static const Color borderColor = Color(0xFFECECEC);
-  static const Color backgroundColor = Color(0xFFFFFFFF);
 
   @override
   Widget build(BuildContext context) {
@@ -21,704 +24,474 @@ class WalletscreenView extends GetView<WalletscreenController> {
       Get.lazyPut(() => WalletscreenController());
     }
 
+    final box = GetStorage();
+    final hour = DateTime.now().hour;
+    String greeting = "Good Evening";
+    if (hour < 12) {
+      greeting = "Good Morning";
+    } else if (hour < 17) {
+      greeting = "Good Afternoon";
+    }
+
     return Scaffold(
-      backgroundColor: backgroundColor,
-      bottomNavigationBar: GlobalbottombarView(seletedIndex: 1.obs),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 15),
-
-                _animateWidget(delayIndex: 0, child: _buildHeader()),
-                const SizedBox(height: 15),
-                _animateWidget(
-                  delayIndex: 1,
-                  child: Obx(() {
-                    if (controller.wallets.isEmpty) return const SizedBox();
-                    return _PrimaryGeneralWalletCard(
-                      wallet: controller.wallets[0],
-                    );
-                  }),
-                ),
-                const SizedBox(height: 36),
-
-                
-                _animateWidget(delayIndex: 2, child: _buildOtherWallets()),
-                const SizedBox(height: 36),
-              ],
-            ),
-          ),
+      extendBody: true,
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: context.responsive(80),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Digital Wallet",
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w800,
-              fontSize: 24,
-              letterSpacing: -0.5,
-            ),
-          ),
-          Obx(() {
-            final isRevealed = controller.isBalanceRevealed.value;
-            return GestureDetector(
-              onTap: () {
-                if (isRevealed) {
-                  controller.hideBalance();
-                } else {
-                  Get.bottomSheet(
-                    _MpinVerifySheet(
-                      onSuccess: () => controller.revealBalance(),
-                      title: "Enter MPIN to View Balance",
-                      subtitle: "For your security, enter your 4-digit mobile PIN",
-                    ),
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: primaryRed.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: primaryRed.withOpacity(0.12)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: appBarGradient),
+        ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                UserAvatar(
+                  size: context.responsive(48),
+                  // border: Border.all(color: Colors.white, width: 2),
                 ),
-                child: Row(
+                SizedBox(width: context.responsive(12)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      isRevealed ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                      color: primaryRed,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
                     Text(
-                      isRevealed ? "Hide Balances" : "Show Balances",
-                      style: const TextStyle(
-                        color: primaryRed,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                      greeting,
+                      style: TextStyle(
+                        color: const Color(0xFF6B7280),
+                        fontSize: context.responsive(13),
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    Text(
+                      box.read('name') ?? "User",
+                      style: TextStyle(
+                        color: const Color.fromRGBO(0, 0, 0, 1),
+                        fontWeight: FontWeight.w800,
+                        fontSize: context.responsive(20),
+                        letterSpacing: -0.4,
                       ),
                     ),
                   ],
                 ),
-              ),
-            );
-          }),
-        ],
+              ],
+            ),
+            const NotificationButton(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: GlobalbottombarView(seletedIndex: 1.obs),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: 120,
+        ),
+        child: Column(
+          children: [
+            _buildTotalBalanceCard(context),
+            height30,
+            _buildWalletList(context),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildOtherWallets() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Text(
-              "Other Wallets",
-              style: TextStyle(
-                color: textColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: primaryRed.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                "Top up using General Wallet",
-                style: TextStyle(
-                  color: primaryRed,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Obx(() {
-          final _ = controller
-              .expandedIndex
-              .value; 
-          if (controller.wallets.length <= 1) return const SizedBox();
+  Widget _buildTotalBalanceCard(BuildContext context) {
+    return Obx(() {
+      final isRevealed = controller.isBalanceRevealed.value;
+      double totalBalance = 0;
+      for (var w in controller.wallets) {
+        totalBalance += (w["balance"] as num?)?.toDouble() ?? 0.0;
+      }
 
-          return ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: controller.wallets.length - 1,
-            itemBuilder: (context, i) {
-              final int actualIndex = i + 1;
-              final wallet = controller.wallets[actualIndex];
-              final isExpanded = controller.expandedIndex.value == actualIndex;
+      return GestureDetector(
+        onTap: () async {
+          if (isRevealed) {
+            controller.hideBalance();
+          } else {
+            if (Get.isRegistered<BiometricService>()) {
+              final bioService = BiometricService.to;
+              if (bioService.isBiometricAvailable &&
+                  bioService.isBiometricEnabled.value) {
+                final result = await bioService.authenticate(
+                  localizedReason: "Authenticate to view total balance",
+                );
+                if (result.success) {
+                  controller.revealBalance();
+                  return;
+                }
+              }
+            }
 
-              return GestureDetector(
-                onTap: () => controller.expandedIndex.value = isExpanded
-                    ? -1
-                    : actualIndex,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: borderColor, width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: primaryRed.withOpacity(0.1),
-                                width: 1,
-                              ),
-                              image: DecorationImage(
-                                image: AssetImage(wallet["icon"].toString()),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  wallet["title"].toString(),
-                                  style: const TextStyle(
-                                    color: textColor,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                const Text(
-                                  "Available Balance",
-                                  style: TextStyle(
-                                    color: secondaryText,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              if (controller.isBalanceRevealed.value) {
-                                controller.hideBalance();
-                              } else {
-                                Get.bottomSheet(
-                                  _MpinVerifySheet(
-                                    onSuccess: () => controller.revealBalance(),
-                                    title: "Enter MPIN to View Balance",
-                                    subtitle: "For your security, enter your 4-digit mobile PIN",
-                                  ),
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                );
-                              }
-                            },
-                            child: Obx(() {
-                              final isRevealed = controller.isBalanceRevealed.value;
-                              return AnimatedCrossFade(
-                                firstChild: const Text(
-                                  "₹ ••••",
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.5,
-                                  ),
-                                ),
-                                secondChild: Text(
-                                  "₹${wallet["balance"]}",
-                                  style: const TextStyle(
-                                    color: textColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                crossFadeState: isRevealed
-                                    ? CrossFadeState.showSecond
-                                    : CrossFadeState.showFirst,
-                                duration: const Duration(milliseconds: 250),
-                              );
-                            }),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            isExpanded
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            color: secondaryText,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                      if (isExpanded) ...[
-                        const SizedBox(height: 20),
-                        const Divider(
-                          color: borderColor,
-                          height: 1,
-                          thickness: 1,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            _buildSubWalletActionButton(
-                              "Top-up",
-                              Icons.account_balance_wallet_rounded,
-                              onTap: () {
-                                Get.bottomSheet(
-                                  const AddmoneyView(showGeneralWalletOption: true),
-                                  isScrollControlled: true,
-                                  isDismissible: false,
-                                  enableDrag: false,
-                                  backgroundColor: Colors.transparent,
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            _buildSubWalletActionButton(
-                              "Transactions",
-                              Icons.history_rounded,
-                              onTap: () {
-                                Get.toNamed(
-                                  "/walletdetails",
-                                  arguments: {"data": wallet},
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildSubWalletActionButton(
-    String text,
-    IconData icon, {
-    VoidCallback? onTap,
-  }) {
-    return Expanded(
-      child: _PressableScale(
-        onTap: onTap ?? () {},
+            Get.bottomSheet(
+              _MpinVerifySheet(
+                onSuccess: () => controller.revealBalance(),
+                title: "Enter MPIN to View Balance",
+                subtitle:
+                    "For your security, enter your 4-digit mobile PIN or use biometrics",
+              ),
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+            );
+          }
+        },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          width: double.infinity,
+          height: context.responsive(150),
           decoration: BoxDecoration(
-            color: primaryRed.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: primaryRed.withOpacity(0.15)),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: primaryRed, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                text,
-                style: const TextStyle(
-                  color: primaryRed,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
+            // gradient: topBackgroundGradient,
+            borderRadius: BorderRadius.circular(context.responsive(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
+          child: Stack(
+            children: [
+              Positioned(
+                right: 0,
+                bottom: 0,
+                left: 0,
 
-  
-  Widget _animateWidget({required int delayIndex, required Widget child}) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (delayIndex * 80)),
-      curve: Curves.easeOutQuad,
-      builder: (context, value, childWidget) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, (1 - value) * 20),
-            child: childWidget,
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-}
-
-class _PrimaryGeneralWalletCard extends StatefulWidget {
-  final Map wallet;
-  const _PrimaryGeneralWalletCard({required this.wallet});
-
-  @override
-  State<_PrimaryGeneralWalletCard> createState() =>
-      _PrimaryGeneralWalletCardState();
-}
-
-class _PrimaryGeneralWalletCardState extends State<_PrimaryGeneralWalletCard> {
-  final _controller = Get.find<WalletscreenController>();
-
-  void _toggleBalance() {
-    if (_controller.isBalanceRevealed.value) {
-      _controller.hideBalance();
-    } else {
-      _showMpinSheet();
-    }
-  }
-
-  void _reveal() {
-    _controller.revealBalance();
-  }
-
-  void _showMpinSheet() {
-    Get.bottomSheet(
-      _MpinVerifySheet(
-        onSuccess: _reveal,
-        title: "Enter MPIN to View Balance",
-        subtitle: "For your security, enter your 4-digit mobile PIN",
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const Color primaryRed = Color(0xFFE53935);
-    const Color textColor = Color(0xFF111111);
-    const Color secondaryText = Color(0xFF6B7280);
-    const Color borderColor = Color(0xFFECECEC);
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          colors: [
-            Colors.white,
-            Color(0xFFFFF5F5), 
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: primaryRed.withOpacity(0.02),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          
-          Positioned(
-            right: -25,
-            top: -25,
-            child: Container(
-              height: 130,
-              width: 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: primaryRed.withOpacity(0.03),
+                top: 0,
+                child: Image.asset(
+                  "assets/bgimagewallet.png",
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-          ),
-          Positioned(
-            left: -35,
-            bottom: -35,
-            child: Container(
-              height: 100,
-              width: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withOpacity(0.015),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Padding(
+                padding: EdgeInsets.all(context.responsive(24)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
+                        Text(
+                          "Total Balance",
+                          style: TextStyle(
+                            color: const Color(0xFF111111),
+                            fontSize: context.responsive(14),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: context.responsive(8)),
                         Container(
-                          height: 36,
-                          width: 36,
+                          padding: EdgeInsets.all(context.responsive(4)),
                           decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.05),
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: primaryRed.withOpacity(0.1),
-                              width: 1,
-                            ),
-                            image: DecorationImage(
-                              image: AssetImage(
-                                widget.wallet["icon"].toString(),
-                              ),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.wallet["title"].toString(),
-                              style: const TextStyle(
-                                color: textColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            const Text(
-                              "Wallet ID: GW-1045",
-                              style: TextStyle(
-                                color: secondaryText,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: primaryRed.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: primaryRed.withOpacity(0.12)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.star_rounded, color: primaryRed, size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            "Primary",
-                            style: TextStyle(
-                              color: primaryRed,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-
-                const Text(
-                  "Available Balance",
-                  style: TextStyle(
-                    color: secondaryText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Obx(() {
-                  final isRevealed = _controller.isBalanceRevealed.value;
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: _toggleBalance,
-                        behavior: HitTestBehavior.opaque,
-                        child: AnimatedCrossFade(
-                          firstChild: const Text(
-                            "₹ ••••••",
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                          secondChild: Text(
-                            "₹${widget.wallet["balance"]}",
-                            style: const TextStyle(
-                              color: textColor,
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.8,
-                            ),
-                          ),
-                          crossFadeState: isRevealed
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 250),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: _toggleBalance,
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: primaryRed.withOpacity(0.06),
                           ),
                           child: Icon(
                             isRevealed
                                 ? Icons.visibility_rounded
                                 : Icons.visibility_off_rounded,
-                            color: primaryRed,
-                            size: 20,
+                            size: context.responsive(14),
+                            color: Colors.black,
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                }),
-                const SizedBox(height: 15),
-                const Divider(color: borderColor, height: 1, thickness: 1),
-                const SizedBox(height: 15),
-
-                Row(
-                  children: [
-                    _buildCardAction(
-                      "Add Money",
-                      Icons.add_rounded,
-                      onTap: () {
-                        Get.bottomSheet(
-                          const AddmoneyView(showGeneralWalletOption: false),
-                          isScrollControlled: true,
-                          isDismissible: false,
-                          enableDrag: false,
-                          backgroundColor: Colors.transparent,
-                        );
-                      },
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    _buildCardAction(
-                      "Transactions",
-                      Icons.history,
-                      onTap: () {
-                        Get.toNamed(
-                          "/walletdetails",
-                          arguments: {"data": widget.wallet},
-                        );
-                      },
+                    SizedBox(height: context.responsive(8)),
+                    Text(
+                      isRevealed
+                          ? "₹ ${totalBalance.toStringAsFixed(2)}"
+                          : "₹ •••••••",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: context.responsive(28),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(12),
+                        vertical: context.responsive(6),
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(
+                          context.responsive(20),
+                        ),
+                        border: Border.all(color: Colors.black87, width: 1.2),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.pie_chart_outline_rounded,
+                            size: context.responsive(14),
+                            color: Colors.black,
+                          ),
+                          SizedBox(width: context.responsive(6)),
+                          Text(
+                            "Across ${controller.wallets.length} wallets",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: context.responsive(12),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardAction(String title, IconData icon, {VoidCallback? onTap}) {
-    return Expanded(
-      child: _PressableScale(
-        onTap: onTap ?? () {},
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: WalletscreenView.primaryRed.withOpacity(0.15),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: WalletscreenView.primaryRed, size: 20),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: WalletscreenView.textColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
+    });
+  }
+
+  Widget _buildWalletList(BuildContext context) {
+    return Obx(() {
+      if (controller.wallets.isEmpty) return const SizedBox();
+
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: controller.wallets.length,
+        itemBuilder: (context, i) {
+          final wallet = controller.wallets[i];
+
+          return Obx(() {
+            final isExpanded = controller.expandedIndex.value == i;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: GestureDetector(
+                onTap: () =>
+                    controller.expandedIndex.value = isExpanded ? -1 : i,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                    color: // wallet["bgColor"] ??
+                    isExpanded
+                        ? wallet["bgColor"]
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(context.responsive(20)),
+                    border: Border.all(
+                      color: // wallet["borderColor"] ??
+                      isExpanded
+                          ? wallet["borderColor"]
+                          : const Color(0xFFECECEC),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.all(context.responsive(16)),
+                        child: Row(
+                          children: [
+                            Container(
+                              alignment: Alignment.center,
+                              child: Image.asset(
+                                wallet["icon"].toString(),
+                                height: context.responsive(60),
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            SizedBox(width: context.responsive(16)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    wallet["title"].toString(),
+                                    style: TextStyle(
+                                      color: const Color(0xFF111111),
+                                      fontSize: context.responsive(15),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: context.responsive(4)),
+                                  Text(
+                                    wallet["subtitle"]?.toString() ?? "",
+                                    style: TextStyle(
+                                      color: const Color(0xFF9E9E9E),
+                                      fontSize: context.responsive(12),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  controller.isBalanceRevealed.value
+                                      ? "₹ ${(wallet["balance"] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00'}"
+                                      : "₹ •••••••",
+                                  style: TextStyle(
+                                    color: const Color(0xFF111111),
+                                    fontSize: context.responsive(16),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(width: context.responsive(8)),
+                                Icon(
+                                  isExpanded
+                                      ? Icons.keyboard_arrow_up_rounded
+                                      : Icons.keyboard_arrow_down_rounded,
+                                  color: Colors.black87,
+                                  size: context.responsive(20),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      if (isExpanded) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: List.generate(
+                              40,
+                              (index) => Expanded(
+                                child: Container(
+                                  height: 1,
+                                  color: index % 2 == 0
+                                      ? Colors.transparent
+                                      : Colors.black12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Get.bottomSheet(
+                                      const AddmoneyView(
+                                        showGeneralWalletOption: false,
+                                      ),
+                                      isScrollControlled: true,
+                                      isDismissible: false,
+                                      enableDrag: false,
+                                      backgroundColor: Colors.transparent,
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          wallet["buttonColor"] ??
+                                          const Color(0xFFFFEA66),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                          size: 16,
+                                          color: Colors.black,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          "Top Up",
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Get.toNamed(
+                                      '/walletdetails',
+                                      arguments: {'data': wallet},
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: Colors.black26),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.receipt_long_outlined,
+                                          size: 16,
+                                          color: Colors.black,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          "Transactions",
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          });
+        },
+      );
+    });
   }
 }
-
 
 class _MpinVerifySheet extends StatefulWidget {
   final VoidCallback onSuccess;
@@ -762,43 +535,85 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
     }
   }
 
-  void _biometricPress() {
-    setState(() {
-      _isVerifying = true;
-    });
-
-    Timer(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        Get.back();
-        widget.onSuccess();
-      }
-    });
-  }
-
-  void _verifyMpin() {
-    setState(() {
-      _isVerifying = true;
-    });
-
-    Timer(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        if (_mpin == "1234" || _mpin == "0000" || _mpin.length == 4) {
+  Future<void> _biometricPress() async {
+    if (_isVerifying) return;
+    if (Get.isRegistered<BiometricService>()) {
+      final bioService = BiometricService.to;
+      if (bioService.isBiometricAvailable && bioService.isBiometricEnabled.value) {
+        final result = await bioService.authenticate(
+          localizedReason: "Authenticate to view balance",
+        );
+        if (result.success && mounted) {
           Get.back();
           widget.onSuccess();
-        } else {
-          setState(() {
-            _mpin = "";
-            _isVerifying = false;
-            _hasError = true;
-          });
+          return;
         }
       }
+    }
+    if (mounted) {
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  Future<void> _verifyMpin() async {
+    setState(() {
+      _isVerifying = true;
+      _hasError = false;
     });
+
+    final box = GetStorage();
+    final String? savedMpin = box.read<String>('saved_mpin') ??
+        box.read('mpin')?.toString() ??
+        box.read('tx_pin')?.toString();
+
+    bool isCorrect = false;
+
+    if (savedMpin != null && savedMpin.isNotEmpty) {
+      isCorrect = (_mpin == savedMpin);
+    } else {
+      isCorrect = (_mpin == "1234" || _mpin == "0000");
+    }
+
+    if (!isCorrect && Get.isRegistered<ApiService>()) {
+      try {
+        final phone = box.read<String>('phone');
+        if (phone != null && phone.isNotEmpty) {
+          final response = await ApiService.to.postRequest<Map<String, dynamic>>(
+            '/api/v1/auth/mpin/login',
+            {"mobileNumber": phone, "mpin": _mpin},
+          );
+          if (response.status.isOk && response.body != null) {
+            final body = response.body!;
+            if (body['success'] == true || body['code'] == 'OK') {
+              isCorrect = true;
+              box.write('saved_mpin', _mpin);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (mounted) {
+      if (isCorrect) {
+        Get.back();
+        widget.onSuccess();
+      } else {
+        setState(() {
+          _mpin = "";
+          _isVerifying = false;
+          _hasError = true;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryRed = Color(0xFFE53935);
+    const Color primaryRed = Color(0xFFED292A);
     const Color textColor = Color(0xFF111111);
     const Color secondaryText = Color(0xFF6B7280);
 
@@ -830,12 +645,12 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: primaryRed.withOpacity(0.08),
+              color: primaryRed.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.shield_outlined,
-              color: primaryRed,
+              color: Color(0xFF111111),
               size: 28,
             ),
           ),
@@ -1005,7 +820,6 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
     );
   }
 }
-
 
 class _PressableScale extends StatefulWidget {
   final Widget child;

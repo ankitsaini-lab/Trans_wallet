@@ -5,7 +5,6 @@ import 'package:transwallet/products/Order%20Card%20screen/order%20card%20screen
 class ReviewOrderDetailsController extends GetxController {
   var amount = 150.obs;
 
-  
   final nameController = TextEditingController();
   final address1Controller = TextEditingController();
   final address2Controller = TextEditingController();
@@ -14,7 +13,6 @@ class ReviewOrderDetailsController extends GetxController {
   final stateController = TextEditingController();
   final countryController = TextEditingController(text: "India");
 
-  
   var name = ''.obs;
   var address1 = ''.obs;
   var address2 = ''.obs;
@@ -22,47 +20,58 @@ class ReviewOrderDetailsController extends GetxController {
   var city = ''.obs;
   var state = ''.obs;
 
-  
-  var cardGradient = <Color>[const Color(0xFF111111), const Color(0xFF2C2C2C)].obs;
-  var cardGlowColor = const Color(0xFFE53935).obs;
+  var cardGradient = <Color>[
+    const Color(0xFF111111),
+    const Color(0xFF2C2C2C),
+  ].obs;
+  var cardGlowColor = const Color(0xFFFFCC00).obs;
   var cardLabel = "Obsidian Limited".obs;
   var cardTextColor = Colors.white.obs;
   var cardSubColor = Colors.white70.obs;
+  var cardBgImage = 'assets/unioncardblack.webp'.obs;
+  var useBlackLogos = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    
+
     if (Get.isRegistered<OrdercardController>()) {
       final orderCtrl = Get.find<OrdercardController>();
       final activeStyle = orderCtrl.cardStyles[orderCtrl.activeCardIndex.value];
-      cardGradient.assignAll(activeStyle["colors"]);
+      cardGradient.assignAll(activeStyle["colors"] ?? [const Color(0xFF111111), const Color(0xFF2C2C2C)]);
       cardGlowColor.value = activeStyle["glowColor"];
       cardLabel.value = activeStyle["label"];
       cardTextColor.value = activeStyle["textColor"] ?? Colors.white;
       cardSubColor.value = activeStyle["subColor"] ?? Colors.white70;
+      cardBgImage.value =
+          activeStyle["bgImage"] ?? 'assets/unioncardblack.webp';
+      useBlackLogos.value = activeStyle["useBlackLogos"] ?? false;
       amount.value = orderCtrl.amount.value;
     }
 
-    
     nameController.addListener(() => name.value = nameController.text);
-    address1Controller.addListener(() => address1.value = address1Controller.text);
-    address2Controller.addListener(() => address2.value = address2Controller.text);
+    address1Controller.addListener(
+      () => address1.value = address1Controller.text,
+    );
+    address2Controller.addListener(
+      () => address2.value = address2Controller.text,
+    );
     pincodeController.addListener(() => pincode.value = pincodeController.text);
     cityController.addListener(() => city.value = cityController.text);
     stateController.addListener(() => state.value = stateController.text);
   }
 
-  
   String? get nameError {
     if (name.value.isEmpty) return null;
-    if (name.value.trim().length < 3) return "Name must be at least 3 characters";
+    if (name.value.trim().length < 3)
+      return "Name must be at least 3 characters";
     return null;
   }
 
   String? get address1Error {
     if (address1.value.isEmpty) return null;
-    if (address1.value.trim().length < 5) return "Address must be at least 5 characters";
+    if (address1.value.trim().length < 5)
+      return "Address must be at least 5 characters";
     return null;
   }
 
@@ -74,17 +83,18 @@ class ReviewOrderDetailsController extends GetxController {
 
   String? get cityError {
     if (city.value.isEmpty) return null;
-    if (city.value.trim().length < 2) return "City must be at least 2 characters";
+    if (city.value.trim().length < 2)
+      return "City must be at least 2 characters";
     return null;
   }
 
   String? get stateError {
     if (state.value.isEmpty) return null;
-    if (state.value.trim().length < 2) return "State must be at least 2 characters";
+    if (state.value.trim().length < 2)
+      return "State must be at least 2 characters";
     return null;
   }
 
-  
   bool get isFormValid {
     return name.value.trim().length >= 3 &&
         address1.value.trim().length >= 5 &&

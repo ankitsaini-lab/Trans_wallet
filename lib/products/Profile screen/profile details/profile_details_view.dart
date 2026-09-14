@@ -1,277 +1,286 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Profile%20screen/profile%20details/profile_details_Controller.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/user_avatar.dart';
+import 'package:transwallet/widgets/app_snackbar.dart';
 
 class ProfileDetailsView extends GetView<ProfileDetailsController> {
   const ProfileDetailsView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => ProfileDetailsController(),);
-return Scaffold(
-  backgroundColor: const Color(0xffF6F7FB),
-  body: Column(
-    children: [
+    Get.lazyPut(() => ProfileDetailsController());
 
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.only(
-          top: 60,
-          left: 20,
-          right: 20,
-          bottom: 30,
-        ),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xffD32F2F),
-              Color(0xFFD64550),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(30),
-            bottomRight: Radius.circular(30),
-          ),
-        ),
+    final Color backgroundColor = const Color(0xFFF9FAFB);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-
-            Row(
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
               children: [
-
-                GestureDetector(
-                  onTap: () {
-                    Get.back();
-                  },
+                ClipPath(
+                  clipper: _HeaderClipper(),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(.15),
-                      borderRadius: BorderRadius.circular(12),
+                    height: context.responsive(200),
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage("assets/dashboardbg.png"),
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.white,
+                    padding: EdgeInsets.only(
+                      top: context.responsive(50),
+                      left: context.responsive(16),
+                      right: context.responsive(16),
+                    ),
+                    alignment: Alignment.topCenter,
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () => Get.back(),
+                          child: Container(
+                            padding: EdgeInsets.all(context.responsive(8)),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(
+                                context.responsive(25),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.arrow_back_ios_new,
+                              color: Colors.black,
+                              size: context.responsive(18),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            "Profile Detail",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: context.responsive(18),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: context.responsive(40)),
+                      ],
                     ),
                   ),
                 ),
 
-                const Spacer(),
-
-                const Text(
-                  "Profile Detail",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                Positioned(
+                  bottom: context.responsive(-45),
+                  child: Obx(
+                    () => Container(
+                      padding: EdgeInsets.all(context.responsive(0)),
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.07),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: UserAvatar(
+                        size: context.responsive(100),
+                        name: controller.name.value,
+                        // border: Border.all(color: primaryYellow, width: 3),
+                      ),
+                    ),
                   ),
                 ),
-
-                const Spacer(),
-
-                const SizedBox(width: 40),
               ],
             ),
-
-            const SizedBox(height: 30),
-
-            Obx(
-              () => Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 45,
-                  backgroundImage: AssetImage(
-                    controller.profileImage.value,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
+            SizedBox(height: context.responsive(55)),
             Obx(
               () => Text(
                 controller.name.value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
+                style: TextStyle(
+                  color: const Color(0xFF111111),
+                  fontSize: context.responsive(22),
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-
-            const SizedBox(height: 6),
-
+            SizedBox(height: context.responsive(6)),
             Obx(
               () => Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.verified,size: 18,color: Colors.white.withOpacity(.9),),
+                  Icon(
+                    Icons.verified,
+                    size: context.responsive(18),
+                    color: Colors.green.shade600,
+                  ),
                   width4,
                   Text(
                     controller.accountverification.value,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(.9),
-                      fontSize: 14,
+                      color: Colors.green.shade600,
+                      fontSize: context.responsive(14),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                ],
+              ),
+            ),
+            SizedBox(height: context.responsive(30)),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.responsive(20)),
+              child: Column(
+                children: [
+                  Obx(
+                    () => controller.buildTile(
+                      context,
+                      icon: Icons.email_outlined,
+                      title: "Email Address",
+                      value: controller.email.value,
+                    ),
+                  ),
+                  Obx(
+                    () => controller.buildTile(
+                      context,
+                      icon: Icons.call_outlined,
+                      title: "Phone Number",
+                      value: controller.phone.value,
+                    ),
+                  ),
+                  Obx(
+                    () => controller.buildTile(
+                      context,
+                      icon: Icons.location_on_outlined,
+                      title: "Address",
+                      value: controller.address.value,
+                    ),
+                  ),
+                  SizedBox(height: context.responsive(15)),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.responsive(18),
+                      vertical: context.responsive(18),
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(
+                        context.responsive(20),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(.04),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(context.responsive(12)),
+                          decoration: BoxDecoration(
+                            color: primaryRed.withOpacity(.15),
+                            borderRadius: BorderRadius.circular(
+                              context.responsive(14),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.support_agent,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                        SizedBox(width: context.responsive(14)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Need Help?",
+                                style: TextStyle(
+                                  fontSize: context.responsive(16),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              SizedBox(height: context.responsive(4)),
+                              Text(
+                                "Contact our support team for quick help.",
+                                style: TextStyle(
+                                  fontSize: context.responsive(12),
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            AppSnackbar.info(
+                              "Contact Support Clicked",
+                              title: "Support",
+                              position: SnackPosition.BOTTOM,
+                            );
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.responsive(16),
+                              vertical: context.responsive(10),
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(
+                                context.responsive(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "Contact",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: context.responsive(40)),
                 ],
               ),
             ),
           ],
         ),
       ),
-
-      Expanded(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-
-              Obx(
-                () => controller.buildTile(
-                  icon: Icons.email_outlined,
-                  title: "Email Address",
-                  value: controller.email.value,
-                ),
-              ),
-
-              Obx(
-                () => controller.buildTile(
-                  icon: Icons.call_outlined,
-                  title: "Phone Number",
-                  value: controller.phone.value,
-                ),
-              ),
-
-              Obx(
-                () => controller.buildTile(
-                  icon: Icons.location_on_outlined,
-                  title: "Address",
-                  value: controller.address.value,
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 18,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.support_agent,
-                        color: Colors.red,
-                      ),
-                    ),
-
-                    const SizedBox(width: 14),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-
-                          const Text(
-                            "Need Help?",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          Text(
-                            "Contact our support team for quick help.",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    GestureDetector(
-                      onTap: () {
-                        Get.snackbar(
-                          "Support",
-                          "Contact Support Clicked",
-                          snackPosition:
-                              SnackPosition.BOTTOM,
-                          backgroundColor: Colors.red,
-                          colorText: Colors.white,
-                          margin: const EdgeInsets.all(14),
-                          borderRadius: 12,
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius:
-                              BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          "Contact",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ],
-  ),
-); 
+    );
   }
+}
+
+class _HeaderClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    Path path = Path();
+    path.lineTo(0, size.height - 40);
+    path.quadraticBezierTo(
+      size.width / 2,
+      size.height + 40,
+      size.width,
+      size.height - 40,
+    );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

@@ -1,14 +1,29 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/Send%20money%20screen/sendMoney_Controller.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_Controller.dart';
+import 'package:transwallet/utilities/getStorage.dart';
 
 class SendmoneyprocessController extends GetxController {
-  var balance = 1600.0.obs;
+  var balance = 0.0.obs;
   var enteredAmount = ''.obs;
   var isLoading = false.obs;
+  var selectedPreset = 0.obs;
+  var noteController = TextEditingController();
+
+  Map<String, String>? recipient;
+
+  @override
+  void onInit() {
+    super.onInit();
+    balance.value = (box.read('balance') ?? 1600).toDouble();
+    if (Get.arguments != null) {
+      recipient = Get.arguments as Map<String, String>;
+    }
+  }
 
   double get amount {
     String cleaned = enteredAmount.value.replaceAll(',', '');
@@ -16,7 +31,7 @@ class SendmoneyprocessController extends GetxController {
   }
 
   void setAmount(String value) {
-    log("check value >> $value");
+    selectedPreset.value = 0; // Clear preset selection when typing manually
     String current = enteredAmount.value;
 
     if (value == "back") {
@@ -34,75 +49,44 @@ class SendmoneyprocessController extends GetxController {
       return;
     }
 
-    enteredAmount.value += value;
+    if (enteredAmount.value.length < 8) {
+      // basic limit
+      enteredAmount.value += value;
+    }
   }
 
   void setPreset(int value) {
+    selectedPreset.value = value;
     enteredAmount.value = value.toString();
   }
 
-  Future<void> addMoney() async {
-    if (amount <= 0) return;
+  void proceedToPassword() {
+    if (amount > 0) {
+      // The design has a password screen instead of a bottom sheet
+      Get.toNamed(
+        '/SendMoneyPasswordView',
+        arguments: {
+          'amount': amount,
+          'recipient': recipient,
+          'note': noteController.text,
+        },
+      );
+    }
+  }
 
-    Get.bottomSheet(
-      MpinVerifySheetForPayment(
-        onSuccess: () => _executeSendMoney(),
-        title: "Verify MPIN to Transfer",
-        subtitle:
-            "Enter MPIN to authorize ₹${amount.toStringAsFixed(0)} transfer",
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
+  // We will keep these existing methods so it doesn't break anything calling them
+  Future<void> addMoney() async {
+    proceedToPassword();
   }
 
   Future<void> _executeSendMoney() async {
-    double addedAmount = amount;
-
-    Get.to(() => const PaymentProcessingScreen());
-
-    isLoading.value = true;
-
-    await Future.delayed(const Duration(seconds: 2));
-
-    balance.value += addedAmount;
-    enteredAmount.value = '';
-
-    isLoading.value = false;
-
-    Get.off(() => PaymentSuccessScreen(amount: addedAmount));
+    // Moved logic to password screen
   }
 
-  Widget keyButton(String value) {
-    return GestureDetector(
-      onTap: () => setAmount(value),
-      child: Container(
-        alignment: Alignment.center,
-        child: value == "back"
-            ? const Icon(Icons.backspace_outlined)
-            : Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget presetButton(String label, int value) {
-    return GestureDetector(
-      onTap: () => setPreset(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(label),
-      ),
-    );
+  @override
+  void onClose() {
+    noteController.dispose();
+    super.onClose();
   }
 }
 
@@ -117,7 +101,7 @@ class PaymentProcessingScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Color(0xFFE53935), strokeWidth: 3),
+            CircularProgressIndicator(color: primaryRed, strokeWidth: 3),
             SizedBox(height: 24),
             Text(
               "Processing Payment...",
@@ -172,7 +156,10 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
     _animController.forward();
 
     Future.delayed(const Duration(milliseconds: 2200), () {
-      Get.off(() => PaymentafterSuccessScreen(amount: widget.amount));
+      Get.offNamed(
+        '/payment_after_success',
+        arguments: {'amount': widget.amount},
+      );
     });
   }
 
@@ -190,7 +177,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            
             ScaleTransition(
               scale: _scaleAnimation,
               child: Container(
@@ -272,7 +258,6 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
   void initState() {
     super.initState();
 
-    
     final now = DateTime.now();
     final months = [
       "Jan",
@@ -298,7 +283,6 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
     final period = now.hour >= 12 ? "PM" : "AM";
     formattedDateTime = "$day $month $year • $hour:$minute $period";
 
-    
     final rand = DateTime.now().millisecondsSinceEpoch.toString();
     referenceId = "TXN${rand.substring(rand.length - 8)}";
 
@@ -362,20 +346,35 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
     final sendMoneyController = Get.isRegistered<SendmoneyController>()
         ? Get.find<SendmoneyController>()
         : null;
+    final processController = Get.isRegistered<SendmoneyprocessController>()
+        ? Get.find<SendmoneyprocessController>()
+        : null;
+
     String recipient = "Beneficiary";
     String paymentMode = "General Wallet";
 
-    if (sendMoneyController != null) {
-      if (sendMoneyController.istransferTypeP2P.value) {
-        String name = sendMoneyController.selectedContactName.value;
-        String phone = sendMoneyController.phoneController.text;
+    if (processController != null && processController.recipient != null) {
+      final rec = processController.recipient!;
+      String name = rec["name"] ?? "";
+      String phone = rec["phone"] ?? "";
+      String acc = rec["accountNumber"] ?? "";
+
+      if (phone.isNotEmpty) {
         recipient = name.isNotEmpty ? "$name ($phone)" : phone;
+      } else if (acc.isNotEmpty) {
+        String lastFour = acc.length > 4 ? acc.substring(acc.length - 4) : acc;
+        recipient = name.isNotEmpty
+            ? "$name (A/C ...$lastFour)"
+            : "(A/C ...$lastFour)";
+      } else if (name.isNotEmpty) {
+        recipient = name;
+      }
+    }
+
+    if (sendMoneyController != null) {
+      if (sendMoneyController.isP2PTransfer.value) {
         paymentMode = "P2P Mobile Transfer";
       } else {
-        String name = sendMoneyController.name.value;
-        String acc = sendMoneyController.accountNumber.value;
-        String lastFour = acc.length > 4 ? acc.substring(acc.length - 4) : acc;
-        recipient = "$name (A/C ...$lastFour)";
         paymentMode = "Bank Transfer";
       }
     }
@@ -389,7 +388,6 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
             children: [
               const Spacer(),
 
-              
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -428,7 +426,6 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
               ),
               const SizedBox(height: 28),
 
-              
               FadeTransition(
                 opacity: _textFadeAnim,
                 child: SlideTransition(
@@ -460,7 +457,6 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
               ),
               const SizedBox(height: 36),
 
-              
               FadeTransition(
                 opacity: _cardFadeAnim,
                 child: SlideTransition(
@@ -502,9 +498,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                         ),
                         GestureDetector(
                           onTap: () {
-                            Get.to(
-                              () => PaymentDetailsScreen(amount: widget.amount),
-                            );
+                            Get.toNamed('/payment_processing');
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -515,7 +509,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                                 const Text(
                                   "View Details",
                                   style: TextStyle(
-                                    color: Color(0xFFE53935),
+                                    color: Color(0xFF111111),
                                     fontSize: 14,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -523,7 +517,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                                 const Icon(
                                   Icons.arrow_forward_ios_rounded,
                                   size: 14,
-                                  color: Color(0xFFE53935),
+                                  color: Color(0xFF111111),
                                 ),
                               ],
                             ),
@@ -537,7 +531,6 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
 
               const Spacer(flex: 2),
 
-              
               FadeTransition(
                 opacity: _btnFadeAnim,
                 child: CustomButton(
@@ -595,6 +588,7 @@ class PaymentDetailsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        flexibleSpace: Container(decoration: const BoxDecoration(gradient: appBarGradient)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.black),
           onPressed: () => Get.back(),
@@ -602,13 +596,13 @@ class PaymentDetailsScreen extends StatelessWidget {
         title: const Text(
           "Payment Details",
           style: TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
+            color: Colors.black,
+            fontWeight: FontWeight.w500,
+            fontSize: 20,
+            letterSpacing: 0,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
       ),
@@ -618,7 +612,6 @@ class PaymentDetailsScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             children: [
-              
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFFF9F9F9),
@@ -634,7 +627,6 @@ class PaymentDetailsScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    
                     Padding(
                       padding: const EdgeInsets.only(
                         top: 28,
@@ -684,7 +676,6 @@ class PaymentDetailsScreen extends StatelessWidget {
                       ),
                     ),
 
-                    
                     Row(
                       children: [
                         Container(
@@ -730,7 +721,6 @@ class PaymentDetailsScreen extends StatelessWidget {
                       ],
                     ),
 
-                    
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
@@ -899,7 +889,6 @@ class _PulsingBackgroundCirclesState extends State<PulsingBackgroundCircles>
         return Stack(
           alignment: Alignment.center,
           children: [
-            
             Transform.scale(
               scale: 1.0 + (_controller.value * 0.9),
               child: Opacity(
@@ -917,7 +906,7 @@ class _PulsingBackgroundCirclesState extends State<PulsingBackgroundCircles>
                 ),
               ),
             ),
-            
+
             Transform.scale(
               scale: 1.0 + (((_controller.value + 0.5) % 1.0) * 0.9),
               child: Opacity(
@@ -957,7 +946,6 @@ class ConfettiEffect extends StatelessWidget {
         final val = progress.value;
         if (val == 0.0) return const SizedBox();
 
-        
         return Stack(
           children: [
             _buildConfetti(val, const Offset(-45, -45), Colors.amber, 11, true),

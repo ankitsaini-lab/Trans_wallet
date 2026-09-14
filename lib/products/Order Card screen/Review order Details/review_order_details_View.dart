@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/app_bar_back_button.dart';
+import 'package:transwallet/widgets/notification_button.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Order%20Card%20screen/Review%20order%20Details/review_order_details_Controller.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/widgets/textfieldwidget.dart';
 
 class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
   const ReviewOrderDetailsView({super.key});
@@ -11,487 +18,421 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
   Widget build(BuildContext context) {
     Get.lazyPut(() => ReviewOrderDetailsController());
 
-    const Color secondaryText = Color(0xFF6B7280);
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isWideScreen = screenWidth > 768;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF9FAFB),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: Colors.black,
-            size: 22,
-          ),
-          onPressed: () => Get.back(),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: appBarGradient),
         ),
+        leadingWidth: context.responsive(60),
+        leading: const AppBarBackButton(),
         title: const Text(
           "Delivery Details",
           style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-            letterSpacing: -0.5,
-            ////value testing git
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
           ),
         ),
+        centerTitle: true,
+        actions: [
+          const NotificationButton(),
+          const SizedBox(width: 20),
+        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: _buildStepperProgress(),
-            ),
             Expanded(
-              child: isWideScreen
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    _buildHorizontalCardTile(),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader(
+                      Icons.person_outline_rounded,
+                      "Card Details",
+                    ),
+                    const SizedBox(height: 16),
+                    Obx(
+                      () => CustomTextField(
+                        label: "Name on Card",
+                        controller: controller.nameController,
+                        errorText: controller.nameError,
+                        keyboardType: TextInputType.name,
+                        hintText: "Enter First Name",
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                children: [
-                                  const SizedBox(height: 12),
-                                  _buildLiveCardPreview(),
-                                  const SizedBox(height: 20),
-                                  _buildExtraCardDetails(),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 32),
-
-                          Expanded(
-                            flex: 3,
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "SHIPPING INFORMATION",
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: secondaryText,
-                                      letterSpacing: 1.0,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _buildShippingForm(),
-                                  const SizedBox(height: 24),
-                                  _buildProceedButton(),
-                                  const SizedBox(height: 24),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader(
+                      Icons.location_on_outlined,
+                      "Delivery Address",
+                    ),
+                    const SizedBox(height: 16),
+                    Obx(
+                      () => CustomTextField(
+                        label: "Address Line 1",
+                        controller: controller.address1Controller,
+                        errorText: controller.address1Error,
+                        keyboardType: TextInputType.streetAddress,
+                        hintText: "Enter Address",
                       ),
-                    )
-                  : Column(
+                    ),
+                    const SizedBox(height: 16),
+                    CustomTextField(
+                      label: "Address Line 2 (Optional)",
+                      controller: controller.address2Controller,
+                      keyboardType: TextInputType.streetAddress,
+                      hintText: "Enter Address",
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Center(child: _buildLiveCardPreview()),
-                                const SizedBox(height: 28),
-                                const Text(
-                                  "SHIPPING INFORMATION",
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: secondaryText,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                _buildShippingForm(),
-                                const SizedBox(height: 32),
+                          child: Obx(
+                            () => CustomTextField(
+                              label: "Pincode",
+                              controller: controller.pincodeController,
+                              errorText: controller.pincodeError,
+                              keyboardType: TextInputType.number,
+                              hintText: "Enter Pincode",
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(6),
                               ],
                             ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: CustomTextField(
+                            label: "Country",
+                            controller: controller.countryController,
+                            enabled: false,
+                            hintText: "India",
                           ),
-                          child: _buildProceedButton(),
                         ),
                       ],
                     ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepperProgress() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE5E7EB).withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
-              SizedBox(width: 6),
-              Text(
-                "Design",
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 16),
-          Row(
-            children: [
-              Icon(Icons.circle, color: Colors.black, size: 10),
-              SizedBox(width: 6),
-              Text(
-                "Shipping",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 16),
-          Row(
-            children: [
-              Icon(Icons.circle_outlined, color: Colors.grey, size: 10),
-              SizedBox(width: 6),
-              Text(
-                "Payment",
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLiveCardPreview() {
-    return Obx(() {
-      final gradient = controller.cardGradient;
-      final glowColor = controller.cardGlowColor.value;
-      final cardLabel = controller.cardLabel.value;
-      final namePrinted = controller.name.value;
-      final textColor = controller.cardTextColor.value;
-      final subColor = controller.cardSubColor.value;
-
-      return Container(
-        height: 196,
-        width: 320,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            colors: gradient.isNotEmpty
-                ? gradient
-                : [const Color(0xFF111111), const Color(0xFF2C2C2C)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: glowColor.withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              top: -40,
-              right: -40,
-              child: Container(
-                height: 150,
-                width: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.04),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Obx(
+                            () => _buildDropdownField(
+                              label: "State",
+                              value: controller.state.value,
+                              onTap: _showStatePicker,
+                              errorText: controller.stateError,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Obx(
+                            () => _buildDropdownField(
+                              label: "City",
+                              value: controller.city.value,
+                              onTap: _showCityPicker,
+                              errorText: controller.cityError,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                 ),
               ),
             ),
-            Positioned(
-              bottom: -30,
-              left: -20,
-              child: Container(
-                height: 100,
-                width: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withValues(alpha: 0.06),
-                ),
-              ),
-            ),
-
             Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "TRANSWALLET",
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          cardLabel.toUpperCase(),
-                          style: TextStyle(
-                            color: subColor,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: _buildProceedButton(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        height: 28,
-                        width: 38,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFFECB3), Color(0xFFE5C158)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(
-                        Icons.contactless_rounded,
-                        color: textColor.withValues(alpha: 0.7),
-                        size: 20,
-                      ),
-                    ],
-                  ),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "••••  ••••  ••••  8824",
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              namePrinted.isEmpty
-                                  ? "YOUR NAME HERE"
-                                  : namePrinted.toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: namePrinted.isEmpty
-                                    ? subColor.withValues(alpha: 0.6)
-                                    : textColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        "VISA",
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          fontStyle: FontStyle.italic,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ],
+  Widget _buildHorizontalCardTile() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFECECEC), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Obx(
+            () => Container(
+              width: 60,
+              height: 38,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                image: DecorationImage(
+                  image: AssetImage(controller.cardBgImage.value),
+                  fit: BoxFit.cover,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildShippingForm() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFECECEC), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.015),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Premium Card",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: primaryRed,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    "Selected",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: const BoxDecoration(
+              color: primaryRed,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, color: Colors.white, size: 14),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Obx(
-            () => _buildInputField(
-              label: "Name on Card",
-              controller: controller.nameController,
-              errorText: controller.nameError,
-              keyboardType: TextInputType.name,
-              prefixIcon: Icons.badge_rounded,
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: primaryRed.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 16, color: const Color(0xFF111111)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+    String? errorText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: errorText != null ? Colors.red : const Color(0xFFECECEC),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  value.isEmpty ? "Select" : value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: value.isEmpty
+                        ? FontWeight.normal
+                        : FontWeight.bold,
+                    color: value.isEmpty
+                        ? const Color(0xFF9CA3AF)
+                        : const Color(0xFF111111),
+                  ),
+                ),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFF6B7280),
+                  size: 20,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          Obx(
-            () => _buildInputField(
-              label: "Address Line 1",
-              controller: controller.address1Controller,
-              errorText: controller.address1Error,
-              keyboardType: TextInputType.streetAddress,
-              prefixIcon: Icons.home_rounded,
+        ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText,
+            style: const TextStyle(
+              color: Colors.red,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildInputField(
-            label: "Address Line 2 (Optional)",
-            controller: controller.address2Controller,
-            keyboardType: TextInputType.streetAddress,
-            prefixIcon: Icons.location_city_rounded,
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Obx(
-                  () => _buildInputField(
-                    label: "Pincode",
-                    controller: controller.pincodeController,
-                    errorText: controller.pincodeError,
-                    keyboardType: TextInputType.number,
-                    prefixIcon: Icons.pin_drop_rounded,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Obx(
-                  () => _buildInputField(
-                    label: "City",
-                    controller: controller.cityController,
-                    errorText: controller.cityError,
-                    keyboardType: TextInputType.text,
-                    prefixIcon: Icons.map_rounded,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Obx(
-                  () => _buildInputField(
-                    label: "State",
-                    controller: controller.stateController,
-                    errorText: controller.stateError,
-                    keyboardType: TextInputType.text,
-                    prefixIcon: Icons.explore_rounded,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _buildInputField(
-                  label: "Country",
-                  controller: controller.countryController,
-                  enabled: false,
-                  prefixIcon: Icons.flag_rounded,
-                ),
-              ),
-            ],
           ),
         ],
+      ],
+    );
+  }
+
+  void _showStatePicker() {
+    final states = [
+      "Delhi",
+      "Maharashtra",
+      "Karnataka",
+      "Rajasthan",
+      "Uttar Pradesh",
+      "Tamil Nadu",
+      "Gujarat",
+      "West Bengal",
+      "Telangana",
+      "Punjab",
+    ];
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Select State",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: states.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text(states[index]),
+                    onTap: () {
+                      controller.stateController.text = states[index];
+                      Get.back();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCityPicker() {
+    final cities = [
+      "New Delhi",
+      "Mumbai",
+      "Bengaluru",
+      "Jaipur",
+      "Noida",
+      "Chennai",
+      "Pune",
+      "Ahmedabad",
+      "Kolkata",
+      "Hyderabad",
+    ];
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Select City",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: cities.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text(cities[index]),
+                    onTap: () {
+                      controller.cityController.text = cities[index];
+                      Get.back();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -500,15 +441,9 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
     return Obx(() {
       final isEnabled = controller.isFormValid;
       return CustomButton(
-        text: "Proceed to pay ₹${controller.amount.value}",
-        btncolor: isEnabled ? Colors.black : Colors.grey.shade400,
-        suffixIcon: isEnabled
-            ? const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-                size: 18,
-              )
-            : null,
+        text: "Continue to Review",
+        btncolor: isEnabled ? primaryRed : Colors.grey.shade300,
+        textColor: isEnabled ? Colors.white : Colors.grey.shade600,
         onPressed: () {
           if (isEnabled) {
             Get.toNamed('/paymentmethod');
@@ -516,115 +451,5 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
         },
       );
     });
-  }
-
-  Widget _buildExtraCardDetails() {
-    return Container(
-      width: 320,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFECECEC), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.005),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.security_rounded, color: Colors.black, size: 18),
-              SizedBox(width: 8),
-              Text(
-                "Secure Verification",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111111),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Please ensure the name on the card matches your official government ID. Shipping takes 5-7 business days.",
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required String label,
-    required TextEditingController controller,
-    String? errorText,
-    TextInputType keyboardType = TextInputType.text,
-    IconData? prefixIcon,
-    bool enabled = true,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF111111),
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(
-          color: Color(0xFF6B7280),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        errorText: errorText,
-        errorStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-        filled: true,
-        fillColor: enabled ? const Color(0xFFF9FAFB) : const Color(0xFFF3F4F6),
-        prefixIcon: prefixIcon != null
-            ? Icon(
-                prefixIcon,
-                color: enabled
-                    ? const Color(0xFF6B7280)
-                    : const Color(0xFF9CA3AF),
-                size: 16,
-              )
-            : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFECECEC), width: 1.5),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFECECEC), width: 1.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.black, width: 1.5),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-      ),
-    );
   }
 }

@@ -26,6 +26,10 @@ class OnboardingscreenController extends GetxController {
     }
   }
 
+  void skip() {
+    goToWelcome();
+  }
+
   void goToWelcome() {
     Get.offAllNamed('/login_singupview');
   }
