@@ -125,7 +125,7 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Premium Card",
+                      "Prepaid Card",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,

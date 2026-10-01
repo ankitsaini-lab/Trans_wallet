@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "693939451746",
+    "project_id": "transwallet-b6b93",
+    "storage_bucket": "transwallet-b6b93.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:693939451746:android:56f0bd8a216df0f1e09e3b",
+        "android_client_info": {
+          "package_name": "com.trans.wallet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDszYeX3ebthRAvclvxxb5Yh-GDWJQYlxs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

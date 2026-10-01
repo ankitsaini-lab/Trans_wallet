@@ -6,6 +6,7 @@ import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Send%20money%20screen/send%20money%20process/sendMoney_Receipt_Controller.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 
 class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
@@ -227,15 +228,40 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
                         size: context.responsive(20),
                       ),
                       borderRadius: context.responsive(50),
-                      onPressed: () {
-                        Get.snackbar(
-                          "Success",
-                          "Receipt details shared successfully!",
-                          snackPosition: SnackPosition.BOTTOM,
-                          backgroundColor: Colors.black87,
-                          colorText: Colors.white,
-                          margin: EdgeInsets.all(context.responsive(16)),
+                      onPressed: () async {
+                        final String text =
+                            '''
+================================
+   TRANSWALLET PAYMENT RECEIPT  
+================================
+Recipient     : $recipientName
+Amount        : ₹$amountStr
+Date & Time   : $formattedDate
+Status        : Success
+================================
+Thank you for using Transwallet!
+'''
+                                .trim();
+                        Clipboard.setData(ClipboardData(text: text));
+                        HapticFeedback.lightImpact();
+                        final marginPadding = EdgeInsets.all(
+                          context.responsive(16),
                         );
+                        try {
+                          await Share.share(
+                            text,
+                            subject: 'Transwallet Payment Receipt',
+                          );
+                        } catch (_) {
+                          Get.snackbar(
+                            "Receipt Copied",
+                            "Receipt details copied to clipboard!",
+                            snackPosition: SnackPosition.BOTTOM,
+                            backgroundColor: Colors.black87,
+                            colorText: Colors.white,
+                            margin: marginPadding,
+                          );
+                        }
                       },
                     ),
                     SizedBox(height: context.responsive(16)),

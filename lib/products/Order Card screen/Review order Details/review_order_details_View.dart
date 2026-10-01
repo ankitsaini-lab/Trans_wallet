@@ -202,7 +202,7 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Premium Card",
+                  "Prepaid Card",
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,

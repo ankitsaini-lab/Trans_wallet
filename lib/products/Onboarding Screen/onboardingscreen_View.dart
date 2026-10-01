@@ -180,7 +180,7 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
         // Text Content
         Positioned(
           bottom: context.responsive(
-            130,
+            110,
           ), // Adjusted to sit above bottom navigation
           left: context.responsive(24),
           right: context.responsive(24),
@@ -230,7 +230,7 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
         ),
         // Text Content
         Positioned(
-          bottom: context.responsive(130),
+          bottom: context.responsive(110),
           left: context.responsive(24),
           right: context.responsive(24),
           child: Column(
@@ -279,7 +279,7 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
         ),
         // Text Content
         Positioned(
-          bottom: context.responsive(120),
+          bottom: context.responsive(100),
           left: context.responsive(24),
           right: context.responsive(24),
           child: Column(
@@ -314,7 +314,6 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
   }
 }
 
-// --- Lock Widget (Page 2) with Glassmorphic 3D styling ---
 class LockWidget extends StatelessWidget {
   const LockWidget({super.key});
 
@@ -337,14 +336,11 @@ class LockWidget extends StatelessWidget {
                   topLeft: Radius.circular(22),
                   topRight: Radius.circular(22),
                 ),
-                border: Border.all(
-                  color: const Color(0xFFB0B3B8), // Metallic silver
-                  width: 7,
-                ),
+                border: Border.all(color: const Color(0xFFB0B3B8), width: 7),
               ),
             ),
           ),
-          // Lock Body with Glossy Highlights
+
           Positioned(
             bottom: 4,
             child: Container(
@@ -375,7 +371,6 @@ class LockWidget extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  // Light Gloss Reflection
                   Positioned(
                     top: 2,
                     left: 2,
@@ -407,7 +402,6 @@ class LockWidget extends StatelessWidget {
   }
 }
 
-// --- PressableScale Widget for Premium Click Feedback ---
 class _PressableScale extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
@@ -436,7 +430,6 @@ class _PressableScaleState extends State<_PressableScale> {
   }
 }
 
-// --- KeyholePainter ---
 class KeyholePainter extends CustomPainter {
   final Color color;
 
@@ -450,13 +443,11 @@ class KeyholePainter extends CustomPainter {
 
     final path = Path();
 
-    // Top circle of the keyhole
     final radius = size.width / 2;
     path.addOval(
       Rect.fromCircle(center: Offset(size.width / 2, radius), radius: radius),
     );
 
-    // Bottom shape of the keyhole
     path.moveTo(size.width * 0.25, radius * 1.5);
     path.lineTo(size.width * 0.1, size.height);
     path.lineTo(size.width * 0.9, size.height);

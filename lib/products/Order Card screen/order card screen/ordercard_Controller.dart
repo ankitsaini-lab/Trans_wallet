@@ -8,16 +8,6 @@ class OrdercardController extends GetxController {
 
   final List<Map<String, dynamic>> cardStyles = [
     {
-      "name": "Premium Card",
-      "glowColor": primaryRed,
-      "label": "Obsidian Limited",
-      "textColor": Colors.white,
-      "subColor": Colors.white70,
-      "bgImage": 'assets/unioncardblack.png',
-      "useBlackLogos": false,
-      "isPopular": true,
-    },
-    {
       "name": "Prepaid Card",
       "glowColor": primaryRed,
       "label": "Gold Elite",

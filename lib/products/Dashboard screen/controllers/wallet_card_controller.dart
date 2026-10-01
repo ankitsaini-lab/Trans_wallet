@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:transwallet/products/Dashboard screen/models/wallet_card_model.dart';
-import 'package:transwallet/products/Dashboard screen/widgets/card_popups.dart';
 import 'package:transwallet/services/api_service.dart';
 
 class WalletCardController extends GetxController {
@@ -75,28 +74,7 @@ class WalletCardController extends GetxController {
       return;
     }
 
-    final List<WalletCardModel> initialList = kCards.map((map) {
-      final colorsList = map['colors'] as List<Color>?;
-      return WalletCardModel(
-        id: map['id'] as String? ?? '1',
-        type: map['label'] as String? ?? 'Visa Card',
-        cardNumber: map['fullNumber'] as String? ?? '4532 8912 3456 7890',
-        cardHolder: holderName,
-        expiry: map['expiry'] as String? ?? '08/28',
-        brand: 'Visa',
-        primaryColor: colorsList != null && colorsList.isNotEmpty
-            ? colorsList.first
-            : const Color(0xFFFFCC00),
-        secondaryColor: colorsList != null && colorsList.length > 1
-            ? colorsList.last
-            : const Color(0xFF111111),
-        bgImage: map['bgImage'] as String? ?? 'assets/unioncardblack.webp',
-        useBlackLogos: map['useBlackLogos'] as bool? ?? false,
-        isBlocked: map['isBlocked'] as bool? ?? false,
-      );
-    }).toList();
-
-    cards.assignAll(initialList);
+    cards.clear();
   }
 
   Future<void> fetchCardsFromApi() async {

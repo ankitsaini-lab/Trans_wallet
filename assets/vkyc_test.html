@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video KYC Test Portal</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0F0F1A;
+      color: #FFFFFF;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      background: #1E1E2E;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 32px 24px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(255, 213, 0, 0.15);
+      color: #FFD500;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #9E9E9E;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+    .btn:active {
+      opacity: 0.8;
+    }
+    .btn-primary {
+      background: #E50914;
+      color: #FFFFFF;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #B0B0B0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .sim-info {
+      font-size: 11px;
+      color: #666;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Simulated Provider</div>
+    <h1>Video KYC Verification</h1>
+    <p>This is a simulated VKYC provider page for testing full end-to-end redirection and deep-link completion.</p>
+    
+    <button class="btn btn-primary" onclick="triggerVkyc('success')">Start / Complete VKYC</button>
+    <button class="btn btn-secondary" onclick="triggerVkyc('cancel')">Cancel VKYC</button>
+
+    <div class="sim-info">Transwallet VKYC Test Module</div>
+  </div>
+
+  <script>
+    function triggerVkyc(status) {
+      // 1. Try InAppWebView JavaScript Handler
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        window.flutter_inappwebview.callHandler('vkycAction', status);
+      }
+      // 2. Fallback to deep link navigation
+      window.location.href = 'transwallet://vkyc/' + status;
+    }
+  </script>
+</body>
+</html>
+

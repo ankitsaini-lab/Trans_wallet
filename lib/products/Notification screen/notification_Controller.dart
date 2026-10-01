@@ -1,39 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
-
+import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
 class NotificationController extends GetxController {
   var notifications = <Map<String, String>>[].obs;
+  var isLoading = false.obs;
+  var currentPage = 1.obs;
+  var totalPages = 1.obs;
 
   @override
   void onInit() {
     super.onInit();
-    loadNotifications();
+    fetchNotifications();
   }
 
-  void loadNotifications() {
-    notifications.addAll([
-      {
-        "title": "Order Confirmed",
-        "message": "Your order has been placed successfully.",
-        "time": "2 min ago",
-        "read": "false",
-      },
-      {
-        "title": "New Offer",
-        "message": "Get 20% off on your next purchase.",
-        "time": "10 min ago",
-        "read": "false",
-      },
-      {
-        "title": "Delivery Update",
-        "message": "Your package is out for delivery.",
-        "time": "1 hour ago",
-        "read": "false",
-      },
-    ]);
+  Future<void> fetchNotifications({bool isRefresh = false}) async {
+    if (isRefresh) {
+      currentPage.value = 1;
+    }
+    
+    isLoading.value = true;
+    try {
+      final res = await ApiService.to.fetchNotifications(
+        page: currentPage.value,
+        pageSize: 20,
+      );
+
+      if (res != null && res['items'] != null && res['items'] is List) {
+        final List rawItems = res['items'] as List;
+        final List<Map<String, String>> parsed = rawItems.map((item) {
+          final map = Map<String, dynamic>.from(item as Map);
+          return <String, String>{
+            "id": map['id']?.toString() ?? '',
+            "title": map['title']?.toString() ?? 'Notification',
+            "message": map['body']?.toString() ?? map['message']?.toString() ?? '',
+            "category": map['category']?.toString() ?? 'general',
+            "eventType": map['eventType']?.toString() ?? '',
+            "referenceType": map['referenceType']?.toString() ?? '',
+            "referenceId": map['referenceId']?.toString() ?? '',
+            "time": _formatTime(map['createdAt']?.toString()),
+            "read": map['read']?.toString() ?? 'false',
+          };
+        }).toList();
+
+        if (isRefresh) {
+          notifications.value = parsed;
+        } else {
+          notifications.value = parsed;
+        }
+
+        if (res['pagination'] != null && res['pagination'] is Map) {
+          totalPages.value = res['pagination']['totalPages'] ?? 1;
+        }
+      }
+    } catch (e) {
+      debugPrint("⚠️ [NotificationController] Error loading notifications: $e");
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  String _formatTime(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 'Just now';
+    try {
+      final dateTime = DateTime.parse(dateStr).toLocal();
+      final difference = DateTime.now().difference(dateTime);
+
+      if (difference.inMinutes < 1) return 'Just now';
+      if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+      if (difference.inHours < 24) return '${difference.inHours} hr ago';
+      if (difference.inDays < 7) return '${difference.inDays} days ago';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   void markAsRead(int index) {

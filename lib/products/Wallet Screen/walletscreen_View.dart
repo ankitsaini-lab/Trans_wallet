@@ -12,6 +12,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
+import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/api_service.dart';
 
@@ -52,37 +53,43 @@ class WalletscreenView extends GetView<WalletscreenController> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                UserAvatar(
-                  size: context.responsive(48),
-                  // border: Border.all(color: Colors.white, width: 2),
-                ),
-                SizedBox(width: context.responsive(12)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      greeting,
-                      style: TextStyle(
-                        color: const Color(0xFF6B7280),
-                        fontSize: context.responsive(13),
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                      ),
+            Expanded(
+              child: Row(
+                children: [
+                  UserAvatar(size: context.responsive(48)),
+                  SizedBox(width: context.responsive(12)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          greeting,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: const Color(0xFF6B7280),
+                            fontSize: context.responsive(13),
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                        Text(
+                          formatUserName(box.read('name')),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: const Color.fromRGBO(0, 0, 0, 1),
+                            fontWeight: FontWeight.w800,
+                            fontSize: context.responsive(16),
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      box.read('name') ?? "User",
-                      style: TextStyle(
-                        color: const Color.fromRGBO(0, 0, 0, 1),
-                        fontWeight: FontWeight.w800,
-                        fontSize: context.responsive(20),
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
             const NotificationButton(),
           ],
@@ -539,7 +546,8 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
     if (_isVerifying) return;
     if (Get.isRegistered<BiometricService>()) {
       final bioService = BiometricService.to;
-      if (bioService.isBiometricAvailable && bioService.isBiometricEnabled.value) {
+      if (bioService.isBiometricAvailable &&
+          bioService.isBiometricEnabled.value) {
         final result = await bioService.authenticate(
           localizedReason: "Authenticate to view balance",
         );
@@ -564,7 +572,8 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
     });
 
     final box = GetStorage();
-    final String? savedMpin = box.read<String>('saved_mpin') ??
+    final String? savedMpin =
+        box.read<String>('saved_mpin') ??
         box.read('mpin')?.toString() ??
         box.read('tx_pin')?.toString();
 
@@ -580,10 +589,11 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
       try {
         final phone = box.read<String>('phone');
         if (phone != null && phone.isNotEmpty) {
-          final response = await ApiService.to.postRequest<Map<String, dynamic>>(
-            '/api/v1/auth/mpin/login',
-            {"mobileNumber": phone, "mpin": _mpin},
-          );
+          final response = await ApiService.to
+              .postRequest<Map<String, dynamic>>('/api/v1/auth/mpin/login', {
+                "mobileNumber": phone,
+                "mpin": _mpin,
+              });
           if (response.status.isOk && response.body != null) {
             final body = response.body!;
             if (body['success'] == true || body['code'] == 'OK') {

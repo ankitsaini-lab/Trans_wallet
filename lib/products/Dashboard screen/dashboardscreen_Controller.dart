@@ -12,6 +12,8 @@ import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
+import 'package:transwallet/utilities/string_extensions.dart';
 
 class DashboardscreenController extends GetxController {
   RxBool isFlipped = false.obs;
@@ -45,10 +47,118 @@ class DashboardscreenController extends GetxController {
 
   final RxList<Map<String, dynamic>> recentTransactions = <Map<String, dynamic>>[].obs;
   final RxBool isTransactionsLoading = false.obs;
+  final RxBool isDashboardLoading = false.obs;
+
+  final RxString userName = ''.obs;
+  final RxString profilePictureUrl = ''.obs;
+
+  void loadUserData() {
+    final box = GetStorage();
+    final stored = box.read('name') ??
+        box.read('firstName') ??
+        box.read('userName');
+    userName.value = formatUserName(stored);
+
+    final pic = box.read('profilePictureUrl')?.toString() ?? '';
+    profilePictureUrl.value = pic;
+  }
+
+  Future<void> refreshDashboardData() async {
+    isDashboardLoading.value = true;
+    loadUserData();
+    try {
+      final List<Future> futures = [];
+      if (Get.isRegistered<ApiService>()) {
+        futures.add(ApiService.to.fetchUserProfile());
+        futures.add(ApiService.to.fetchWalletBalance());
+      }
+      futures.add(loadWalletBalance());
+      futures.add(fetchRecentTransactions());
+      futures.add(fetchTransactionAnalytics(
+        month: selectedAnalyticsMonth.value.isNotEmpty ? selectedAnalyticsMonth.value : null,
+      ));
+      if (Get.isRegistered<WalletCardController>()) {
+        futures.add(Get.find<WalletCardController>().fetchCardsFromApi());
+      }
+      await Future.wait(futures);
+      loadUserData();
+    } catch (e) {
+      log('Error refreshing dashboard data: $e');
+    } finally {
+      loadUserData();
+      isDashboardLoading.value = false;
+    }
+  }
 
   final RxDouble totalIncome = 0.0.obs;
   final RxDouble totalExpenses = 0.0.obs;
   final RxDouble totalSavings = 0.0.obs;
+  final RxString selectedAnalyticsMonth = ''.obs;
+  final RxList<Map<String, dynamic>> weeklyAnalytics = <Map<String, dynamic>>[].obs;
+  final RxBool isAnalyticsLoading = false.obs;
+
+  String get selectedAnalyticsMonthDisplay {
+    if (selectedAnalyticsMonth.value.isEmpty) return "This Month";
+    try {
+      final parts = selectedAnalyticsMonth.value.split('-');
+      if (parts.length == 2) {
+        final year = int.tryParse(parts[0]);
+        final monthInt = int.tryParse(parts[1]) ?? 1;
+        const monthNames = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        final now = DateTime.now();
+        if (now.year == year && now.month == monthInt) {
+          return "This Month";
+        }
+        return "${monthNames[monthInt - 1]} $year";
+      }
+    } catch (_) {}
+    return selectedAnalyticsMonth.value;
+  }
+
+  Future<void> fetchTransactionAnalytics({String? month}) async {
+    if (!Get.isRegistered<ApiService>()) return;
+    isAnalyticsLoading.value = true;
+    try {
+      final res = await ApiService.to.fetchTransactionAnalytics(month: month);
+      if (res != null) {
+        if (res['month'] != null) {
+          selectedAnalyticsMonth.value = res['month'].toString();
+        }
+        if (res['totals'] is Map) {
+          final totals = Map<String, dynamic>.from(res['totals'] as Map);
+          final num inc = (totals['income'] is num)
+              ? totals['income']
+              : num.tryParse(totals['income']?.toString() ?? '0') ?? 0;
+          final num exp = (totals['expenses'] is num)
+              ? totals['expenses']
+              : num.tryParse(totals['expenses']?.toString() ?? '0') ?? 0;
+          final num sav = (totals['savings'] is num)
+              ? totals['savings']
+              : num.tryParse(totals['savings']?.toString() ?? '0') ?? 0;
+
+          totalIncome.value = inc.toDouble();
+          totalExpenses.value = exp.toDouble();
+          totalSavings.value = sav.toDouble();
+        }
+
+        if (res['weekly'] is List) {
+          final List weeklyList = res['weekly'];
+          weeklyAnalytics.value = weeklyList
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+        } else {
+          weeklyAnalytics.clear();
+        }
+      }
+    } catch (e) {
+      log('Error fetching transaction analytics: $e');
+    } finally {
+      isAnalyticsLoading.value = false;
+    }
+  }
 
   Future<void> fetchRecentTransactions() async {
     if (!Get.isRegistered<ApiService>()) return;
@@ -121,14 +231,15 @@ class DashboardscreenController extends GetxController {
         }
 
         recentTransactions.value = parsedList;
-        totalIncome.value = calcIncome;
-        totalExpenses.value = calcExpenses;
-        totalSavings.value = (calcIncome - calcExpenses) > 0 ? (calcIncome - calcExpenses) : 0.0;
+
+        // Fallback calculation only if analytics totals have not been loaded yet
+        if (totalIncome.value == 0.0 && totalExpenses.value == 0.0 && totalSavings.value == 0.0) {
+          totalIncome.value = calcIncome;
+          totalExpenses.value = calcExpenses;
+          totalSavings.value = (calcIncome - calcExpenses) > 0 ? (calcIncome - calcExpenses) : 0.0;
+        }
       } else {
         recentTransactions.value = [];
-        totalIncome.value = 0.0;
-        totalExpenses.value = 0.0;
-        totalSavings.value = 0.0;
       }
     } catch (e) {
       log('Error fetching recent transactions in DashboardscreenController: $e');
@@ -149,6 +260,7 @@ class DashboardscreenController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    loadUserData();
     scrollController.addListener(() {
       if (scrollController.hasClients) {
         final offset = scrollController.offset;
@@ -164,10 +276,7 @@ class DashboardscreenController extends GetxController {
       }
     });
 
-    if (Get.isRegistered<ApiService>()) {
-      ApiService.to.fetchUserProfile();
-      fetchRecentTransactions();
-    }
+    refreshDashboardData();
   }
 
   @override

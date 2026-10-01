@@ -380,7 +380,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -409,7 +409,9 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF2E7D32).withOpacity(0.3),
+                            color: const Color(
+                              0xFF2E7D32,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 18,
                             offset: const Offset(0, 8),
                           ),
@@ -436,7 +438,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                         "Transfer Successful!",
                         style: TextStyle(
                           fontSize: 22,
-                          color: Color(0xFF111111),
+                          color: textColor,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
                         ),
@@ -446,7 +448,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                         "₹${widget.amount.toStringAsFixed(2)}",
                         style: const TextStyle(
                           fontSize: 38,
-                          color: Color(0xFF111111),
+                          color: textColor,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1.0,
                         ),
@@ -464,16 +466,12 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                   child: Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [const Color(0xFFF9FBF9), Colors.white],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: const Color(0xFFECECEC)),
+                      border: Border.all(color: borderColor),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
+                          color: Colors.black.withValues(alpha: 0.03),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -484,17 +482,17 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                         rowItem("Recipient", recipient),
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Divider(color: Color(0xFFECECEC), height: 1),
+                          child: Divider(color: borderColor, height: 1),
                         ),
                         rowItem("Payment Type", paymentMode),
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Divider(color: Color(0xFFECECEC), height: 1),
+                          child: Divider(color: borderColor, height: 1),
                         ),
                         rowItem("Date & Time", formattedDateTime),
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Divider(color: Color(0xFFECECEC), height: 1),
+                          child: Divider(color: borderColor, height: 1),
                         ),
                         GestureDetector(
                           onTap: () {
@@ -503,21 +501,21 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             color: Colors.transparent,
-                            child: Row(
+                            child: const Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   "View Details",
                                   style: TextStyle(
-                                    color: Color(0xFF111111),
+                                    color: primaryRed,
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.arrow_forward_ios_rounded,
                                   size: 14,
-                                  color: Color(0xFF111111),
+                                  color: primaryRed,
                                 ),
                               ],
                             ),
@@ -535,7 +533,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                 opacity: _btnFadeAnim,
                 child: CustomButton(
                   text: "Go to Dashboard",
-                  btncolor: const Color(0xFF111111),
+                  btncolor: primaryRed,
                   onPressed: () {
                     Get.offAllNamed("/dashboard");
                   },
@@ -556,7 +554,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
         Text(
           title,
           style: const TextStyle(
-            color: Color(0xFF6B7280),
+            color: secondaryText,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -567,7 +565,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
             value,
             textAlign: TextAlign.right,
             style: const TextStyle(
-              color: Color(0xFF111111),
+              color: textColor,
               fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
@@ -588,7 +586,9 @@ class PaymentDetailsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        flexibleSpace: Container(decoration: const BoxDecoration(gradient: appBarGradient)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: appBarGradient),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.black),
           onPressed: () => Get.back(),

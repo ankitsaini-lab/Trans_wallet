@@ -7,6 +7,7 @@ import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
+import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
 
 class ProfilescreenView extends GetView<ProfilescreenController> {
@@ -64,6 +65,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                           onTap: () => controller.uploadProfilePicture(),
                           child: UserAvatar(
                             size: context.responsive(100),
+
                             imageUrl:
                                 controller.profilePictureUrl.value.isNotEmpty
                                 ? controller.profilePictureUrl.value
@@ -99,11 +101,13 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
             SizedBox(height: context.responsive(50)),
             Obx(
               () => Text(
-                controller.userName.value.isNotEmpty
-                    ? controller.userName.value
-                    : (box.read('name') ?? "User"),
+                formatUserName(
+                  controller.userName.value.isNotEmpty
+                      ? controller.userName.value
+                      : box.read('name'),
+                ),
                 style: TextStyle(
-                  fontSize: context.responsive(20),
+                  fontSize: context.responsive(18),
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
@@ -123,19 +127,19 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
             ),
             SizedBox(height: context.responsive(24)),
 
-            // Cards Section
-            _buildSection(
-              context,
-              title: "Cards",
-              children: [
-                _buildRow(
-                  context,
-                  iconAsset: "assets/ordernewcard.svg",
-                  title: "Order New Card",
-                  onTap: () => Get.toNamed('/ordercard'),
-                ),
-              ],
-            ),
+            // // Cards Section
+            // _buildSection(
+            //   context,
+            //   title: "Cards",
+            //   children: [
+            //     _buildRow(
+            //       context,
+            //       iconAsset: "assets/ordernewcard.svg",
+            //       title: "Order New Card",
+            //       onTap: () => Get.toNamed('/ordercard'),
+            //     ),
+            //   ],
+            // ),
 
             // Account Section
             _buildSection(

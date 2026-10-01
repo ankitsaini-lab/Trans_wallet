@@ -121,11 +121,22 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     developer.log('[AppLockService] setPickingMedia: $active');
   }
 
+  /// Flag indicating payment flow / PG SDK is active
+  final RxBool isPaymentFlowActive = false.obs;
+
+  void setPaymentFlowActive(bool active) {
+    isPaymentFlowActive.value = active;
+    _backgroundTimer?.cancel();
+    _pausedTimestamp = null;
+    _isBackgrounded = false;
+    developer.log('[AppLockService] setPaymentFlowActive: $active');
+  }
+
   /// Checks whether app lock should trigger when backgrounded:
-  /// Only activates when the user is logged in and media picker is NOT active.
+  /// Only activates when the user is logged in and media picker / payment flow is NOT active.
   bool get canAppLock {
-    // Media picker active override
-    if (isPickingMedia.value) return false;
+    // Media picker or payment flow active override
+    if (isPickingMedia.value || isPaymentFlowActive.value) return false;
 
     // Developer test mode override
     if (_storage.read<bool>('app_lock_test_mode') == true) return true;

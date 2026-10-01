@@ -48,6 +48,11 @@ import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/services/firebase_service.dart';
+import 'package:transwallet/services/deep_link_service.dart';
+import 'package:transwallet/modules/vkyc/bindings/vkyc_binding.dart';
+import 'package:transwallet/modules/vkyc/views/vkyc_test_view.dart';
+import 'package:transwallet/modules/vkyc/views/vkyc_webview_view.dart';
 import 'package:transwallet/widgets/app_lock_overlay.dart';
 import 'package:transwallet/products/developer/developer_screen.dart';
 
@@ -64,9 +69,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
 
-  // Initialize Auth, API, Biometric, and AppLock Services
+  // Initialize Auth, API, Firebase, DeepLink, Biometric, and AppLock Services
   Get.put(AuthService());
   Get.put(ApiService());
+  final firebaseService = Get.put(FirebaseService());
+  await firebaseService.init();
+  final deepLinkService = Get.put(DeepLinkService());
+  await deepLinkService.init();
   final biometricService = Get.put(BiometricService());
   await biometricService.init();
   final appLockService = Get.put(AppLockService());
@@ -169,9 +178,9 @@ class MyApp extends StatelessWidget {
       ),
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.noScaling,
-          ),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.noScaling),
           child: AppLockOverlay(child: child!),
         );
       },
@@ -184,10 +193,7 @@ class MyApp extends StatelessWidget {
           transition: Transition.fadeIn,
           transitionDuration: const Duration(milliseconds: 1000),
         ),
-        GetPage(
-          name: '/login',
-          page: () => const LoginSingupscreenView(),
-        ),
+        GetPage(name: '/login', page: () => const LoginSingupscreenView()),
         GetPage(
           name: '/login_singupview',
           page: () => const LoginSingupscreenView(),
@@ -292,9 +298,15 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/payment_receipt',
           page: () => PaymentReceiptView(
-            amount: Get.arguments['amount'],
-            balance: Get.arguments['balance'],
-            paymentMode: Get.arguments['paymentMode'],
+            amount: Get.arguments['amount'] ?? 0.0,
+            balance: Get.arguments['balance'] ?? 0.0,
+            paymentMode: Get.arguments['paymentMode'] ?? 'PayU PG',
+            status: Get.arguments['status'] ?? 'Success',
+            txnId: Get.arguments['txnId'],
+            transactionReference:
+                Get.arguments['transactionReference'] ?? Get.arguments['txnId'],
+            bankRefNo: Get.arguments['bankRefNo'],
+            message: Get.arguments['message'],
           ),
         ),
         GetPage(name: '/pay_bill', page: () => const PayBillScreen()),
@@ -319,6 +331,16 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/tuition_fees', page: () => const TuitionFeesScreen()),
         GetPage(name: '/profileview', page: () => const ProfilescreenView()),
         GetPage(name: '/developer', page: () => const DeveloperScreen()),
+        GetPage(
+          name: '/vkyc_test',
+          page: () => const VkycTestView(),
+          binding: VkycBinding(),
+        ),
+        GetPage(
+          name: '/vkyc_webview',
+          page: () => const VkycWebviewView(),
+          binding: VkycBinding(),
+        ),
       ],
     );
   }

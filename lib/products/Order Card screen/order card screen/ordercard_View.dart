@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:transwallet/widgets/notification_button.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Order%20Card%20screen/order%20card%20screen/ordercard_Controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
 import 'package:transwallet/widgets/constsize.dart';
@@ -47,86 +45,7 @@ class OrdercardView extends GetView<OrdercardController> {
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            SizedBox(height: context.responsive(30)),
-            // Tabs
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.responsive(20)),
-              child: Container(
-                padding: EdgeInsets.all(context.responsive(4)),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(context.responsive(30)),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Obx(
-                  () => Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => controller.activeCardIndex.value = 0,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.responsive(12),
-                            ),
-                            decoration: BoxDecoration(
-                              color: controller.activeCardIndex.value == 0
-                                  ? primaryRed
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(
-                                context.responsive(26),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                "Premium Card",
-                                style: TextStyle(
-                                  color: controller.activeCardIndex.value == 0
-                                      ? Colors.white
-                                      : Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: context.responsive(13),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => controller.activeCardIndex.value = 1,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.responsive(12),
-                            ),
-                            decoration: BoxDecoration(
-                              color: controller.activeCardIndex.value == 1
-                                  ? primaryRed
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(
-                                context.responsive(26),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                "Prepaid Card",
-                                style: TextStyle(
-                                  color: controller.activeCardIndex.value == 1
-                                      ? Colors.white
-                                      : Colors.black,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: context.responsive(13),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: context.responsive(20)),
+            SizedBox(height: context.responsive(16)),
             // Main Content Area
             Transform.translate(
               offset: const Offset(0, -5),

@@ -9,6 +9,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
+import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
 import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
@@ -29,6 +30,8 @@ import 'package:transwallet/products/Dashboard%20screen/widgets/all_cards_screen
 import 'package:transwallet/products/Dashboard%20screen/widgets/pay_bill_screen.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/services_more_screen.dart';
 
+import 'package:transwallet/widgets/app_snackbar.dart';
+
 class DashboardscreenView extends StatefulWidget {
   const DashboardscreenView({super.key});
 
@@ -37,144 +40,201 @@ class DashboardscreenView extends StatefulWidget {
 }
 
 class _DashboardscreenViewState extends State<DashboardscreenView> {
+  int _backPressCount = 0;
+  DateTime? _lastBackPressTime;
+
+  void _handleBackPress() {
+    final now = DateTime.now();
+    if (_lastBackPressTime == null ||
+        now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _backPressCount = 1;
+      _lastBackPressTime = now;
+      AppSnackbar.info("Press back 2 more times to exit app");
+      return;
+    }
+
+    _backPressCount++;
+    _lastBackPressTime = now;
+
+    if (_backPressCount == 2) {
+      AppSnackbar.info("Press back 1 more time to exit app");
+    } else if (_backPressCount >= 3) {
+      SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(DashboardscreenController());
     final String greeting = _getGreeting();
     final box = GetStorage();
 
-    return Scaffold(
-      extendBody: true,
-      backgroundColor: Colors.white,
-      bottomNavigationBar: GlobalbottombarView(seletedIndex: 0.obs),
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        toolbarHeight: context.responsive(80),
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-        ),
-        flexibleSpace: Obx(
-          () => AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            decoration: BoxDecoration(
-              gradient: controller.isScrolled.value
-                  ? appBarGradient
-                  : headerGradient,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPress();
+      },
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: Colors.white,
+        bottomNavigationBar: GlobalbottombarView(seletedIndex: 0.obs),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          toolbarHeight: context.responsive(80),
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+          flexibleSpace: Obx(
+            () => AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              decoration: BoxDecoration(
+                gradient: controller.isScrolled.value
+                    ? appBarGradient
+                    : headerGradient,
+              ),
             ),
           ),
-        ),
-        title: _animateWidget(
-          delayIndex: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const UserAvatar(size: 48),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          title: _animateWidget(
+            delayIndex: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
                     children: [
-                      Text(
-                        greeting,
-                        style: TextStyle(
-                          color: secondaryText,
-                          fontSize: context.responsive(13),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                      Text(
-                        box.read('name') ?? "User",
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: context.responsive(20),
-                          letterSpacing: -0.4,
+                      UserAvatar(size: 48),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              greeting,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: secondaryText,
+                                fontSize: context.responsive(13),
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
+                            Obx(
+                              () => Text(
+                                formatUserName(
+                                  controller.userName.value.isNotEmpty
+                                      ? controller.userName.value
+                                      : box.read('name'),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: context.responsive(16),
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-              Row(children: [const NotificationButton()]),
-            ],
+                ),
+                Row(children: [const NotificationButton()]),
+              ],
+            ),
           ),
         ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          controller: controller.scrollController,
-          physics: const BouncingScrollPhysics(),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 180,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.elliptical(400, 50),
-                  ),
-                  child: Image.asset(
-                    "assets/dashboardbg.png",
-                    fit: BoxFit.cover,
-                  ),
-                ),
+        body: SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            color: primaryRed,
+            backgroundColor: Colors.white,
+            onRefresh: () => controller.refreshDashboardData(),
+            child: SingleChildScrollView(
+              controller: controller.scrollController,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Divider(color: Color.fromRGBO(0, 0, 0, 0.1), height: 1),
-                    height40,
-
-                    _animateWidget(
-                      delayIndex: 1,
-                      child: const PremiumCardsSection(),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 180,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.elliptical(400, 50),
+                      ),
+                      child: Image.asset(
+                        "assets/dashboardbg.png",
+                        fit: BoxFit.cover,
+                      ),
                     ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Divider(color: Color.fromRGBO(0, 0, 0, 0.1), height: 1),
+                        height40,
 
-                    _animateWidget(delayIndex: 4, child: _buildKycBanner()),
-                    height30,
+                        _animateWidget(
+                          delayIndex: 1,
+                          child: const PremiumCardsSection(),
+                        ),
 
-                    _animateWidget(delayIndex: 2, child: _buildQuickActions()),
+                        _animateWidget(delayIndex: 4, child: _buildKycBanner()),
+                        height30,
 
-                    height30,
+                        _animateWidget(
+                          delayIndex: 2,
+                          child: _buildQuickActions(),
+                        ),
 
-                    _animateWidget(
-                      delayIndex: 3,
-                      child: _buildRechargeAndBillsSection(),
+                        // height30,
+
+                        // _animateWidget(
+                        //   delayIndex: 3,
+                        //   child: _buildRechargeAndBillsSection(),
+                        // ),
+                        height30,
+
+                        _animateWidget(
+                          delayIndex: 5,
+                          child: _buildAnalyticsSection(),
+                        ),
+
+                        height30,
+
+                        _animateWidget(
+                          delayIndex: 6,
+                          child: _buildRecentTransactionsSection(),
+                        ),
+
+                        // height30,
+
+                        // _animateWidget(
+                        //   delayIndex: 7,
+                        //   child: _buildOffersSection(),
+                        // ),
+                        SizedBox(height: context.responsive(140)),
+                      ],
                     ),
-
-                    height30,
-
-                    _animateWidget(
-                      delayIndex: 5,
-                      child: _buildAnalyticsSection(),
-                    ),
-
-                    height30,
-
-                    _animateWidget(
-                      delayIndex: 6,
-                      child: _buildRecentTransactionsSection(),
-                    ),
-
-                    height30,
-
-                    _animateWidget(delayIndex: 7, child: _buildOffersSection()),
-                    SizedBox(height: context.responsive(140)),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -644,6 +704,8 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   Widget _buildAnalyticsSection() {
+    final controller = Get.find<DashboardscreenController>();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -659,30 +721,41 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                 letterSpacing: 0,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 14,
-                    color: textColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "This Month",
-                    style: TextStyle(
+            GestureDetector(
+              onTap: () => _showAnalyticsMonthPicker(context, controller),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
                       color: textColor,
-                      fontSize: context.responsive(12),
-                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Obx(
+                      () => Text(
+                        controller.selectedAnalyticsMonthDisplay,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: context.responsive(12),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: textColor,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -712,49 +785,53 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                 child: SizedBox(
                   height: 100,
                   width: double.infinity,
-                  child: CustomPaint(painter: BezierChartPainter()),
+                  child: Obx(() {
+                    final weekly = controller.weeklyAnalytics;
+                    final List<double> values = [];
+                    if (weekly.isNotEmpty) {
+                      for (var w in weekly) {
+                        double val = 0.0;
+                        if (w['expenses'] != null && (w['expenses'] as num) > 0) {
+                          val = (w['expenses'] as num).toDouble();
+                        } else if (w['income'] != null && (w['income'] as num) > 0) {
+                          val = (w['income'] as num).toDouble();
+                        } else if (w['savings'] != null) {
+                          val = (w['savings'] as num).toDouble();
+                        }
+                        values.add(val);
+                      }
+                    }
+                    return CustomPaint(
+                      painter: BezierChartPainter(values: values),
+                    );
+                  }),
                 ),
               ),
               const SizedBox(height: 20),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "W1",
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: context.responsive(13),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      "W2",
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: context.responsive(13),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      "W3",
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: context.responsive(13),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      "W4",
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: context.responsive(13),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Obx(() {
+                  final weekly = controller.weeklyAnalytics;
+                  final List<String> labels = weekly.isNotEmpty
+                      ? weekly.map((w) => (w['label'] ?? '').toString()).toList()
+                      : ["W1", "W2", "W3", "W4"];
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: labels
+                        .map(
+                          (lbl) => Text(
+                            lbl,
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: context.responsive(13),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                }),
               ),
               const SizedBox(height: 16),
               Padding(
@@ -769,7 +846,6 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Obx(() {
-                  final controller = Get.find<DashboardscreenController>();
                   final incomeStr =
                       "₹${controller.totalIncome.value.toStringAsFixed(0)}";
                   final expenseStr =
@@ -803,6 +879,93 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showAnalyticsMonthPicker(
+    BuildContext context,
+    DashboardscreenController controller,
+  ) {
+    final now = DateTime.now();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    final List<Map<String, String>> options = [
+      {'label': 'This Month', 'val': ''}
+    ];
+
+    for (int i = 0; i < 12; i++) {
+      final date = DateTime(now.year, now.month - i, 1);
+      final monthStr =
+          "${date.year}-${date.month.toString().padLeft(2, '0')}";
+      final display = "${monthNames[date.month - 1]} ${date.year}";
+      if (i == 0) {
+        options[0]['val'] = monthStr;
+      } else {
+        options.add({'label': display, 'val': monthStr});
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Select Analytics Month",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, idx) {
+                    final opt = options[idx];
+                    final isSelected =
+                        controller.selectedAnalyticsMonth.value == opt['val'] ||
+                            (idx == 0 &&
+                                controller.selectedAnalyticsMonth.value.isEmpty);
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        opt['label']!,
+                        style: TextStyle(
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? primaryRed : Colors.black,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: primaryRed, size: 18)
+                          : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        controller.fetchTransactionAnalytics(
+                          month: opt['val'],
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -914,6 +1077,15 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           ),
           child: Obx(() {
             final controller = Get.find<DashboardscreenController>();
+            if (controller.isTransactionsLoading.value ||
+                controller.isDashboardLoading.value) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 36),
+                child: Center(
+                  child: CircularProgressIndicator(color: primaryRed),
+                ),
+              );
+            }
             final txList = controller.recentTransactions;
 
             if (txList.isEmpty) {

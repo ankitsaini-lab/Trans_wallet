@@ -76,7 +76,7 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "Your Premium Card has been successfully ordered.",
+                    "Your Prepaid Card has been successfully ordered.",
                     textAlign: TextAlign.center,
                     style: TextStyle(color: secondaryText, fontSize: 14),
                   ),
@@ -166,9 +166,9 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
             children: [
               Positioned(
                 bottom: 24,
-                left: 24,
+                left: 45,
                 child: Text(
-                  holderName,
+                  holderName.toUpperCase(),
                   style: TextStyle(
                     color: textColor,
                     fontSize: 14,

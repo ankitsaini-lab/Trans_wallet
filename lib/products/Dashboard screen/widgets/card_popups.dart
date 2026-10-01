@@ -5,32 +5,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
-const List<Map<String, dynamic>> kCards = [
-  {
-    'id': '1',
-    'label': 'Gold Card',
-    'number': '•••• •••• •••• 2222',
-    'fullNumber': '4532  8912  3456  2222',
-    'expiry': '08/29',
-    'holder': 'USER',
-    'cvv': '456',
-    'bgImage': 'assets/unioncardyellow.png',
-    'colors': [Color(0xFFE5A93C), Color(0xFFF7D070)],
-    'useBlackLogos': false,
-  },
-  {
-    'id': '2',
-    'label': 'Silver Card',
-    'number': '•••• •••• •••• 1111',
-    'fullNumber': '4532  8912  3456  1111',
-    'expiry': '05/28',
-    'holder': 'USER',
-    'cvv': '123',
-    'bgImage': 'assets/unioncardblack.png',
-    'colors': [Color(0xFF8E9EAB), Color(0xFFEEF2F3)],
-    'useBlackLogos': false,
-  },
-];
+const List<Map<String, dynamic>> kCards = [];
 
 class CardDetailsPopup extends StatefulWidget {
   final Map<String, dynamic> card;
@@ -64,27 +39,45 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
   }
 
   void _copyNumber() {
-    Clipboard.setData(ClipboardData(text: widget.card['fullNumber'] as String));
-    Get.rawSnackbar(
-      message: 'Card number copied',
-      duration: const Duration(seconds: 2),
-      backgroundColor: const Color(0xFF111111),
-      borderRadius: 14,
-      margin: const EdgeInsets.all(16),
-      snackStyle: SnackStyle.FLOATING,
-    );
+    final numStr =
+        widget.card['fullNumber'] as String? ??
+        widget.card['cardNumber'] as String? ??
+        '';
+    if (numStr.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: numStr));
+      Get.rawSnackbar(
+        message: 'Card number copied',
+        duration: const Duration(seconds: 2),
+        backgroundColor: const Color(0xFF111111),
+        borderRadius: 14,
+        margin: const EdgeInsets.all(16),
+        snackStyle: SnackStyle.FLOATING,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors =
-        (widget.card['colors'] as List<Color>?) ??
-        const [Color(0xFF141416), Color(0xFF08080A)];
-    final useBlackLogos = widget.card['useBlackLogos'] as bool? ?? false;
+    final cardData = widget.card;
+    final fullNumber =
+        cardData['fullNumber']?.toString() ??
+        cardData['cardNumber']?.toString() ??
+        '';
+    final holderName =
+        GetStorage().read('name')?.toString() ??
+        cardData['holder']?.toString() ??
+        cardData['cardHolder']?.toString() ??
+        '';
+    final expiryDate = cardData['expiry']?.toString() ?? '';
+    final cvvCode = cardData['cvv']?.toString() ?? '';
+    final bgImagePath = cardData['bgImage']?.toString();
+
+    final useBlackLogos = cardData['useBlackLogos'] as bool? ?? false;
     final textColor = useBlackLogos ? Colors.black : Colors.white;
     final subColor = useBlackLogos ? Colors.black54 : Colors.white70;
-    final statusStr = widget.card['status']?.toString().toUpperCase() ?? '';
-    final bool isBlocked = widget.card['isBlocked'] == true ||
+    final statusStr = cardData['status']?.toString().toUpperCase() ?? '';
+    final bool isBlocked =
+        cardData['isBlocked'] == true ||
         statusStr == 'LOCKED' ||
         statusStr == 'BLOCKED';
 
@@ -109,21 +102,13 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
                   children: [
                     Container(
                       width: double.infinity,
+                      height: 240,
 
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(26),
-                        // gradient: widget.card['bgImage'] != null
-                        //     ? null
-                        //     : LinearGradient(
-                        //         colors: colors,
-                        //         begin: Alignment.topLeft,
-                        //         end: Alignment.bottomRight,
-                        //       ),
-                        image: widget.card['bgImage'] != null
+                        image: bgImagePath != null && bgImagePath.isNotEmpty
                             ? DecorationImage(
-                                image: AssetImage(
-                                  widget.card['bgImage'] as String,
-                                ),
+                                image: AssetImage(bgImagePath),
                                 fit: BoxFit.cover,
                               )
                             : null,
@@ -131,7 +116,7 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
 
                       child: Stack(
                         children: [
-                          if (widget.card['bgImage'] == null) ...[
+                          if (bgImagePath == null || bgImagePath.isEmpty) ...[
                             Positioned(
                               top: -30,
                               right: -30,
@@ -158,13 +143,16 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
                             ),
                           ],
                           Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.end,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Image.asset(
@@ -183,8 +171,9 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.red.shade700,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -209,146 +198,132 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
                                       ),
                                   ],
                                 ),
-                                const SizedBox(height: 20),
-                                Container(
-                                  width: 45,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(6),
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFFFFECB3),
-                                        Color(0xFFE5C158),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
+
+                                const Spacer(flex: 3),
+                                GestureDetector(
+                                  onTap: _copyNumber,
+                                  child: Row(
+                                    children: [
+                                      width24,
+                                      Text(
+                                        fullNumber,
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 18,
+                                          letterSpacing: 2,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    width2,
-                                    Text(
-                                      widget.card['fullNumber'] as String,
-                                      style: TextStyle(
-                                        color: textColor,
-                                        fontSize: 18,
-                                        letterSpacing: 2,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
+                                const Spacer(flex: 1),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            " " +
-                                                (GetStorage().read('name') ??
-                                                    widget.card['holder']
-                                                        as String),
-                                            style: TextStyle(
-                                              color: textColor,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 1,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 3),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                " " + "VALID\n THRU   ",
-                                                style: TextStyle(
-                                                  color: subColor,
-                                                  fontSize: 8,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 0.5,
-                                                ),
+                                    width2,
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              " VALID\n THRU   ",
+                                              style: TextStyle(
+                                                color: subColor,
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
                                               ),
-                                              Text(
-                                                widget.card['expiry'] as String,
-                                                style: TextStyle(
-                                                  color: textColor,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                            ),
+                                            Text(
+                                              expiryDate,
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
                                               ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'CVV',
-                                            style: TextStyle(
-                                              color: subColor,
-                                              fontSize: 10,
-                                              letterSpacing: 0.5,
                                             ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          holderName.toUpperCase(),
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 1,
                                           ),
-                                          const SizedBox(height: 3),
-                                          GestureDetector(
-                                            onTap: () => setState(
-                                              () => _showCvv = !_showCvv,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  _showCvv
-                                                      ? widget.card['cvv']
-                                                            as String
-                                                      : '•••',
-                                                  style: TextStyle(
-                                                    color: textColor,
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Icon(
-                                                  _showCvv
-                                                      ? Icons.visibility_rounded
-                                                      : Icons
-                                                            .visibility_off_rounded,
-                                                  color: subColor,
-                                                  size: 16,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                     Column(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      mainAxisSize: MainAxisSize.min,
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'CVV',
+                                          style: TextStyle(
+                                            color: subColor,
+                                            fontSize: 10,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        GestureDetector(
+                                          onTap: () => setState(
+                                            () => _showCvv = !_showCvv,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                _showCvv
+                                                    ? (cvvCode.isNotEmpty
+                                                          ? cvvCode
+                                                          : '***')
+                                                    : '***',
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Icon(
+                                                _showCvv
+                                                    ? Icons.visibility_rounded
+                                                    : Icons
+                                                          .visibility_off_rounded,
+                                                color: subColor,
+                                                size: 16,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    Column(
                                       children: [
                                         Image.asset(
                                           'assets/VisaFree.png',
-                                          height: 18,
+                                          height: 21,
                                           fit: BoxFit.contain,
                                           color: useBlackLogos
                                               ? Colors.black
                                               : null,
                                         ),
-                                        height16,
+                                        height14,
                                       ],
                                     ),
                                   ],
@@ -375,12 +350,14 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(30),
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black
-                                                  .withOpacity(0.25),
+                                              color: Colors.black.withOpacity(
+                                                0.25,
+                                              ),
                                               blurRadius: 12,
                                               offset: const Offset(0, 4),
                                             ),
@@ -478,7 +455,8 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
 }
 
 class FullCardDetailsPopup extends StatefulWidget {
-  const FullCardDetailsPopup({super.key});
+  final Map<String, dynamic>? card;
+  const FullCardDetailsPopup({super.key, this.card});
 
   @override
   State<FullCardDetailsPopup> createState() => _FullCardDetailsPopupState();
@@ -508,19 +486,40 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
   }
 
   void _copyCardNumber() {
-    Clipboard.setData(const ClipboardData(text: "1234 5678 9012 3456"));
-    Get.rawSnackbar(
-      message: "Card number copied",
-      duration: const Duration(seconds: 2),
-      backgroundColor: const Color(0xFF111111),
-      borderRadius: 14,
-      margin: const EdgeInsets.all(16),
-      snackStyle: SnackStyle.FLOATING,
-    );
+    final numStr =
+        widget.card?['fullNumber'] as String? ??
+        widget.card?['cardNumber'] as String? ??
+        '';
+    if (numStr.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: numStr));
+      Get.rawSnackbar(
+        message: "Card number copied",
+        duration: const Duration(seconds: 2),
+        backgroundColor: const Color(0xFF111111),
+        borderRadius: 14,
+        margin: const EdgeInsets.all(16),
+        snackStyle: SnackStyle.FLOATING,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cardData = widget.card ?? {};
+    final cardNumber =
+        cardData['fullNumber'] as String? ??
+        cardData['cardNumber'] as String? ??
+        '';
+    final cardHolder =
+        GetStorage().read('name') ??
+        cardData['holder'] as String? ??
+        cardData['cardHolder'] as String? ??
+        '';
+    final expiry = cardData['expiry'] as String? ?? '';
+    final cvv = cardData['cvv'] as String? ?? '';
+    final bgImage =
+        cardData['bgImage'] as String? ?? 'assets/unioncardblack.webp';
+
     return Material(
       color: Colors.transparent,
       child: Stack(
@@ -545,8 +544,8 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        image: const DecorationImage(
-                          image: AssetImage('assets/unioncardblack.webp'),
+                        image: DecorationImage(
+                          image: AssetImage(bgImage),
                           fit: BoxFit.cover,
                         ),
                         boxShadow: [
@@ -600,9 +599,9 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
-                                    "1234  5678  9012  3456",
-                                    style: TextStyle(
+                                  Text(
+                                    cardNumber,
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 19,
                                       letterSpacing: 2,
@@ -647,8 +646,7 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          GetStorage().read('name') ??
-                                              "VINCE TALLENT",
+                                          cardHolder,
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 13,
@@ -657,9 +655,9 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                                           ),
                                         ),
                                         const SizedBox(height: 6),
-                                        const Row(
+                                        Row(
                                           children: [
-                                            Text(
+                                            const Text(
                                               "VALID THRU  ",
                                               style: TextStyle(
                                                 color: Colors.white54,
@@ -669,8 +667,8 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                                               ),
                                             ),
                                             Text(
-                                              "12/28",
-                                              style: TextStyle(
+                                              expiry,
+                                              style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
@@ -702,7 +700,11 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              _showCvv ? "123" : "•••",
+                                              _showCvv
+                                                  ? (cvv.isNotEmpty
+                                                        ? cvv
+                                                        : '•••')
+                                                  : "•••",
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 13,
@@ -764,17 +766,7 @@ class _FullCardDetailsPopupState extends State<FullCardDetailsPopup>
                         GestureDetector(
                           onTap: () {
                             Get.back();
-                            Get.toNamed(
-                              '/managecard',
-                              arguments: {
-                                'fullNumber': '••••••••••••3456',
-                                'expiry': '12/28',
-                                'cvv': '123',
-                                'holder': 'Vince Tallent',
-                                'bgImage': 'assets/unioncardblack.webp',
-                                'useBlackLogos': false,
-                              },
-                            );
+                            Get.toNamed('/managecard', arguments: cardData);
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(

@@ -11,7 +11,7 @@ class TrackCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Read arguments passed from order confirmation screen
-    String cardStyleName = "Premium Card";
+    String cardStyleName = "Prepaid Card";
     String referenceId = "#CRD-928481";
     String cardBgImage = "assets/unioncardblack.png";
 

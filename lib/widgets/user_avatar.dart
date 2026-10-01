@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 
 class UserAvatar extends StatelessWidget {
@@ -24,11 +26,38 @@ class UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Get.isRegistered<DashboardscreenController>()) {
+      return Obx(() => _buildAvatar(context));
+    }
+    return _buildAvatar(context);
+  }
+
+  Widget _buildAvatar(BuildContext context) {
     final box = GetStorage();
-    final String? imgUrl =
-        (imageUrl ?? box.read('profilePictureUrl')?.toString())?.trim();
-    final String rawName = (name ?? box.read('name')?.toString() ?? 'User')
-        .trim();
+    String? currentImgUrl = imageUrl;
+    String currentName = name ?? '';
+
+    if (Get.isRegistered<DashboardscreenController>()) {
+      final ctrl = Get.find<DashboardscreenController>();
+      if (imageUrl == null) {
+        currentImgUrl = ctrl.profilePictureUrl.value.isNotEmpty
+            ? ctrl.profilePictureUrl.value
+            : box.read('profilePictureUrl')?.toString();
+      }
+      if (name == null) {
+        currentName = ctrl.userName.value.isNotEmpty
+            ? ctrl.userName.value
+            : (box.read('name')?.toString() ?? 'User');
+      }
+    } else {
+      currentImgUrl ??= box.read('profilePictureUrl')?.toString();
+      if (currentName.isEmpty) {
+        currentName = box.read('name')?.toString() ?? 'User';
+      }
+    }
+
+    final String? finalImgUrl = currentImgUrl?.trim();
+    final String rawName = currentName.trim();
 
     String initials = 'U';
     if (rawName.isNotEmpty) {
@@ -73,7 +102,7 @@ class UserAvatar extends StatelessWidget {
       ),
     );
 
-    if (imgUrl != null && imgUrl.isNotEmpty) {
+    if (finalImgUrl != null && finalImgUrl.isNotEmpty) {
       return Container(
         height: size,
         width: size,
@@ -83,7 +112,7 @@ class UserAvatar extends StatelessWidget {
         ),
         child: ClipOval(
           child: Image.network(
-            imgUrl,
+            finalImgUrl,
             width: size,
             height: size,
             fit: BoxFit.cover,

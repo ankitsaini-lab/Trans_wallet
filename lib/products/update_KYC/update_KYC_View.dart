@@ -205,7 +205,7 @@ class UpdateKycView extends GetView<UpdateKycController> {
                               btncolor: primaryRed,
                               borderRadius: context.responsive(30),
                               onPressed: () {
-                                controller.startBrowserRedirection();
+                                Get.toNamed('/vkyc_test');
                               },
                             ),
                             SizedBox(height: context.responsive(10)),

@@ -77,5 +77,18 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Transwallet requires access to the local network to communicate with backend API services.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.trans.wallet</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>transwallet</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

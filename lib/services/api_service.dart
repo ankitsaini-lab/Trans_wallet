@@ -497,6 +497,19 @@ class ApiService extends GetConnect {
           if (data['middleName'] != null)
             box.write('middleName', data['middleName']);
           if (data['lastName'] != null) box.write('lastName', data['lastName']);
+          if (data['id'] != null) {
+            box.write('userId', data['id']);
+            box.write('user_id', data['id']);
+            box.write('uuid', data['id']);
+          }
+          if (data['userId'] != null) {
+            box.write('userId', data['userId']);
+            box.write('user_id', data['userId']);
+          }
+          if (data['uuid'] != null) {
+            box.write('uuid', data['uuid']);
+            box.write('userId', data['uuid']);
+          }
           if (data['dob'] != null) box.write('dob', data['dob']);
           if (data['email'] != null) box.write('email', data['email']);
           if (data['mobileNumber'] != null)
@@ -832,7 +845,6 @@ class ApiService extends GetConnect {
         '[API Set Daily Limit] Status: ${response.statusCode}, Body: ${response.body}',
       );
 
-
       if (response.isOk && response.body != null) {
         final body = response.body!;
         final bool isSuccess = body['success'] == true || body['code'] == 'OK';
@@ -848,7 +860,420 @@ class ApiService extends GetConnect {
     }
     return null;
   }
+
+  /// Initiate wallet load via POST /api/v1/wallet/loads
+  Future<Map<String, dynamic>?> initiateWalletLoad({
+    required double amount,
+    required String idempotencyKey,
+  }) async {
+    try {
+      final payload = {'amount': amount, 'idempotencyKey': idempotencyKey};
+      print('[API Wallet Load Request] $payload');
+      debugPrint('[API Wallet Load Request] $payload');
+      developer.log('[API Wallet Load Request] $payload');
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/loads',
+        payload,
+      );
+      print(
+        '[API Wallet Load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      debugPrint(
+        '[API Wallet Load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      developer.log(
+        '[API Wallet Load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess) {
+          if (body['data'] != null && body['data'] is Map) {
+            return Map<String, dynamic>.from(body['data'] as Map);
+          }
+          return Map<String, dynamic>.from(body);
+        } else if (body['message'] != null) {
+          AppSnackbar.error(body['message'].toString());
+        }
+      } else if (response.body != null && response.body is Map) {
+        final body = response.body!;
+        if (body['message'] != null) {
+          AppSnackbar.error(body['message'].toString());
+        }
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error initiating wallet load: $e');
+    }
+    return null;
+  }
+
+  /// Generate PayU hash via POST /api/v1/wallet/loads/payu/hash
+  Future<Map<String, dynamic>?> generatePayUHash({
+    required String hashName,
+    required String hashString,
+    String hashType = "V1",
+    String? postSalt,
+  }) async {
+    try {
+      final Map<String, dynamic> payload = {
+        'hashName': hashName,
+        'hashString': hashString,
+        'hashType': hashType,
+      };
+      if (postSalt != null && postSalt.isNotEmpty) {
+        payload['postSalt'] = postSalt;
+      }
+      print('[API PayU Hash Request] $payload');
+      debugPrint('[API PayU Hash Request] $payload');
+      developer.log('[API PayU Hash Request] $payload');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/loads/payu/hash',
+        payload,
+      );
+      print(
+        '[API PayU Hash Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      debugPrint(
+        '[API PayU Hash Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      developer.log(
+        '[API PayU Hash Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess && body['data'] != null && body['data'] is Map) {
+          return Map<String, dynamic>.from(body['data'] as Map);
+        }
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error generating PayU hash: $e');
+    }
+    return null;
+  }
+
+  /// Fetch wallet load details by transaction reference via GET /api/v1/wallet/loads/{transactionReference}
+  Future<Map<String, dynamic>?> fetchWalletLoadDetails(
+    String transactionReference,
+  ) async {
+    try {
+      print(
+        '[API Fetch Load Details Request] transactionReference: $transactionReference',
+      );
+      debugPrint(
+        '[API Fetch Load Details Request] transactionReference: $transactionReference',
+      );
+      developer.log(
+        '[API Fetch Load Details Request] transactionReference: $transactionReference',
+      );
+
+      final response = await getRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/loads/$transactionReference',
+      );
+
+      print(
+        '[API Fetch Load Details Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      debugPrint(
+        '[API Fetch Load Details Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      developer.log(
+        '[API Fetch Load Details Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess && body['data'] != null && body['data'] is Map) {
+          return Map<String, dynamic>.from(body['data'] as Map);
+        }
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error fetching wallet load details: $e');
+    }
+    return null;
+  }
+
+  /// Load money to wallet via POST /api/v1/wallet/load after payment success
+  Future<Map<String, dynamic>?> loadWallet({
+    required double amount,
+    required String idempotencyKey,
+  }) async {
+    try {
+      final payload = {'amount': amount, 'idempotencyKey': idempotencyKey};
+
+      print('[API /wallet/load Request] $payload');
+      debugPrint('[API /wallet/load Request] $payload');
+      developer.log('[API /wallet/load Request] $payload');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/load',
+        payload,
+      );
+
+      print(
+        '[API /wallet/load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      debugPrint(
+        '[API /wallet/load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      developer.log(
+        '[API /wallet/load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess) {
+          if (body['data'] != null && body['data'] is Map) {
+            return Map<String, dynamic>.from(body['data'] as Map);
+          }
+          return Map<String, dynamic>.from(body);
+        }
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error in loadWallet: $e');
+    }
+    return null;
+  }
+
+  /// Check W2W recipient status via POST /api/v1/wallet/transfer/w2w/check
+  Future<Map<String, dynamic>?> checkW2WRecipient({
+    required String toMobileNumber,
+  }) async {
+    try {
+      final payload = {'toMobileNumber': toMobileNumber};
+
+      developer.log('[API /wallet/transfer/w2w/check Request] $payload');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/transfer/w2w/check',
+        payload,
+      );
+
+      developer.log(
+        '[API /wallet/transfer/w2w/check Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.body != null && response.body is Map) {
+        final body = Map<String, dynamic>.from(response.body!);
+        if (body['data'] != null && body['data'] is Map) {
+          final data = Map<String, dynamic>.from(body['data'] as Map);
+          if (!data.containsKey('apiSuccess')) {
+            data['apiSuccess'] =
+                body['success'] == true || body['code'] == 'OK';
+          }
+          return data;
+        }
+        return body;
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error in checkW2WRecipient: $e');
+    }
+    return null;
+  }
+
+  /// Execute W2W wallet transfer via POST /api/v1/wallet/transfer/w2w
+  Future<Map<String, dynamic>?> transferW2W({
+    required String toMobileNumber,
+    required double amount,
+    required String idempotencyKey,
+    String fromProductId = 'GENERAL',
+    String productId = 'GENERAL',
+    String description = 'Wallet to wallet transfer',
+  }) async {
+    try {
+      final payload = {
+        'toMobileNumber': toMobileNumber,
+        'amount': amount,
+        'idempotencyKey': idempotencyKey,
+        'fromProductId': fromProductId,
+        'productId': productId,
+        'description': description,
+      };
+
+      developer.log('[API /wallet/transfer/w2w Request] $payload');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/transfer/w2w',
+        payload,
+      );
+
+      developer.log(
+        '[API /wallet/transfer/w2w Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.body != null && response.body is Map) {
+        final body = Map<String, dynamic>.from(response.body!);
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (body['data'] != null && body['data'] is Map) {
+          final data = Map<String, dynamic>.from(body['data'] as Map);
+          data['apiSuccess'] = isSuccess;
+          return data;
+        }
+        body['apiSuccess'] = isSuccess;
+        return body;
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error in transferW2W: $e');
+    }
+    return null;
+  }
+
+  /// Fetch pincode details via GET /api/v1/pincode/{pincode}
+  Future<Map<String, dynamic>?> fetchPincodeDetails(String pincode) async {
+    try {
+      final cleanPincode = pincode.trim();
+      if (cleanPincode.isEmpty) return null;
+
+      developer.log('[API GET /api/v1/pincode/$cleanPincode Request]');
+
+      final response = await getRequest<Map<String, dynamic>>(
+        '/api/v1/pincode/$cleanPincode',
+      );
+
+      developer.log(
+        '[API GET /api/v1/pincode/$cleanPincode Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.body != null && response.body is Map) {
+        final body = Map<String, dynamic>.from(response.body!);
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (body['data'] != null && body['data'] is Map) {
+          final data = Map<String, dynamic>.from(body['data'] as Map);
+          data['apiSuccess'] = isSuccess;
+          return data;
+        }
+        body['apiSuccess'] = isSuccess;
+        return body;
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error in fetchPincodeDetails: $e');
+    }
+    return null;
+  }
+
+  /// Fetch spending transaction analytics via GET /api/v1/transactions/analytics
+  Future<Map<String, dynamic>?> fetchTransactionAnalytics({
+    String? month,
+  }) async {
+    try {
+      final Map<String, dynamic> queryParams = {};
+      if (month != null && month.trim().isNotEmpty) {
+        queryParams['month'] = month.trim();
+      }
+
+      developer.log(
+        '[API GET /api/v1/transactions/analytics Request] Query: $queryParams',
+      );
+
+      final response = await getRequest<Map<String, dynamic>>(
+        '/api/v1/transactions/analytics',
+        query: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      developer.log(
+        '[API GET /api/v1/transactions/analytics Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.body != null && response.body is Map) {
+        final body = Map<String, dynamic>.from(response.body!);
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (body['data'] != null && body['data'] is Map) {
+          final data = Map<String, dynamic>.from(body['data'] as Map);
+          data['apiSuccess'] = isSuccess;
+          return data;
+        }
+        body['apiSuccess'] = isSuccess;
+        return body;
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error in fetchTransactionAnalytics: $e');
+    }
+    return null;
+  }
+
+  /// Register device FCM token via POST /api/v1/devices
+  Future<Map<String, dynamic>?> registerDeviceToken(String fcmToken) async {
+    try {
+      final token = fcmToken.trim();
+      if (token.isEmpty) {
+        developer.log(
+          '[API /api/v1/devices] fcmToken is empty. Skipping registration.',
+        );
+        return null;
+      }
+
+      final platform = GetPlatform.isIOS ? 'ios' : 'android';
+      final payload = {'platform': platform, 'fcmToken': token};
+
+      developer.log('[API POST /api/v1/devices Request] Payload: $payload');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/devices',
+        payload,
+      );
+
+      developer.log(
+        '[API POST /api/v1/devices Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.body != null && response.body is Map) {
+        final body = Map<String, dynamic>.from(response.body!);
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        body['apiSuccess'] = isSuccess;
+        return body;
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        '[API Exception] Error in registerDeviceToken: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    return null;
+  }
+
+  /// Fetch user notifications from GET /api/v1/notifications
+  Future<Map<String, dynamic>?> fetchNotifications({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final query = {
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      };
+
+      developer.log('[API GET /api/v1/notifications Request] Query: $query');
+
+      final response = await getRequest<Map<String, dynamic>>(
+        '/api/v1/notifications',
+        query: query,
+      );
+
+      developer.log(
+        '[API GET /api/v1/notifications Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess && body['data'] != null && body['data'] is Map) {
+          return Map<String, dynamic>.from(body['data'] as Map);
+        }
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        '[API Exception] Error in fetchNotifications: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    return null;
+  }
 }
-
-
 

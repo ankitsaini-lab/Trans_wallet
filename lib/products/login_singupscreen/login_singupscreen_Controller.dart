@@ -98,7 +98,7 @@ class LoginSingupscreenController extends GetxController {
   final phoneController = TextEditingController();
 
   // Login Method: 'OTP' or 'MPIN'
-  var loginMethod = 'OTP'.obs;
+  var loginMethod = 'MPIN'.obs;
   bool get isOtpLogin => loginMethod.value == 'OTP';
   bool get isMpinLogin => loginMethod.value == 'MPIN';
 
@@ -223,12 +223,21 @@ class LoginSingupscreenController extends GetxController {
             tokenType = data['tokenType']?.toString() ?? 'Bearer';
             expiresIn = data['expiresIn'];
 
-            if (data['user'] is Map) {
-              final user = data['user'] as Map;
-              if (user['name'] != null) box.write('name', user['name']);
-              if (user['email'] != null) box.write('email', user['email']);
-              if (user['phone'] != null) box.write('phone', user['phone']);
+            final Map userMap = (data['user'] is Map)
+                ? (data['user'] as Map)
+                : data;
+            final String extractedName =
+                userMap['name']?.toString() ??
+                userMap['fullName']?.toString() ??
+                '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'
+                    .trim();
+            if (extractedName.isNotEmpty) {
+              box.write('name', extractedName);
             }
+            if (userMap['email'] != null) box.write('email', userMap['email']);
+            if (userMap['phone'] != null) box.write('phone', userMap['phone']);
+            if (userMap['mobileNumber'] != null)
+              box.write('phone', userMap['mobileNumber']);
           }
 
           if (accessToken != null && accessToken.isNotEmpty) {
@@ -520,12 +529,23 @@ class LoginSingupscreenController extends GetxController {
               tokenType = data['tokenType']?.toString() ?? 'Bearer';
               expiresIn = data['expiresIn'];
 
-              if (data['user'] is Map) {
-                final user = data['user'] as Map;
-                if (user['name'] != null) box.write('name', user['name']);
-                if (user['email'] != null) box.write('email', user['email']);
-                if (user['phone'] != null) box.write('phone', user['phone']);
+              final Map userMap = (data['user'] is Map)
+                  ? (data['user'] as Map)
+                  : data;
+              final String extractedName =
+                  userMap['name']?.toString() ??
+                  userMap['fullName']?.toString() ??
+                  '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'
+                      .trim();
+              if (extractedName.isNotEmpty) {
+                box.write('name', extractedName);
               }
+              if (userMap['email'] != null)
+                box.write('email', userMap['email']);
+              if (userMap['phone'] != null)
+                box.write('phone', userMap['phone']);
+              if (userMap['mobileNumber'] != null)
+                box.write('phone', userMap['mobileNumber']);
             }
 
             if (accessToken != null && accessToken.isNotEmpty) {

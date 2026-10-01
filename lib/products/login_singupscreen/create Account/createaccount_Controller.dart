@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
+import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/textfieldwidget.dart';
@@ -28,6 +29,11 @@ class CreateaccountController extends GetxController {
   var state = ''.obs;
   var country = 'India'.obs;
 
+  final pincodeController = TextEditingController();
+  final stateController = TextEditingController();
+  final cityController = TextEditingController();
+  final isFetchingPincode = false.obs;
+
   var step = 1.obs;
 
   @override
@@ -40,6 +46,51 @@ class CreateaccountController extends GetxController {
       if (clean.isNotEmpty && clean != 'Select') {
         title.value = clean;
       }
+    }
+  }
+
+  @override
+  void onClose() {
+    pincodeController.dispose();
+    stateController.dispose();
+    cityController.dispose();
+    super.onClose();
+  }
+
+  Future<void> fetchPincodeDetails(String pinCodeVal) async {
+    final cleanPin = pinCodeVal.trim();
+    if (cleanPin.length != 6) return;
+
+    try {
+      isFetchingPincode.value = true;
+      pincodeError.value = '';
+
+      final res = await ApiService.to.fetchPincodeDetails(cleanPin);
+
+      if (res != null &&
+          (res['apiSuccess'] == true || res['pincode'] != null)) {
+        final fetchedState = (res['state'] ?? '').toString().trim();
+        final fetchedDistrict = (res['district'] ?? res['city'] ?? '')
+            .toString()
+            .trim();
+
+        if (fetchedState.isNotEmpty) {
+          state.value = fetchedState;
+          stateController.text = fetchedState;
+          stateError.value = '';
+        }
+        if (fetchedDistrict.isNotEmpty) {
+          city.value = fetchedDistrict;
+          cityController.text = fetchedDistrict;
+          cityError.value = '';
+        }
+      } else {
+        pincodeError.value = "Invalid pincode or details not found";
+      }
+    } catch (e) {
+      pincodeError.value = "Failed to fetch pincode details";
+    } finally {
+      isFetchingPincode.value = false;
     }
   }
 
@@ -212,6 +263,7 @@ class CreateaccountController extends GetxController {
     required String hint,
     required Function(String) onChanged,
     required RxString errorText,
+    TextEditingController? controller,
     List<TextInputFormatter>? inpputofrmater,
     TextInputType? keyboardtype,
     bool enabled = true,
@@ -219,6 +271,7 @@ class CreateaccountController extends GetxController {
     return Obx(
       () => CustomTextField(
         label: label,
+        controller: controller,
         hintText: hint,
         onChanged: onChanged,
         errorText: errorText.value.isEmpty ? null : errorText.value,
@@ -507,7 +560,7 @@ class CreateaccountController extends GetxController {
 
         buildTextField(
           label: "Email",
-          hint: "Enter Last Email",
+          hint: "Enter Email Address",
           errorText: emailError,
           onChanged: (v) {
             email.value = v;
@@ -625,9 +678,12 @@ class CreateaccountController extends GetxController {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                "I have an activation code",
-                style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              InkWell(
+                onTap: () => toggleCode(true),
+                child: const Text(
+                  "I have an activation code",
+                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                ),
               ),
             ],
           ),
@@ -706,84 +762,6 @@ class CreateaccountController extends GetxController {
     );
   }
 
-  Widget _buildDropdownField(String label, RxString value, RxString errorText) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Obx(
-          () => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFCFCFC),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.0),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: value.value == '' ? null : value.value,
-                    hint: Text(
-                      "Select",
-                      style: TextStyle(color: Colors.black87, fontSize: 14),
-                    ),
-                    icon: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Colors.grey.shade400,
-                    ),
-                    items: (label == "City" ? ["Jaipur"] : ["Rajasthan"]).map((
-                      String val,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: val,
-                        child: Text(
-                          val,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      value.value = val ?? "";
-                      errorText.value = "";
-                    },
-                  ),
-                ),
-              ),
-              if (errorText.value.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 6),
-                  child: Text(
-                    errorText.value,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget buildStepTwo(BuildContext context) {
     return Column(
       key: const ValueKey(2),
@@ -827,6 +805,7 @@ class CreateaccountController extends GetxController {
               child: buildTextField(
                 label: "Pincode",
                 hint: "Enter Pincode",
+                controller: pincodeController,
                 errorText: pincodeError,
                 keyboardtype: TextInputType.number,
                 inpputofrmater: [
@@ -836,6 +815,9 @@ class CreateaccountController extends GetxController {
                 onChanged: (v) {
                   pincode.value = v;
                   if (v.isNotEmpty) pincodeError.value = '';
+                  if (v.length == 6) {
+                    fetchPincodeDetails(v);
+                  }
                 },
               ),
             ),
@@ -851,13 +833,59 @@ class CreateaccountController extends GetxController {
             ),
           ],
         ),
+        Obx(
+          () => isFetchingPincode.value
+              ? const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: primaryRed,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        "Fetching location details...",
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         const SizedBox(height: 16),
 
         Row(
           children: [
-            Expanded(child: _buildDropdownField("State", state, stateError)),
+            Expanded(
+              child: buildTextField(
+                label: "State",
+                hint: "Enter State",
+                controller: stateController,
+                errorText: stateError,
+                onChanged: (v) {
+                  state.value = v;
+                  if (v.isNotEmpty) stateError.value = '';
+                },
+              ),
+            ),
             const SizedBox(width: 16),
-            Expanded(child: _buildDropdownField("City", city, cityError)),
+            Expanded(
+              child: buildTextField(
+                label: "City",
+                hint: "Enter City/District",
+                controller: cityController,
+                errorText: cityError,
+                onChanged: (v) {
+                  city.value = v;
+                  if (v.isNotEmpty) cityError.value = '';
+                },
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 40),

@@ -112,35 +112,17 @@ class AddmoneyView extends StatelessWidget {
                                         ),
                                       ),
                                       SizedBox(height: context.responsive(2)),
-                                      Text(
-                                        "₹10,000",
-                                        style: TextStyle(
-                                          color: const Color(0xFF8E8E93),
-                                          fontSize: context.responsive(12),
-                                          fontWeight: FontWeight.w500,
+                                      Obx(
+                                        () => Text(
+                                          "₹${controller.balance.value.toStringAsFixed(2)}",
+                                          style: TextStyle(
+                                            color: const Color(0xFF8E8E93),
+                                            fontSize: context.responsive(12),
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
                                     ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: context.responsive(12),
-                                    vertical: context.responsive(6),
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF4F5F7),
-                                    borderRadius: BorderRadius.circular(
-                                      context.responsive(20),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    "For transactions",
-                                    style: TextStyle(
-                                      color: const Color(0xFF8E8E93),
-                                      fontSize: context.responsive(11),
-                                      fontWeight: FontWeight.w500,
-                                    ),
                                   ),
                                 ),
                               ],

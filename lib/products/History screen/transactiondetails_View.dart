@@ -4,6 +4,7 @@ import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 
@@ -306,15 +307,34 @@ class TransactiondetailsView extends StatelessWidget {
                   size: 20,
                 ),
                 borderRadius: 50,
-                onPressed: () {
-                  Get.snackbar(
-                    "Success",
-                    "Receipt details shared successfully!",
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: Colors.black87,
-                    colorText: Colors.white,
-                    margin: const EdgeInsets.all(16),
-                  );
+                onPressed: () async {
+                  final String text = '''
+================================
+   TRANSWALLET TRANSACTION  
+================================
+Title         : $name
+Amount        : ${isCredit ? '+' : '-'}₹${amountValue.toStringAsFixed(2)}
+Status        : $statusText
+Txn Reference : $refId
+Date & Time   : $date
+Payment Source: Transcorp Wallet
+================================
+Thank you for using Transwallet!
+'''.trim();
+                  Clipboard.setData(ClipboardData(text: text));
+                  HapticFeedback.lightImpact();
+                  try {
+                    await Share.share(text, subject: 'Transwallet Transaction Details');
+                  } catch (_) {
+                    Get.snackbar(
+                      "Receipt Copied",
+                      "Transaction details copied to clipboard!",
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: Colors.black87,
+                      colorText: Colors.white,
+                      margin: const EdgeInsets.all(16),
+                    );
+                  }
                 },
               ),
               SizedBox(height: context.responsive(16)),

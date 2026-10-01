@@ -149,7 +149,8 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
   Future<void> _showMpinSheetForBalance() async {
     if (Get.isRegistered<BiometricService>()) {
       final bioService = BiometricService.to;
-      if (bioService.isBiometricAvailable && bioService.isBiometricEnabled.value) {
+      if (bioService.isBiometricAvailable &&
+          bioService.isBiometricEnabled.value) {
         final result = await bioService.authenticate(
           localizedReason: "Authenticate to view total balance",
         );
@@ -164,7 +165,8 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
       MpinVerifySheet(
         onSuccess: _revealBalance,
         title: "Enter MPIN to View Balance",
-        subtitle: "For your security, enter your 4-digit mobile PIN or use biometrics",
+        subtitle:
+            "For your security, enter your 4-digit mobile PIN or use biometrics",
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -564,9 +566,9 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
   Widget _buildActiveCard(int index, WalletCardModel card) {
     final double progress = _slideAnimation.value;
     final double initialTuckedTop = context.responsive(
-      58.0,
+      36.0,
     ); // Fixed front pocket depth
-    final double topOffset = initialTuckedTop * (0.80 - progress);
+    final double topOffset = initialTuckedTop * (0.35 - progress);
     final double initialScale = 0.98 - (index * 0.03);
     final double scale = initialScale + (progress * (1.0 - initialScale));
     final double tilt = _getTiltAngle();

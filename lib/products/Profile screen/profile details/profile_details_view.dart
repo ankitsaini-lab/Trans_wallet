@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Profile%20screen/profile%20details/profile_details_Controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
@@ -107,10 +108,10 @@ class ProfileDetailsView extends GetView<ProfileDetailsController> {
             SizedBox(height: context.responsive(55)),
             Obx(
               () => Text(
-                controller.name.value,
+                formatUserName(controller.name.value),
                 style: TextStyle(
                   color: const Color(0xFF111111),
-                  fontSize: context.responsive(22),
+                  fontSize: context.responsive(18),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -122,7 +123,7 @@ class ProfileDetailsView extends GetView<ProfileDetailsController> {
                 children: [
                   Icon(
                     Icons.verified,
-                    size: context.responsive(18),
+                    size: context.responsive(16),
                     color: Colors.green.shade600,
                   ),
                   width4,
@@ -130,7 +131,7 @@ class ProfileDetailsView extends GetView<ProfileDetailsController> {
                     controller.accountverification.value,
                     style: TextStyle(
                       color: Colors.green.shade600,
-                      fontSize: context.responsive(14),
+                      fontSize: context.responsive(12),
                       fontWeight: FontWeight.w600,
                     ),
                   ),

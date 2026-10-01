@@ -104,186 +104,11 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: context.responsive(18)),
 
-                              Obx(
-                                () => Container(
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(23),
-                                    border: Border.all(
-                                      color: const Color(0xFFE5E7EB),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.all(4),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () =>
-                                              controller.setLoginMethod('OTP'),
-                                          behavior: HitTestBehavior.opaque,
-                                          child: AnimatedContainer(
-                                            duration: const Duration(
-                                              milliseconds: 200,
-                                            ),
-                                            curve: Curves.easeInOut,
-                                            decoration: BoxDecoration(
-                                              color: controller.isOtpLogin
-                                                  ? primaryRed
-                                                  : Colors.transparent,
-                                              borderRadius:
-                                                  BorderRadius.circular(19),
-                                              boxShadow: controller.isOtpLogin
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withValues(
-                                                              alpha: 0.08,
-                                                            ),
-                                                        blurRadius: 6,
-                                                        offset: const Offset(
-                                                          0,
-                                                          2,
-                                                        ),
-                                                      ),
-                                                    ]
-                                                  : [],
-                                            ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(
-                                                8.0,
-                                              ),
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.sms_outlined,
-                                                      size: 16,
-                                                      color:
-                                                          controller.isOtpLogin
-                                                          ? Colors.white
-                                                          : Colors.black,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      "Login with OTP",
-                                                      style: TextStyle(
-                                                        fontSize: context
-                                                            .responsive(13),
-                                                        fontWeight:
-                                                            controller
-                                                                .isOtpLogin
-                                                            ? FontWeight.w700
-                                                            : FontWeight.w500,
-                                                        color:
-                                                            controller
-                                                                .isOtpLogin
-                                                            ? Colors.white
-                                                            : Colors.black,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Option 2: Login with MPIN
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () =>
-                                              controller.setLoginMethod('MPIN'),
-                                          behavior: HitTestBehavior.opaque,
-                                          child: AnimatedContainer(
-                                            duration: const Duration(
-                                              milliseconds: 200,
-                                            ),
-                                            curve: Curves.easeInOut,
-                                            decoration: BoxDecoration(
-                                              color: controller.isMpinLogin
-                                                  ? primaryRed
-                                                  : Colors.transparent,
-                                              borderRadius:
-                                                  BorderRadius.circular(19),
-                                              boxShadow: controller.isMpinLogin
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withValues(
-                                                              alpha: 0.08,
-                                                            ),
-                                                        blurRadius: 6,
-                                                        offset: const Offset(
-                                                          0,
-                                                          2,
-                                                        ),
-                                                      ),
-                                                    ]
-                                                  : [],
-                                            ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(
-                                                8.0,
-                                              ),
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons
-                                                          .lock_outline_rounded,
-                                                      size: 16,
-                                                      color:
-                                                          controller.isMpinLogin
-                                                          ? Colors.white
-                                                          : Colors.black,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      "Login with MPIN",
-                                                      style: TextStyle(
-                                                        fontSize: context
-                                                            .responsive(13),
-                                                        fontWeight:
-                                                            controller
-                                                                .isMpinLogin
-                                                            ? FontWeight.w700
-                                                            : FontWeight.w500,
-                                                        color:
-                                                            controller
-                                                                .isMpinLogin
-                                                            ? Colors.white
-                                                            : Colors.black,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
                               SizedBox(height: context.responsive(18)),
 
                               // Phone Field
-                              _buildPhoneInputField(
-                                context,
-                                controller,
-                              ),
+                              _buildPhoneInputField(context, controller),
 
                               // Error message if any
                               Obx(() {
@@ -470,7 +295,7 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                                   13,
                                                 ),
                                                 fontWeight: FontWeight.w600,
-                                                color: primaryRed,
+                                                color: Colors.black,
                                               ),
                                             ),
                                           ),
@@ -572,7 +397,6 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                 ),
                               ),
                               SizedBox(height: context.responsive(16)),
-
                               // Biometric Login Option (Shown as per available device features)
                               Obx(() {
                                 if (!controller.isBiometricAvailable.value) {
@@ -582,31 +406,21 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                   children: [
                                     Row(
                                       children: [
-                                        Expanded(
-                                          child: Divider(
-                                            color: Colors.grey.shade300,
-                                            thickness: 1,
-                                          ),
-                                        ),
+                                        Expanded(child: Container()),
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 12,
                                           ),
                                           child: Text(
-                                            "OR",
+                                            "Or",
                                             style: TextStyle(
                                               fontSize: context.responsive(12),
                                               fontWeight: FontWeight.w600,
-                                              color: Colors.grey.shade500,
+                                              color: Colors.black,
                                             ),
                                           ),
                                         ),
-                                        Expanded(
-                                          child: Divider(
-                                            color: Colors.grey.shade300,
-                                            thickness: 1,
-                                          ),
-                                        ),
+                                        Expanded(child: Container()),
                                       ],
                                     ),
                                     SizedBox(height: context.responsive(12)),
@@ -624,14 +438,14 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                             30,
                                           ),
                                           border: Border.all(
-                                            color: primaryRed.withValues(
-                                              alpha: 0.4,
+                                            color: Colors.black.withValues(
+                                              alpha: 0.08,
                                             ),
                                             width: 1.5,
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: primaryRed.withValues(
+                                              color: Colors.black.withValues(
                                                 alpha: 0.06,
                                               ),
                                               blurRadius: 8,
@@ -640,21 +454,27 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                           ],
                                         ),
                                         child: Center(
-                                          child: controller
-                                                  .isBiometricLoading.value
+                                          child:
+                                              controller
+                                                  .isBiometricLoading
+                                                  .value
                                               ? SizedBox(
-                                                  height: context.responsive(20),
-                                                  width: context.responsive(20),
-                                                  child: const CircularProgressIndicator(
-                                                    strokeWidth: 2.5,
-                                                    color: primaryRed,
+                                                  height: context.responsive(
+                                                    20,
                                                   ),
+                                                  width: context.responsive(20),
+                                                  child:
+                                                      const CircularProgressIndicator(
+                                                        strokeWidth: 2.5,
+                                                        color: primaryRed,
+                                                      ),
                                                 )
                                               : FittedBox(
                                                   fit: BoxFit.scaleDown,
                                                   child: Row(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment.center,
+                                                        MainAxisAlignment
+                                                            .center,
                                                     mainAxisSize:
                                                         MainAxisSize.min,
                                                     children: [
@@ -662,17 +482,15 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                                         controller
                                                             .biometricIcon
                                                             .value,
-                                                        color: primaryRed,
-                                                        size: context.responsive(
-                                                          22,
-                                                        ),
+                                                        color: Colors.black,
+                                                        size: context
+                                                            .responsive(22),
                                                       ),
                                                       const SizedBox(width: 8),
                                                       Text(
                                                         "Login with ${controller.biometricLabel.value}",
                                                         style: TextStyle(
-                                                          color: Colors
-                                                              .black87,
+                                                          color: Colors.black87,
                                                           fontWeight:
                                                               FontWeight.w700,
                                                           fontSize: context
@@ -688,6 +506,30 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                   ],
                                 );
                               }),
+                              height14,
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Obx(
+                                    () => InkWell(
+                                      onTap: () => controller.isOtpLogin
+                                          ? controller.setLoginMethod('MPIN')
+                                          : controller.setLoginMethod('OTP'),
+                                      child: Text(
+                                        controller.isOtpLogin
+                                            ? "Or login with MPIN"
+                                            : "Or login with OTP",
+                                        style: TextStyle(
+                                          color: primaryRed,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: context.responsive(14),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               SizedBox(height: context.responsive(24)),
                             ],
                           ),
@@ -931,4 +773,3 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
     );
   }
 }
-

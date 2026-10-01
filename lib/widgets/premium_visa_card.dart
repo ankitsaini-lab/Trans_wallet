@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
-import 'package:transwallet/widgets/constsize.dart';
 
 class PremiumVisaCard extends StatelessWidget {
   final String cardNumber;
@@ -48,10 +47,9 @@ class PremiumVisaCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          // border: Border.all(color: primaryLightYellow, width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: shadowColor.withOpacity(isBlocked ? 0.05 : 0.18),
+              color: shadowColor.withValues(alpha: isBlocked ? 0.05 : 0.18),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -67,8 +65,9 @@ class PremiumVisaCard extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final double cardWidth = constraints.maxWidth;
+                final double cardHeight = cardWidth / (85.60 / 53.98);
 
-                final double scale = (cardWidth / 340.0).clamp(0.65, 1.0);
+                final double scale = (cardWidth / 340.0).clamp(0.5, 1.5);
 
                 return Stack(
                   children: [
@@ -78,8 +77,8 @@ class PremiumVisaCard extends StatelessWidget {
 
                     Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 20 * scale,
-                        vertical: 16 * scale,
+                        horizontal: cardWidth * 0.06,
+                        vertical: cardHeight * 0.08,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,61 +88,85 @@ class PremiumVisaCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
+                              if (topRightAction != null)
+                                topRightAction!
+                              else
+                                const SizedBox(),
                               Image.asset(
                                 'assets/WHITE TRANSCORP .png',
-                                height: 14 * scale,
+                                height: (cardHeight * 0.09).clamp(10.0, 22.0),
                                 fit: BoxFit.contain,
                                 color: useBlackLogos ? Colors.black : null,
                               ),
                             ],
                           ),
-                          Row(
-                            children: [
-                              Text(
+
+                          const Spacer(flex: 2),
+
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: EdgeInsets.only(left: cardWidth * 0.08),
+                              child: Text(
                                 _formatCardNumber(cardNumber),
                                 style: TextStyle(
                                   color: textColor,
-                                  fontSize: 18 * scale,
+                                  fontSize: (cardWidth * 0.052).clamp(
+                                    12.0,
+                                    22.0,
+                                  ),
                                   fontWeight: FontWeight.w600,
-                                  letterSpacing: 1.5,
+                                  letterSpacing: (cardWidth * 0.005).clamp(
+                                    0.5,
+                                    2.0,
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
                           ),
-                          height30,
+
+                          const Spacer(),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: cardWidth * 0.04,
+                                    bottom: cardHeight * 0.01,
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
                                       cardHolder.toUpperCase(),
                                       style: TextStyle(
                                         color: textColor,
-                                        fontSize: 14 * scale,
+                                        fontSize: (cardWidth * 0.04).clamp(
+                                          10.0,
+                                          16.0,
+                                        ),
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1.0,
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Image.asset(
-                                    'assets/VisaFree.png',
-                                    height: 18 * scale,
-                                    fit: BoxFit.contain,
-                                    color: useBlackLogos ? Colors.black : null,
-                                  ),
-                                  height24,
-                                ],
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  right: cardWidth * 0.01,
+                                  bottom: cardHeight * 0.04,
+                                ),
+                                child: Image.asset(
+                                  'assets/VisaFree.png',
+                                  height: (cardHeight * 0.14).clamp(14.0, 28.0),
+                                  fit: BoxFit.contain,
+                                  color: useBlackLogos ? Colors.black : null,
+                                ),
                               ),
                             ],
                           ),
@@ -154,7 +177,7 @@ class PremiumVisaCard extends StatelessWidget {
                     if (isPermanentlyBlocked)
                       Positioned.fill(
                         child: Container(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           child: Center(
                             child: Container(
                               padding: EdgeInsets.symmetric(
@@ -162,10 +185,10 @@ class PremiumVisaCard extends StatelessWidget {
                                 vertical: 10 * scale,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.9),
+                                color: Colors.red.withValues(alpha: 0.9),
                                 borderRadius: BorderRadius.circular(30),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                   width: 1.5,
                                 ),
                               ),
@@ -200,7 +223,7 @@ class PremiumVisaCard extends StatelessWidget {
                           child: BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                             child: Container(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               child: Center(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,

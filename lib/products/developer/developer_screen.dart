@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/services/firebase_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 class DeveloperScreen extends StatefulWidget {
@@ -351,6 +352,108 @@ class _DeveloperScreenState extends State<DeveloperScreen>
             "Common Headers Included",
             "TENANT: TRANSCORPAPP\npartnerId: TRANSCORPAPP\npartnerToken: Basic VENYT1hPREFZ",
             icon: Icons.vpn_key_rounded,
+          ),
+          const SizedBox(height: 8),
+          Obx(() {
+            final fcmToken = Get.isRegistered<FirebaseService>()
+                ? FirebaseService.to.fcmToken.value
+                : 'Not initialized';
+            return _buildInfoCard(
+              "FCM Device Token (Push Notifications)",
+              fcmToken.isNotEmpty ? fcmToken : 'Fetching FCM Token...',
+              icon: Icons.notifications_active_rounded,
+              onTapCopy: fcmToken.isNotEmpty
+                  ? () {
+                      Clipboard.setData(ClipboardData(text: fcmToken));
+                      AppSnackbar.success("FCM Token copied to clipboard");
+                    }
+                  : null,
+            );
+          }),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFFFD500)),
+                foregroundColor: const Color(0xFFFFD500),
+                backgroundColor: const Color(0xFF1E1E2E),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.settings_suggest_rounded, size: 20),
+              label: const Text(
+                "Check OS Notification Permission Status",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                if (Get.isRegistered<FirebaseService>()) {
+                  FirebaseService.to.checkAndPromptNotificationPermission();
+                } else {
+                  AppSnackbar.error("FirebaseService is not registered");
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFD500),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.phonelink_setup_rounded, size: 20),
+              label: const Text(
+                "Test Register Device API (POST /api/v1/devices)",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () async {
+                if (!Get.isRegistered<FirebaseService>()) {
+                  AppSnackbar.error("FirebaseService is not registered");
+                  return;
+                }
+                final token = FirebaseService.to.fcmToken.value;
+                if (token.isEmpty) {
+                  AppSnackbar.error("FCM Token is empty");
+                  return;
+                }
+                final res = await ApiService.to.registerDeviceToken(token);
+                if (res != null) {
+                  AppSnackbar.success("Device token registered: ${res['message'] ?? 'OK'}");
+                } else {
+                  AppSnackbar.error("Failed to register device token");
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE50914),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.video_call_rounded, size: 20),
+              label: const Text(
+                "Open VKYC Test Module (/vkyc_test)",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Get.toNamed('/vkyc_test');
+              },
+            ),
           ),
           const SizedBox(height: 24),
           const Text(
@@ -732,7 +835,12 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     );
   }
 
-  Widget _buildInfoCard(String label, String value, {required IconData icon}) {
+  Widget _buildInfoCard(
+    String label,
+    String value, {
+    required IconData icon,
+    VoidCallback? onTapCopy,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -763,6 +871,11 @@ class _DeveloperScreenState extends State<DeveloperScreen>
               ],
             ),
           ),
+          if (onTapCopy != null)
+            IconButton(
+              icon: const Icon(Icons.copy, color: Color(0xFFFFD500), size: 20),
+              onPressed: onTapCopy,
+            ),
         ],
       ),
     );
