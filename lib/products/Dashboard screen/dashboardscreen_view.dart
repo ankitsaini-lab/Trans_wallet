@@ -717,14 +717,17 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
               style: TextStyle(
                 color: textColor,
                 fontSize: context.responsive(18),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 0,
               ),
             ),
             GestureDetector(
               onTap: () => _showAnalyticsMonthPicker(context, controller),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
@@ -791,9 +794,11 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                     if (weekly.isNotEmpty) {
                       for (var w in weekly) {
                         double val = 0.0;
-                        if (w['expenses'] != null && (w['expenses'] as num) > 0) {
+                        if (w['expenses'] != null &&
+                            (w['expenses'] as num) > 0) {
                           val = (w['expenses'] as num).toDouble();
-                        } else if (w['income'] != null && (w['income'] as num) > 0) {
+                        } else if (w['income'] != null &&
+                            (w['income'] as num) > 0) {
                           val = (w['income'] as num).toDouble();
                         } else if (w['savings'] != null) {
                           val = (w['savings'] as num).toDouble();
@@ -813,7 +818,9 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                 child: Obx(() {
                   final weekly = controller.weeklyAnalytics;
                   final List<String> labels = weekly.isNotEmpty
-                      ? weekly.map((w) => (w['label'] ?? '').toString()).toList()
+                      ? weekly
+                            .map((w) => (w['label'] ?? '').toString())
+                            .toList()
                       : ["W1", "W2", "W3", "W4"];
 
                   return Row(
@@ -888,18 +895,27 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   ) {
     final now = DateTime.now();
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     final List<Map<String, String>> options = [
-      {'label': 'This Month', 'val': ''}
+      {'label': 'This Month', 'val': ''},
     ];
 
     for (int i = 0; i < 12; i++) {
       final date = DateTime(now.year, now.month - i, 1);
-      final monthStr =
-          "${date.year}-${date.month.toString().padLeft(2, '0')}";
+      final monthStr = "${date.year}-${date.month.toString().padLeft(2, '0')}";
       final display = "${monthNames[date.month - 1]} ${date.year}";
       if (i == 0) {
         options[0]['val'] = monthStr;
@@ -923,10 +939,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             children: [
               const Text(
                 "Select Analytics Month",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Flexible(
@@ -937,15 +950,16 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                     final opt = options[idx];
                     final isSelected =
                         controller.selectedAnalyticsMonth.value == opt['val'] ||
-                            (idx == 0 &&
-                                controller.selectedAnalyticsMonth.value.isEmpty);
+                        (idx == 0 &&
+                            controller.selectedAnalyticsMonth.value.isEmpty);
                     return ListTile(
                       dense: true,
                       title: Text(
                         opt['label']!,
                         style: TextStyle(
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           color: isSelected ? primaryRed : Colors.black,
                         ),
                       ),
@@ -954,9 +968,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                           : null,
                       onTap: () {
                         Navigator.pop(context);
-                        controller.fetchTransactionAnalytics(
-                          month: opt['val'],
-                        );
+                        controller.fetchTransactionAnalytics(month: opt['val']);
                       },
                     );
                   },
@@ -1019,7 +1031,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
               style: TextStyle(
                 color: textColor,
                 fontSize: context.responsive(18),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 0,
               ),
             ),
@@ -1135,7 +1147,9 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             }
 
             return Column(
-              children: List.generate(txList.length, (index) {
+              children: List.generate(txList.length > 5 ? 5 : txList.length, (
+                index,
+              ) {
                 final tx = txList[index];
                 final bool isCredit = tx['isCredit'] == true;
                 return _buildTransactionItem(
@@ -1155,7 +1169,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                       ? const Color(0xFF059669)
                       : const Color(0xFFD84315),
                   isFailed: tx['isFailed'] == true,
-                  isLast: index == txList.length - 1,
+                  isLast: index == (txList.length > 5 ? 4 : txList.length - 1),
                 );
               }),
             );

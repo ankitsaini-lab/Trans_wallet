@@ -144,7 +144,7 @@ class DashboardscreenController extends GetxController {
           totalSavings.value = sav.toDouble();
         }
 
-        if (res['weekly'] is List) {
+        if (res['weekly'] is List && (res['weekly'] as List).isNotEmpty) {
           final List weeklyList = res['weekly'];
           weeklyAnalytics.value = weeklyList
               .map((e) => Map<String, dynamic>.from(e as Map))
@@ -152,11 +152,72 @@ class DashboardscreenController extends GetxController {
         } else {
           weeklyAnalytics.clear();
         }
+      } else {
+        weeklyAnalytics.clear();
+      }
+
+      if (weeklyAnalytics.isEmpty && recentTransactions.isNotEmpty) {
+        _calculateFallbackAnalyticsFromTransactions(recentTransactions);
       }
     } catch (e) {
       log('Error fetching transaction analytics: $e');
     } finally {
       isAnalyticsLoading.value = false;
+    }
+  }
+
+  void _calculateFallbackAnalyticsFromTransactions(List<Map<String, dynamic>> items) {
+    if (items.isEmpty) return;
+
+    double w1Inc = 0.0, w1Exp = 0.0;
+    double w2Inc = 0.0, w2Exp = 0.0;
+    double w3Inc = 0.0, w3Exp = 0.0;
+    double w4Inc = 0.0, w4Exp = 0.0;
+
+    double sumInc = 0.0;
+    double sumExp = 0.0;
+
+    for (var item in items) {
+      if (item['isFailed'] == true) continue;
+      final bool isCredit = item['isCredit'] == true;
+      final double amt = (item['rawAmount'] is num)
+          ? (item['rawAmount'] as num).toDouble()
+          : 0.0;
+      final DateTime dt = (item['rawDate'] is DateTime)
+          ? item['rawDate'] as DateTime
+          : DateTime.now();
+
+      final day = dt.day;
+      if (day <= 7) {
+        if (isCredit) w1Inc += amt; else w1Exp += amt;
+      } else if (day <= 14) {
+        if (isCredit) w2Inc += amt; else w2Exp += amt;
+      } else if (day <= 21) {
+        if (isCredit) w3Inc += amt; else w3Exp += amt;
+      } else {
+        if (isCredit) w4Inc += amt; else w4Exp += amt;
+      }
+
+      if (isCredit) {
+        sumInc += amt;
+      } else {
+        sumExp += amt;
+      }
+    }
+
+    if (totalIncome.value == 0.0 && totalExpenses.value == 0.0 && totalSavings.value == 0.0) {
+      totalIncome.value = sumInc;
+      totalExpenses.value = sumExp;
+      totalSavings.value = (sumInc - sumExp) > 0 ? (sumInc - sumExp) : 0.0;
+    }
+
+    if (weeklyAnalytics.isEmpty) {
+      weeklyAnalytics.value = [
+        {"label": "W1", "expenses": w1Exp, "income": w1Inc, "savings": (w1Inc - w1Exp) > 0 ? (w1Inc - w1Exp) : 0.0},
+        {"label": "W2", "expenses": w2Exp, "income": w2Inc, "savings": (w2Inc - w2Exp) > 0 ? (w2Inc - w2Exp) : 0.0},
+        {"label": "W3", "expenses": w3Exp, "income": w3Inc, "savings": (w3Inc - w3Exp) > 0 ? (w3Inc - w3Exp) : 0.0},
+        {"label": "W4", "expenses": w4Exp, "income": w4Inc, "savings": (w4Inc - w4Exp) > 0 ? (w4Inc - w4Exp) : 0.0},
+      ];
     }
   }
 
@@ -221,6 +282,8 @@ class DashboardscreenController extends GetxController {
               "title": title,
               "subtitle": subtitle,
               "amount": formattedAmount,
+              "rawAmount": amt.toDouble(),
+              "rawDate": rawDate,
               "isCredit": isCredit,
               "isFailed": isFailed,
               "txRef": item['txRef'],
@@ -232,12 +295,8 @@ class DashboardscreenController extends GetxController {
 
         recentTransactions.value = parsedList;
 
-        // Fallback calculation only if analytics totals have not been loaded yet
-        if (totalIncome.value == 0.0 && totalExpenses.value == 0.0 && totalSavings.value == 0.0) {
-          totalIncome.value = calcIncome;
-          totalExpenses.value = calcExpenses;
-          totalSavings.value = (calcIncome - calcExpenses) > 0 ? (calcIncome - calcExpenses) : 0.0;
-        }
+        // Calculate fallback analytics from loaded transactions
+        _calculateFallbackAnalyticsFromTransactions(parsedList);
       } else {
         recentTransactions.value = [];
       }

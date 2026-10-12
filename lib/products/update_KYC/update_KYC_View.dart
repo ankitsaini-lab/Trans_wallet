@@ -168,7 +168,7 @@ class UpdateKycView extends GetView<UpdateKycController> {
                               "Required Steps for Verification",
                               style: TextStyle(
                                 fontSize: context.responsive(18),
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 color: Colors.black,
                               ),
                             ),
@@ -200,14 +200,16 @@ class UpdateKycView extends GetView<UpdateKycController> {
                               ),
                             ),
                             SizedBox(height: context.responsive(12)),
-                            CustomButton(
-                              text: "Get Started",
+                            Obx(() => CustomButton(
+                              text: controller.isLoading.value ? "Initiating..." : "Get Started",
                               btncolor: primaryRed,
                               borderRadius: context.responsive(30),
                               onPressed: () {
-                                Get.toNamed('/vkyc_test');
+                                if (!controller.isLoading.value) {
+                                  controller.initiateVkycUpgrade();
+                                }
                               },
-                            ),
+                            )),
                             SizedBox(height: context.responsive(10)),
                           ],
                         ),
@@ -240,17 +242,17 @@ class UpdateKycView extends GetView<UpdateKycController> {
     return Container(
       margin: EdgeInsets.only(bottom: context.responsive(12)),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFDF5),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(context.responsive(16)),
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+        gradient: RadialGradient(
+          center: const Alignment(1.15, -1.15),
+          radius: 3.1,
           colors: [
-            Colors.white.withOpacity(0.9),
-            Colors.white.withOpacity(0.9),
-            Colors.white.withOpacity(0.9),
-            primaryYellow,
+            primaryYellow.withValues(alpha: 0.1),
+            Colors.white.withValues(alpha: 0.9),
+            Colors.white,
           ],
+          stops: const [0.0, 0.45, 1.0],
         ),
         border: Border.all(color: const Color.fromRGBO(0, 0, 0, 0.07)),
         boxShadow: [

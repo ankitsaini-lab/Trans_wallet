@@ -35,10 +35,13 @@ class WalletscreenController extends GetxController {
 
   var wallets = <Map<String, dynamic>>[].obs;
 
+  var isLoadingBalance = false.obs;
+
   @override
   void onInit() {
     super.onInit();
     _loadInitialWallets();
+    fetchBalanceFromApi();
   }
 
   void _loadInitialWallets() {
@@ -55,6 +58,7 @@ class WalletscreenController extends GetxController {
 
   Future<void> fetchBalanceFromApi() async {
     if (!Get.isRegistered<ApiService>()) return;
+    isLoadingBalance.value = true;
     try {
       final res = await ApiService.to.fetchWalletBalance();
       if (res != null) {
@@ -68,6 +72,8 @@ class WalletscreenController extends GetxController {
       }
     } catch (e) {
       log('Error fetching wallet balance in WalletscreenController: $e');
+    } finally {
+      isLoadingBalance.value = false;
     }
   }
 
@@ -176,6 +182,11 @@ class WalletscreenController extends GetxController {
   }
 
   Widget walletCard(Map wallet, int index) {
+    final bool isGeneralWallet = wallet["title"]
+        .toString()
+        .toLowerCase()
+        .contains("general");
+
     return Obx(() {
       bool isExpanded = expandedIndex.value == index;
       return GestureDetector(
@@ -257,19 +268,21 @@ class WalletscreenController extends GetxController {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    actionButton(
-                      "Add Money",
-                      onTap: () {
-                        Get.bottomSheet(
-                          const AddmoneyView(showGeneralWalletOption: true),
-                          isScrollControlled: true,
-                          isDismissible: false,
-                          enableDrag: false,
-                          backgroundColor: Colors.transparent,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 12),
+                    if (isGeneralWallet) ...[
+                      actionButton(
+                        "Add Money",
+                        onTap: () {
+                          Get.bottomSheet(
+                            const AddmoneyView(showGeneralWalletOption: true),
+                            isScrollControlled: true,
+                            isDismissible: false,
+                            enableDrag: false,
+                            backgroundColor: Colors.transparent,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     actionButton(
                       "Transactions",
                       onTap: () {

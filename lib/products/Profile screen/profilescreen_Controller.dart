@@ -19,6 +19,8 @@ class ProfilescreenController extends GetxController {
   var selectedIndex = 3.obs;
   var isKycVerified = false.obs;
   var biometricEnabled = true.obs;
+  var appLockEnabled = true.obs;
+  var appLockTimeout = 30.obs;
   var profilePictureUrl = "".obs;
   var userName = "User".obs;
   var userPhone = "".obs;
@@ -32,6 +34,13 @@ class ProfilescreenController extends GetxController {
       biometricEnabled.value = BiometricService.to.isBiometricEnabled.value;
     } else {
       biometricEnabled.value = box.read('biometric_enabled') ?? true;
+    }
+    if (Get.isRegistered<AppLockService>()) {
+      appLockTimeout.value = AppLockService.to.appLockTimeoutSeconds;
+      appLockEnabled.value = box.read('app_lock_enabled') ?? true;
+    } else {
+      appLockTimeout.value = box.read('app_lock_timeout_seconds') ?? 30;
+      appLockEnabled.value = box.read('app_lock_enabled') ?? true;
     }
     loadUserData();
     fetchFromApi();
@@ -227,6 +236,22 @@ class ProfilescreenController extends GetxController {
     } else {
       biometricEnabled.value = val;
       box.write('biometric_enabled', val);
+    }
+  }
+
+  void toggleAppLock(bool val) {
+    appLockEnabled.value = val;
+    box.write('app_lock_enabled', val);
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.setAppLockEnabled(val);
+    }
+  }
+
+  void updateLockTimeout(int seconds) {
+    appLockTimeout.value = seconds;
+    box.write('app_lock_timeout_seconds', seconds);
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.setAppLockTimeout(seconds);
     }
   }
 

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/services_more_screen.dart';
-import 'package:transwallet/products/Profile%20screen/Profilescreen_View.dart';
 
 class GlobalbottombarController extends GetxController {
   var selectedIndex = 0.obs;

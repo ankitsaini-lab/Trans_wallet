@@ -9,6 +9,9 @@ import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
+import 'package:transwallet/services/biometric_service.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
 
 class ProfilescreenView extends GetView<ProfilescreenController> {
   const ProfilescreenView({super.key});
@@ -200,15 +203,43 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                   context,
                   iconAsset: "assets/changepin.svg",
                   title: "Change PIN",
-                  onTap: () => Get.toNamed('/create_mpin'),
+                  onTap: () {
+                    final box = GetStorage();
+                    final String? savedMpin =
+                        box.read<String>('saved_mpin') ??
+                        box.read('mpin')?.toString() ??
+                        box.read('tx_pin')?.toString();
+                    final bool hasMpin =
+                        box.read('has_mpin') == true ||
+                        (savedMpin != null && savedMpin.isNotEmpty);
+
+                    if (hasMpin) {
+                      Get.bottomSheet(
+                        MpinVerifySheet(
+                          title: "Enter Existing PIN",
+                          subtitle:
+                              "Please enter your current 4-digit PIN to change it",
+                          onSuccess: () {
+                            Get.toNamed('/create_mpin');
+                          },
+                        ),
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                      );
+                    } else {
+                      Get.toNamed('/create_mpin');
+                    }
+                  },
                 ),
                 _buildDivider(context),
                 Obx(
                   () => _buildRow(
                     context,
                     iconAsset: "assets/biomatrics.svg",
-                    title: "Face Lock / Biometrics",
-                    subtitle: "Unlock with Face Lock or Fingerprint",
+                    title: Get.isRegistered<BiometricService>()
+                        ? BiometricService.to.biometricTypeLabel
+                        : "Biometric Login",
+                    subtitle: "Fast login using fingerprint or Face ID",
                     trailingWidget: Transform.scale(
                       scale: 0.8,
                       child: CupertinoSwitch(

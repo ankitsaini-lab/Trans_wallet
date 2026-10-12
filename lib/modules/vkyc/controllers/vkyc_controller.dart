@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/modules/vkyc/services/vkyc_test_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
-
 class VkycController extends GetxController {
   late final VkycTestService _vkycService;
 
@@ -24,6 +24,9 @@ class VkycController extends GetxController {
 
   void startTestVkyc() {
     _isProcessing = false;
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.vkyc);
+    }
     _vkycService.startVkyc();
     Get.toNamed('/vkyc_webview');
   }
@@ -32,12 +35,15 @@ class VkycController extends GetxController {
     if (_isProcessing) return;
     _isProcessing = true;
     isLoading.value = true;
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.vkyc);
+    }
     debugPrint("✅ [VkycController] Processing VKYC success...");
 
     try {
       await _vkycService.handleVkycSuccess();
       AppSnackbar.success("VKYC Completed Successfully!", title: "Approved");
-      
+
       // Navigate to existing Dashboard route
       Get.offAllNamed('/dashboard');
     } catch (e) {
@@ -46,27 +52,46 @@ class VkycController extends GetxController {
     } finally {
       isLoading.value = false;
       _isProcessing = false;
+      if (Get.isRegistered<AppLockService>()) {
+        AppLockService.to.finishExternalFlow(ExternalFlowType.vkyc);
+      }
     }
   }
 
   void onVkycCancelDetected() {
     if (_isProcessing) return;
     _isProcessing = true;
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.vkyc);
+    }
     debugPrint("🚫 [VkycController] Processing VKYC cancel...");
     _vkycService.handleVkycCancel();
     AppSnackbar.info("VKYC process cancelled.");
-    
+
     // Return to previous screen
     if (Get.currentRoute == '/vkyc_webview') {
       Get.back();
     }
     _isProcessing = false;
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.finishExternalFlow(ExternalFlowType.vkyc);
+    }
   }
 
   void onClosePressed() {
     if (Get.currentRoute == '/vkyc_webview') {
       Get.back();
     }
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.finishExternalFlow(ExternalFlowType.vkyc);
+    }
+  }
+
+  @override
+  void onClose() {
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.finishExternalFlow(ExternalFlowType.vkyc);
+    }
+    super.onClose();
   }
 }
-

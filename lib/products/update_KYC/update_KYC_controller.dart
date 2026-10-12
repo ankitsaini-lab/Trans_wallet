@@ -1,14 +1,51 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 import 'package:confetti/confetti.dart';
 
 class UpdateKycController extends GetxController {
   var isRedirecting = false.obs;
+  var isLoading = false.obs;
   var redirectionStatus = "Initializing secure connection...".obs;
   var redirectionProgress = 0.0.obs;
+
+  var vkycApplicationId = "".obs;
+  var vkycLink = "".obs;
+  var vkycStatus = "".obs;
+
   Timer? _redirectTimer;
+
+  /// Call POST /api/v1/kyc/vkyc/upgrade on Full KYC screen
+  Future<void> initiateVkycUpgrade() async {
+    if (isLoading.value) return;
+    isLoading.value = true;
+
+    try {
+      if (Get.isRegistered<ApiService>()) {
+        final res = await ApiService.to.upgradeVkyc();
+        if (res != null) {
+          vkycApplicationId.value = res['applicationId']?.toString() ?? "";
+          vkycLink.value = res['link']?.toString() ?? "";
+          vkycStatus.value = res['status']?.toString() ?? "in_progress";
+
+          if (vkycLink.value.isNotEmpty) {
+            Get.toNamed('/vkyc_webview', arguments: vkycLink.value);
+            return;
+          }
+        }
+      }
+      AppSnackbar.error(
+        "Unable to retrieve VKYC verification link. Please try again.",
+      );
+    } catch (e) {
+      AppSnackbar.error("Failed to initiate VKYC upgrade: $e");
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   void startBrowserRedirection() {
     isRedirecting.value = true;

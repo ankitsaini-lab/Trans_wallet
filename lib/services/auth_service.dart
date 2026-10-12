@@ -76,10 +76,15 @@ class AuthService extends GetxService {
       await _storage.write(_keyUserData, userData);
       if (userData['name'] != null && userData['name'].toString().isNotEmpty) {
         await _storage.write('name', userData['name']);
+        await _storage.write('remembered_name', userData['name']);
       }
       if (userData['phone'] != null && userData['phone'].toString().isNotEmpty) {
         await _storage.write('phone', userData['phone']);
+        await _storage.write('remembered_phone', userData['phone']);
       }
+    }
+    if (userId.isNotEmpty) {
+      await _storage.write('remembered_phone', userId);
     }
   }
 
@@ -120,11 +125,16 @@ class AuthService extends GetxService {
     await _storage.write(_keyUserData, current);
   }
 
-  /// Clear session/Logout completely
+  /// Clear session / Logout.
+  /// IMPORTANT: Logout MUST NOT disable biometric quick login enrollment
+  /// or delete remembered-device MPIN credentials.
   Future<void> logout() async {
-    await _storage.remove('remember_me');
-    await _storage.remove('remembered_name');
-    await _storage.remove('remembered_phone');
+    final phone = _storage.read<String>('phone') ??
+        _storage.read<String>('mobileNumber') ??
+        _storage.read<String>('remembered_phone');
+    if (phone != null && phone.isNotEmpty) {
+      await _storage.write('remembered_phone', phone);
+    }
 
     await _storage.remove(_keyToken);
     await _storage.remove('accessToken');

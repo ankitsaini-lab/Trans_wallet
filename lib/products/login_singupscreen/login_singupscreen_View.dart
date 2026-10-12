@@ -338,7 +338,9 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: GestureDetector(
-                                      onTap: () {},
+                                      onTap: () => controller.toggleCheck(
+                                        !controller.isChecked.value,
+                                      ),
                                       child: Text.rich(
                                         TextSpan(
                                           text: "I agree to ",
@@ -396,10 +398,12 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                   ),
                                 ),
                               ),
+
                               SizedBox(height: context.responsive(16)),
-                              // Biometric Login Option (Shown as per available device features)
+                              // Biometric Login Option (Shown only if biometric features are available AND set up by user)
                               Obx(() {
-                                if (!controller.isBiometricAvailable.value) {
+                                if (!controller.isBiometricAvailable.value ||
+                                    !controller.isBiometricSetup.value) {
                                   return const SizedBox.shrink();
                                 }
                                 return Column(
@@ -503,10 +507,10 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                         ),
                                       ),
                                     ),
+                                    height14,
                                   ],
                                 );
                               }),
-                              height14,
 
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.start,

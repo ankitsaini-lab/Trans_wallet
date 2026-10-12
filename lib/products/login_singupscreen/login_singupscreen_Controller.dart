@@ -18,8 +18,9 @@ class LoginSingupscreenController extends GetxController {
   var isPhoneFocused = false.obs;
 
   // Reactive biometric state
-  final RxBool isBiometricAvailable = true.obs;
-  final RxBool canLoginWithBiometrics = true.obs;
+  final RxBool isBiometricAvailable = false.obs;
+  final RxBool canLoginWithBiometrics = false.obs;
+  final RxBool isBiometricSetup = false.obs;
   final RxString biometricLabel =
       (Platform.isIOS ? 'Face ID' : 'Fingerprint').obs;
   final Rx<IconData> biometricIcon =
@@ -27,8 +28,10 @@ class LoginSingupscreenController extends GetxController {
   void updateBiometricState() {
     if (Get.isRegistered<BiometricService>()) {
       final service = BiometricService.to;
+      service.syncBiometricState();
       isBiometricAvailable.value = service.isBiometricAvailable;
       canLoginWithBiometrics.value = service.canLoginWithBiometrics;
+      isBiometricSetup.value = service.isBiometricSetup;
       biometricLabel.value = service.biometricTypeLabel;
       biometricIcon.value = service.biometricIcon;
     }
@@ -60,8 +63,13 @@ class LoginSingupscreenController extends GetxController {
     }
 
     final service = BiometricService.to;
-    if (!service.isBiometricEnabled.value) {
-      AppSnackbar.info("Biometric login is disabled in settings.");
+    if (!service.isBiometricAvailable) {
+      AppSnackbar.error("Biometric authentication is not available on this device.");
+      return;
+    }
+
+    if (!service.isBiometricSetup) {
+      AppSnackbar.info("Biometric login is not set up yet. Please log in using MPIN or OTP first.");
       return;
     }
 
@@ -148,6 +156,11 @@ class LoginSingupscreenController extends GetxController {
   }
 
   void onPrimaryActionPressed() {
+    if (!isChecked.value) {
+      AppSnackbar.error("Please accept the Terms & Conditions to proceed");
+      return;
+    }
+
     if (isOtpLogin) {
       sendOtp();
     } else {
@@ -201,13 +214,21 @@ class LoginSingupscreenController extends GetxController {
         requestBody,
       );
 
+      // Dismiss loading dialog as soon as response arrives
       if (Get.isDialogOpen ?? false) {
         Get.back();
       }
 
       if (response.status.isOk && response.body != null) {
         final body = response.body!;
-        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        final bool isSuccess =
+            (body['success'] == true ||
+             body['status'] == true ||
+             body['status'] == 'success' ||
+             body['code'] == 'OK' ||
+             body['code'] == 200) &&
+            body['status'] != false &&
+            body['success'] != false;
 
         if (isSuccess) {
           final data = body['data'];
@@ -272,7 +293,11 @@ class LoginSingupscreenController extends GetxController {
           box.write('has_mpin', true);
           box.write('mpin_set', true);
           box.write('saved_mpin', enteredMpin);
+          box.write('remembered_mpin', enteredMpin);
           box.write('phone', enteredPhone);
+          box.write('remembered_phone', enteredPhone);
+          box.write('biometric_quick_login_enabled', true);
+          box.write('biometric_enabled', true);
           box.write('is_logged_in', true);
 
           AppSnackbar.success(
@@ -300,13 +325,15 @@ class LoginSingupscreenController extends GetxController {
         AppSnackbar.error(errorMsg);
       }
     } catch (e) {
-      if (Get.isDialogOpen ?? false) {
-        Get.back();
-      }
       log("[Login MPIN] Error: $e");
       const errorMsg = "Server error. Please try again after some time.";
       mpinError.value = errorMsg;
       AppSnackbar.error(errorMsg);
+    } finally {
+      // Ensure any open loading dialog is always dismissed
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
     }
   }
 
@@ -353,6 +380,11 @@ class LoginSingupscreenController extends GetxController {
     }
 
     phoneError.value = "";
+
+    if (!isChecked.value) {
+      AppSnackbar.error("Please accept the Terms & Conditions to proceed");
+      return;
+    }
 
     // Show loading indicator
     Get.dialog(
@@ -418,6 +450,11 @@ class LoginSingupscreenController extends GetxController {
   }
 
   Future<void> _verifyOtp() async {
+    if (!isChecked.value) {
+      AppSnackbar.error("Please accept the Terms & Conditions to proceed");
+      return;
+    }
+
     if (!isOtpComplete) {
       otpError.value = "Please enter complete OTP";
       AppSnackbar.error("Please enter complete OTP");

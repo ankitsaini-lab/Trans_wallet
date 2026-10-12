@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:transwallet/products/Profile%20screen/Profilescreen_View.dart';
 import 'package:transwallet/widgets/globalbottombar/GlobalbottomBar_Controller.dart';
 import 'package:transwallet/widgets/constsize.dart';
 

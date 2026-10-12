@@ -218,27 +218,6 @@ class SendmoneyView extends GetView<SendmoneyController> {
                           fontSize: 14,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () => _showPhonebookModal(context),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.perm_contact_calendar_rounded,
-                              size: 16,
-                              color: primaryRed,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              "Pick from Phonebook",
-                              style: TextStyle(
-                                color: primaryRed,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -358,28 +337,6 @@ class SendmoneyView extends GetView<SendmoneyController> {
                       fontSize: 15,
                     ),
                   ),
-                  const Spacer(),
-                  Obx(() {
-                    final count = controller.filteredRecipients.length;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: lightprimaryred,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        "$count",
-                        style: const TextStyle(
-                          color: primaryRed,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  }),
                 ],
               ),
             ),

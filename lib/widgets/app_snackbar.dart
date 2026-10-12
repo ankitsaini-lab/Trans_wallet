@@ -86,10 +86,38 @@ class AppSnackbar {
     );
   }
 
+  /// Named helper for success message
+  static void showSuccess({
+    required String title,
+    required String message,
+    SnackPosition position = SnackPosition.TOP,
+  }) {
+    show(
+      title: title,
+      message: message,
+      isSuccess: true,
+      snackPosition: position,
+    );
+  }
+
   /// Helper for error message
   static void error(
     String message, {
     String title = "Error",
+    SnackPosition position = SnackPosition.TOP,
+  }) {
+    show(
+      title: title,
+      message: message,
+      isSuccess: false,
+      snackPosition: position,
+    );
+  }
+
+  /// Named helper for error message
+  static void showError({
+    required String title,
+    required String message,
     SnackPosition position = SnackPosition.TOP,
   }) {
     show(

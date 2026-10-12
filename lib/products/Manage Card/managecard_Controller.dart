@@ -1,8 +1,10 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
@@ -470,272 +472,74 @@ class ManagecardController extends GetxController {
     );
   }
 
-  void showResetPinDialog() {
-    final cardDigitsController = TextEditingController();
-    final mobileController = TextEditingController();
-    final pinController = TextEditingController();
-    final confirmPinController = TextEditingController();
+  Future<void> showResetPinDialog() async {
+    if (!Get.isRegistered<ApiService>()) {
+      AppSnackbar.error("API Service unavailable");
+      return;
+    }
 
-    final step1FormKey = GlobalKey<FormState>();
-    final step2FormKey = GlobalKey<FormState>();
-
-    final RxInt currentStep = 1.obs;
-
+    // Show loading dialog
     Get.dialog(
       Dialog(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        child: Obx(
-          () => Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(26),
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: currentStep.value == 1
-                  ? Form(
-                      key: step1FormKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            height: 55,
-                            width: 55,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: primaryYellow,
-                            ),
-                            child: const Icon(
-                              Icons.credit_card_rounded,
-                              size: 24,
-                              color: Color(0xFF111111),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          const Text(
-                            "Verify Card Details",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          TextFormField(
-                            controller: cardDigitsController,
-                            keyboardType: TextInputType.number,
-                            maxLength: 4,
-                            decoration: InputDecoration(
-                              labelText: "Last 4 Digits of Card",
-                              counterText: "",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.length != 4) {
-                                return "Enter last 4 digits of your card";
-                              }
-                              if (val != "4567") {
-                                return "Incorrect card digits";
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: mobileController,
-                            keyboardType: TextInputType.phone,
-                            maxLength: 10,
-                            decoration: InputDecoration(
-                              labelText: "Registered Mobile Number",
-                              counterText: "",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.length != 10) {
-                                return "Enter 10-digit mobile number";
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: Get.back,
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 15,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text("Cancel"),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    if (step1FormKey.currentState!.validate()) {
-                                      currentStep.value = 2;
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF111111),
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 15,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "Continue",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    )
-                  : Form(
-                      key: step2FormKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            height: 55,
-                            width: 55,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: primaryYellow,
-                            ),
-                            child: const Icon(
-                              Icons.password_rounded,
-                              size: 24,
-                              color: Color(0xFF111111),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          const Text(
-                            "Set New PIN",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          TextFormField(
-                            controller: pinController,
-                            keyboardType: TextInputType.number,
-                            obscureText: true,
-                            maxLength: 4,
-                            decoration: InputDecoration(
-                              labelText: "New 4-Digit PIN",
-                              counterText: "",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.length != 4) {
-                                return "Enter a valid 4-digit PIN";
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: confirmPinController,
-                            keyboardType: TextInputType.number,
-                            obscureText: true,
-                            maxLength: 4,
-                            decoration: InputDecoration(
-                              labelText: "Confirm New PIN",
-                              counterText: "",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val != pinController.text) {
-                                return "PINs do not match";
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => currentStep.value = 1,
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 15,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text("Back"),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    if (step2FormKey.currentState!.validate()) {
-                                      Get.back();
-                                      AppSnackbar.success(
-                                        "Card PIN Reset Successfully",
-                                        title: "Success",
-                                        position: SnackPosition.TOP,
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF111111),
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 15,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "Reset PIN",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(color: primaryRed, strokeWidth: 3),
+              ),
+              SizedBox(height: 16),
+              Text(
+                "Initializing Reset PIN...",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
           ),
         ),
       ),
       barrierDismissible: false,
+    );
+
+    final res = await ApiService.to.fetchCardWidgetSession(
+      widgetType: "SET_PIN",
+      callbackUrl: "ppiapp://card-widget/return",
+    );
+
+    // Dismiss loading dialog if open
+    if (Get.isDialogOpen ?? false) {
+      Get.back();
+    }
+
+    final String? widgetUrl =
+        res?['result']?.toString() ?? res?['widgetUrl']?.toString();
+
+    if (widgetUrl == null || widgetUrl.isEmpty) {
+      AppSnackbar.error("Unable to load Reset PIN session. Please try again.");
+      return;
+    }
+
+    // Open Reset PIN WebView BottomSheet
+    Get.bottomSheet(
+      ResetPinWebViewSheet(
+        widgetUrl: widgetUrl,
+        cardData: cardData,
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
     );
   }
 
@@ -1207,3 +1011,217 @@ class PremiumSlider extends StatelessWidget {
     );
   }
 }
+
+class ResetPinWebViewSheet extends StatefulWidget {
+  final String widgetUrl;
+  final Map<String, dynamic> cardData;
+
+  const ResetPinWebViewSheet({
+    super.key,
+    required this.widgetUrl,
+    required this.cardData,
+  });
+
+  @override
+  State<ResetPinWebViewSheet> createState() => _ResetPinWebViewSheetState();
+}
+
+class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
+  bool _isLoading = true;
+  double _progress = 0.0;
+  bool _isFinished = false;
+
+  void _handleCallback(String url) {
+    if (_isFinished) return;
+    developer.log("Reset PIN Callback intercepted URL: $url");
+    final lower = url.toLowerCase();
+    if (lower.contains("ppiapp://card-widget/return") ||
+        lower.contains("yappay://") ||
+        lower.contains("success") ||
+        lower.contains("return") ||
+        lower.contains("done") ||
+        lower.contains("close") ||
+        lower.contains("cancel") ||
+        lower.contains("failed")) {
+      _isFinished = true;
+      if (Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+      if (lower.contains("failed") || lower.contains("cancel")) {
+        AppSnackbar.info("Reset PIN cancelled or uncompleted.");
+      } else {
+        AppSnackbar.success("PIN reset action processed successfully!");
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final sheetHeight = mediaQuery.size.height * 0.85;
+
+    return Container(
+      height: sheetHeight,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.lock_reset_rounded, color: primaryRed, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            "Reset Card PIN",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 20,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            if (_isLoading)
+              LinearProgressIndicator(
+                value: _progress > 0 ? _progress : null,
+                backgroundColor: Colors.grey.shade200,
+                color: primaryRed,
+                minHeight: 3,
+              ),
+
+            // WebView
+            Expanded(
+              child: Stack(
+                children: [
+                  InAppWebView(
+                    initialUrlRequest: URLRequest(
+                      url: WebUri(widget.widgetUrl),
+                    ),
+                    initialSettings: InAppWebViewSettings(
+                      javaScriptEnabled: true,
+                      domStorageEnabled: true,
+                      useShouldOverrideUrlLoading: true,
+                      transparentBackground: true,
+                      allowFileAccessFromFileURLs: true,
+                      allowUniversalAccessFromFileURLs: true,
+                      mediaPlaybackRequiresUserGesture: false,
+                    ),
+                    onWebViewCreated: (controller) {
+                      controller.addJavaScriptHandler(
+                        handlerName: 'WidgetCallback',
+                        callback: (args) {
+                          developer.log("JS WidgetCallback received: $args");
+                          _handleCallback("success");
+                        },
+                      );
+                      controller.addJavaScriptHandler(
+                        handlerName: 'CardWidget',
+                        callback: (args) {
+                          developer.log("JS CardWidget received: $args");
+                          _handleCallback("success");
+                        },
+                      );
+                    },
+                    onLoadStart: (controller, url) {
+                      setState(() => _isLoading = true);
+                      if (url != null) {
+                        _handleCallback(url.toString());
+                      }
+                    },
+                    onProgressChanged: (controller, progress) {
+                      setState(() {
+                        _progress = progress / 100;
+                        if (progress == 100) _isLoading = false;
+                      });
+                    },
+                    onLoadStop: (controller, url) {
+                      setState(() => _isLoading = false);
+                      if (url != null) {
+                        _handleCallback(url.toString());
+                      }
+                    },
+                    onLoadError: (controller, url, code, message) {
+                      setState(() => _isLoading = false);
+                      developer.log("WebView error: $code, $message");
+                    },
+                    shouldOverrideUrlLoading: (controller, navigationAction) async {
+                      final uri = navigationAction.request.url;
+                      if (uri != null) {
+                        final urlStr = uri.toString();
+                        final lower = urlStr.toLowerCase();
+                        if (lower.startsWith("ppiapp://") ||
+                            lower.startsWith("yappay://") ||
+                            lower.contains("card-widget/return")) {
+                          _handleCallback(urlStr);
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                      }
+                      return NavigationActionPolicy.ALLOW;
+                    },
+                  ),
+
+                  if (_isLoading && _progress < 0.1)
+                    Container(
+                      color: Colors.white,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: primaryRed),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

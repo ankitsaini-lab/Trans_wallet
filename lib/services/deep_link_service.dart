@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/modules/vkyc/controllers/vkyc_controller.dart';
 import 'package:transwallet/modules/vkyc/services/vkyc_test_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 
 class DeepLinkService extends GetxService {
   static DeepLinkService get to => Get.find<DeepLinkService>();
@@ -41,31 +42,51 @@ class DeepLinkService extends GetxService {
     debugPrint("🔗 [DeepLinkService] Deep link detected: $urlString");
 
     if (urlString.startsWith("transwallet://vkyc/success")) {
-      if (Get.currentRoute == '/vkyc_webview') {
-        Get.back();
+      if (Get.isRegistered<AppLockService>()) {
+        AppLockService.to.startExternalFlow(ExternalFlowType.vkyc);
       }
 
-      if (Get.isRegistered<VkycController>()) {
-        await Get.find<VkycController>().onVkycSuccessDetected();
-      } else {
-        final vkycService = Get.isRegistered<VkycTestService>()
-            ? VkycTestService.to
-            : Get.put(VkycTestService());
-        await vkycService.handleVkycSuccess();
-        Get.offAllNamed('/dashboard');
+      try {
+        if (Get.currentRoute == '/vkyc_webview') {
+          Get.back();
+        }
+
+        if (Get.isRegistered<VkycController>()) {
+          await Get.find<VkycController>().onVkycSuccessDetected();
+        } else {
+          final vkycService = Get.isRegistered<VkycTestService>()
+              ? VkycTestService.to
+              : Get.put(VkycTestService());
+          await vkycService.handleVkycSuccess();
+          Get.offAllNamed('/dashboard');
+        }
+      } finally {
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.finishExternalFlow(ExternalFlowType.vkyc);
+        }
       }
     } else if (urlString.startsWith("transwallet://vkyc/cancel")) {
-      if (Get.currentRoute == '/vkyc_webview') {
-        Get.back();
+      if (Get.isRegistered<AppLockService>()) {
+        AppLockService.to.startExternalFlow(ExternalFlowType.vkyc);
       }
 
-      if (Get.isRegistered<VkycController>()) {
-        Get.find<VkycController>().onVkycCancelDetected();
-      } else {
-        final vkycService = Get.isRegistered<VkycTestService>()
-            ? VkycTestService.to
-            : Get.put(VkycTestService());
-        vkycService.handleVkycCancel();
+      try {
+        if (Get.currentRoute == '/vkyc_webview') {
+          Get.back();
+        }
+
+        if (Get.isRegistered<VkycController>()) {
+          Get.find<VkycController>().onVkycCancelDetected();
+        } else {
+          final vkycService = Get.isRegistered<VkycTestService>()
+              ? VkycTestService.to
+              : Get.put(VkycTestService());
+          vkycService.handleVkycCancel();
+        }
+      } finally {
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.finishExternalFlow(ExternalFlowType.vkyc);
+        }
       }
     }
   }

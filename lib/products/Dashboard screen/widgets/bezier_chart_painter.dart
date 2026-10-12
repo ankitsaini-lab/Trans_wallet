@@ -117,6 +117,6 @@ class BezierChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BezierChartPainter oldDelegate) {
-    return oldDelegate.values != values;
+    return true;
   }
 }

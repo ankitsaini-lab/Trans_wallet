@@ -102,7 +102,7 @@ class WalletscreenView extends GetView<WalletscreenController> {
           left: 20,
           right: 20,
           top: 20,
-          bottom: 120,
+          bottom: 20,
         ),
         child: Column(
           children: [
@@ -156,7 +156,7 @@ class WalletscreenView extends GetView<WalletscreenController> {
         },
         child: Container(
           width: double.infinity,
-          height: context.responsive(150),
+          height: context.responsive(155),
           decoration: BoxDecoration(
             // gradient: topBackgroundGradient,
             borderRadius: BorderRadius.circular(context.responsive(24)),
@@ -214,17 +214,32 @@ class WalletscreenView extends GetView<WalletscreenController> {
                       ],
                     ),
                     SizedBox(height: context.responsive(8)),
-                    Text(
-                      isRevealed
-                          ? "₹ ${totalBalance.toStringAsFixed(2)}"
-                          : "₹ •••••••",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: context.responsive(28),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
+                    if (controller.isLoadingBalance.value)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.responsive(4),
+                        ),
+                        child: SizedBox(
+                          height: context.responsive(24),
+                          width: context.responsive(24),
+                          child: const CircularProgressIndicator(
+                            color: primaryRed,
+                            strokeWidth: 2.5,
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        isRevealed
+                            ? "₹ ${totalBalance.toStringAsFixed(2)}"
+                            : "₹ •••••••",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: context.responsive(28),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
                     const Spacer(),
                     Container(
                       padding: EdgeInsets.symmetric(
@@ -252,7 +267,7 @@ class WalletscreenView extends GetView<WalletscreenController> {
                             style: TextStyle(
                               color: Colors.black,
                               fontSize: context.responsive(12),
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -281,6 +296,10 @@ class WalletscreenView extends GetView<WalletscreenController> {
 
           return Obx(() {
             final isExpanded = controller.expandedIndex.value == i;
+            final bool isGeneralWallet = wallet["title"]
+                .toString()
+                .toLowerCase()
+                .contains("general");
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
@@ -352,16 +371,27 @@ class WalletscreenView extends GetView<WalletscreenController> {
                             ),
                             Row(
                               children: [
-                                Text(
-                                  controller.isBalanceRevealed.value
-                                      ? "₹ ${(wallet["balance"] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00'}"
-                                      : "₹ •••••••",
-                                  style: TextStyle(
-                                    color: const Color(0xFF111111),
-                                    fontSize: context.responsive(16),
-                                    fontWeight: FontWeight.w800,
+                                if (controller.isLoadingBalance.value &&
+                                    controller.isBalanceRevealed.value)
+                                  SizedBox(
+                                    width: context.responsive(16),
+                                    height: context.responsive(16),
+                                    child: const CircularProgressIndicator(
+                                      color: primaryRed,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    controller.isBalanceRevealed.value
+                                        ? "₹ ${(wallet["balance"] as num?)?.toDouble().toStringAsFixed(2) ?? '0.00'}"
+                                        : "₹ •••••••",
+                                    style: TextStyle(
+                                      color: const Color(0xFF111111),
+                                      fontSize: context.responsive(16),
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
-                                ),
                                 SizedBox(width: context.responsive(8)),
                                 Icon(
                                   isExpanded
@@ -397,53 +427,56 @@ class WalletscreenView extends GetView<WalletscreenController> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    Get.bottomSheet(
-                                      const AddmoneyView(
-                                        showGeneralWalletOption: false,
+                              if (isGeneralWallet) ...[
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Get.bottomSheet(
+                                        const AddmoneyView(
+                                          showGeneralWalletOption: false,
+                                        ),
+                                        isScrollControlled: true,
+                                        isDismissible: false,
+                                        enableDrag: false,
+                                        backgroundColor: Colors.transparent,
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
                                       ),
-                                      isScrollControlled: true,
-                                      isDismissible: false,
-                                      enableDrag: false,
-                                      backgroundColor: Colors.transparent,
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          wallet["buttonColor"] ??
-                                          const Color(0xFFFFEA66),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(
-                                          Icons.account_balance_wallet_outlined,
-                                          size: 16,
-                                          color: Colors.black,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          "Top Up",
-                                          style: TextStyle(
+                                      decoration: BoxDecoration(
+                                        color:
+                                            wallet["buttonColor"] ??
+                                            const Color(0xFFFFEA66),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(
+                                            Icons
+                                                .account_balance_wallet_outlined,
+                                            size: 16,
                                             color: Colors.black,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
                                           ),
-                                        ),
-                                      ],
+                                          SizedBox(width: 8),
+                                          Text(
+                                            "Top Up",
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
+                                const SizedBox(width: 12),
+                              ],
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () {

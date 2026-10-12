@@ -167,7 +167,7 @@ class ProfileDetailsView extends GetView<ProfileDetailsController> {
                       value: controller.address.value,
                     ),
                   ),
-                  SizedBox(height: context.responsive(15)),
+                  // SizedBox(height: context.responsive(15)),
                   Container(
                     padding: EdgeInsets.symmetric(
                       horizontal: context.responsive(18),
@@ -224,6 +224,7 @@ class ProfileDetailsView extends GetView<ProfileDetailsController> {
                             ],
                           ),
                         ),
+                        width2,
                         GestureDetector(
                           onTap: () {
                             AppSnackbar.info(

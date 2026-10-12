@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
-import 'pdf_viewer_screen.dart';
 
 class CommonWebViewScreen extends StatefulWidget {
   final String url;

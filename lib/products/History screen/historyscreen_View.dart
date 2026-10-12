@@ -156,7 +156,7 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                       left: context.responsive(20),
                       right: context.responsive(20),
                       top: context.responsive(12),
-                      bottom: context.responsive(120),
+                      bottom: context.responsive(20),
                     ),
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),

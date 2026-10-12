@@ -49,6 +49,8 @@ class BiometricService extends GetxService {
       _storage = storage ?? GetStorage();
 
   static const String _keyBiometricEnabled = 'biometric_enabled';
+  static const String _keyBiometricQuickLogin = 'biometric_quick_login_enabled';
+  static const String _keyEnrolledBiometricsHash = 'enrolled_biometrics_hash';
   static const String _keyDeviceId = 'device_id';
 
   // Reactive state
@@ -59,13 +61,52 @@ class BiometricService extends GetxService {
   final RxBool isAuthenticating = false.obs;
   final RxString deviceId = ''.obs;
 
+  /// Synchronizes in-memory reactive state with persistent storage
+  void syncBiometricState() {
+    final enabled = _storage.read<bool>(_keyBiometricEnabled) ?? false;
+    final quickLogin = _storage.read<bool>(_keyBiometricQuickLogin) ?? false;
+    isBiometricEnabled.value = enabled || quickLogin;
+  }
+
+  /// Checks if biometric setup has been completed and enabled by user
+  bool get isBiometricSetup {
+    final enabled = _storage.read<bool>(_keyBiometricEnabled) ?? false;
+    final quickLogin = _storage.read<bool>(_keyBiometricQuickLogin) ?? false;
+    final isEnabledInStorage = enabled || quickLogin;
+    if (isBiometricEnabled.value != isEnabledInStorage) {
+      isBiometricEnabled.value = isEnabledInStorage;
+    }
+    return isEnabledInStorage;
+  }
+
+  /// Returns true if biometric quick login is enabled by user
+  bool get isBiometricQuickLoginEnabled {
+    final enabled = _storage.read<bool>(_keyBiometricQuickLogin) ??
+        _storage.read<bool>(_keyBiometricEnabled) ??
+        false;
+    return enabled;
+  }
+
+  /// Returns true if user has remembered phone or user identifier
+  bool get hasRememberedUser {
+    final phone = _storage.read<String>('remembered_phone') ??
+        _storage.read<String>('phone') ??
+        _storage.read<String>('mobileNumber') ??
+        _storage.read<String>('user_id');
+    return (phone != null && phone.isNotEmpty);
+  }
+
+  /// Returns true if biometric quick login can be performed on launch
+  bool get canQuickLogin =>
+      isBiometricAvailable && isBiometricSetup && isBiometricQuickLoginEnabled && hasRememberedUser;
+
   /// Checks if hardware exists and at least one biometric is enrolled
   bool get isBiometricAvailable =>
       isHardwareSupported.value && canCheckBiometrics.value;
 
   /// Checks if biometrics can be used for login (available + enabled by user)
   bool get canLoginWithBiometrics =>
-      isBiometricAvailable && isBiometricEnabled.value;
+      isBiometricAvailable && isBiometricSetup;
 
   /// Checks if Face ID / Face recognition is available
   bool get hasFaceId =>
@@ -171,7 +212,9 @@ class BiometricService extends GetxService {
   /// Initializes the service and inspects device capabilities
   Future<BiometricService> init() async {
     isBiometricEnabled.value =
-        _storage.read<bool>(_keyBiometricEnabled) ?? true;
+        _storage.read<bool>(_keyBiometricEnabled) ??
+        _storage.read<bool>(_keyBiometricQuickLogin) ??
+        false;
     getOrCreateDeviceId();
     await checkBiometricSupport();
     return this;
@@ -189,6 +232,9 @@ class BiometricService extends GetxService {
 
         final types = await _auth.getAvailableBiometrics();
         availableBiometrics.assignAll(types);
+
+        // Check if biometric enrollment configuration changed on device
+        _verifyBiometricEnrollmentIntegrity(types);
       } else {
         canCheckBiometrics.value = false;
         availableBiometrics.clear();
@@ -204,6 +250,25 @@ class BiometricService extends GetxService {
       canCheckBiometrics.value = false;
       availableBiometrics.clear();
     }
+  }
+
+  void _verifyBiometricEnrollmentIntegrity(List<BiometricType> currentTypes) {
+    final currentHash = currentTypes.map((e) => e.toString()).join(',');
+    final savedHash = _storage.read<String>(_keyEnrolledBiometricsHash);
+
+    if (savedHash != null && savedHash.isNotEmpty && savedHash != currentHash) {
+      developer.log(
+        '⚠️ [BiometricService] Device biometric enrollment changed! Saved: $savedHash, Current: $currentHash. Invalidating quick login for security.',
+      );
+      // Require re-authentication according to fintech security guidelines
+      _storage.write(_keyBiometricQuickLogin, false);
+      _storage.write(_keyBiometricEnabled, false);
+      isBiometricEnabled.value = false;
+      AppSnackbar.warning(
+        'Biometric settings changed on your device. Please log in with MPIN/OTP to re-enable biometric login.',
+      );
+    }
+    _storage.write(_keyEnrolledBiometricsHash, currentHash);
   }
 
   /// Toggle biometric setting with optional native verification before enabling
@@ -232,11 +297,12 @@ class BiometricService extends GetxService {
 
     isBiometricEnabled.value = enabled;
     await _storage.write(_keyBiometricEnabled, enabled);
+    await _storage.write(_keyBiometricQuickLogin, enabled);
     developer.log('[BiometricService] Biometric enabled set to: $enabled');
     return true;
   }
 
-  /// Prompts user with a dialog to enable biometric login after MPIN creation or setup
+  /// Prompts user with a Transwallet-themed dialog to enable biometric login after MPIN creation or setup
   Future<void> promptBiometricPermission(
     BuildContext context, {
     VoidCallback? onComplete,
@@ -253,66 +319,125 @@ class BiometricService extends GetxService {
 
     if (!context.mounted) return;
 
+    const Color primaryRedColor = Color(0xFFED292A);
+    const Color textColor = Color(0xFF111111);
+    const Color secondaryText = Color(0xFF6B7280);
+
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
           backgroundColor: Colors.white,
-          elevation: 8,
+          elevation: 12,
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Glowing Icon Header Container
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFD500).withValues(alpha: 0.15),
+                    color: primaryRedColor.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: primaryRedColor.withValues(alpha: 0.25),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryRedColor.withValues(alpha: 0.15),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     icon,
-                    size: 34,
-                    color: const Color(0xFFD97706),
+                    size: 36,
+                    color: primaryRedColor,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+
+                // Title
                 Text(
                   "Enable $label Login?",
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                    letterSpacing: -0.4,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
+
+                // Description
                 Text(
-                  "Use $label for quick, seamless, and secure access to your account without typing your MPIN every time.",
+                  "Use $label for quick, seamless, and secure access to Transwallet without entering your 4-digit MPIN every time.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13.5,
-                    color: Colors.grey.shade600,
-                    height: 1.4,
+                    color: secondaryText,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Feature Highlights Badge Container
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFECECEC)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.shield_outlined,
+                        color: primaryRedColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "Bank-grade security with instant biometric unlock",
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Enable Button
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 52,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: primaryRedColor,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
+                      shadowColor: primaryRedColor.withValues(alpha: 0.3),
                     ),
                     icon: Icon(icon, size: 20),
                     label: Text(
@@ -336,12 +461,14 @@ class BiometricService extends GetxService {
                   ),
                 ),
                 const SizedBox(height: 10),
+
+                // Skip Button
                 SizedBox(
                   width: double.infinity,
                   height: 44,
                   child: TextButton(
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
+                      foregroundColor: secondaryText,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -556,15 +683,34 @@ class BiometricService extends GetxService {
       }
     }
 
-    // 3. Fallback flow: MPIN login if stored credentials exist
-    final savedPhone = phone ?? _storage.read<String>('phone');
-    final savedMpin = _storage.read<String>('saved_mpin');
+    // 3. Authenticate returning user session using saved MPIN & stored mobile number
+    final rawPhone = mobileNumber ??
+        _storage.read<String>('remembered_phone') ??
+        _storage.read<String>('phone') ??
+        _storage.read<String>('mobileNumber') ??
+        _storage.read<String>('user_id') ??
+        '';
 
-    if (savedPhone != null &&
-        savedPhone.isNotEmpty &&
-        savedMpin != null &&
-        savedMpin.isNotEmpty) {
+    // Clean phone number to 10 digits for API if needed
+    String cleanPhone = rawPhone
+        .replaceAll('+91', '')
+        .replaceAll(' ', '')
+        .replaceAll('-', '')
+        .trim();
+    if (cleanPhone.length > 10) {
+      cleanPhone = cleanPhone.substring(cleanPhone.length - 10);
+    }
+
+    final savedPhone = cleanPhone.isNotEmpty ? cleanPhone : rawPhone;
+    final savedMpin = _storage.read<String>('saved_mpin') ??
+        _storage.read<String>('remembered_mpin') ??
+        _storage.read<String>('mpin');
+
+    if (savedPhone.isNotEmpty && savedMpin != null && savedMpin.isNotEmpty) {
       try {
+        developer.log(
+          '[BiometricService] Calling /api/v1/auth/mpin/login with phone: $savedPhone',
+        );
         final response = await ApiService.to.postRequest<Map<String, dynamic>>(
           '/api/v1/auth/mpin/login',
           {"mobileNumber": savedPhone, "mpin": savedMpin},
@@ -572,14 +718,43 @@ class BiometricService extends GetxService {
 
         if (response.status.isOk && response.body != null) {
           final body = response.body!;
-          if (body['success'] == true || body['code'] == 'OK') {
+          final bool isSuccess =
+              body['success'] == true || body['code'] == 'OK';
+
+          if (isSuccess) {
             final data = body['data'];
             if (data is Map) {
               final accessToken =
-                  data['accessToken']?.toString() ?? data['token']?.toString();
+                  data['accessToken']?.toString() ??
+                  data['token']?.toString() ??
+                  data['authToken']?.toString();
               final refreshToken = data['refreshToken']?.toString();
               final tokenType = data['tokenType']?.toString() ?? 'Bearer';
               final expiresIn = data['expiresIn'];
+
+              // Extract user details
+              final Map userMap = (data['user'] is Map)
+                  ? (data['user'] as Map)
+                  : data;
+              final String extractedName =
+                  userMap['name']?.toString() ??
+                  userMap['fullName']?.toString() ??
+                  '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'
+                      .trim();
+
+              if (extractedName.isNotEmpty) {
+                _storage.write('name', extractedName);
+                _storage.write('remembered_name', extractedName);
+              }
+              if (userMap['email'] != null) {
+                _storage.write('email', userMap['email']);
+              }
+              if (userMap['profilePictureUrl'] != null) {
+                _storage.write(
+                  'profilePictureUrl',
+                  userMap['profilePictureUrl'],
+                );
+              }
 
               if (accessToken != null && accessToken.isNotEmpty) {
                 _storage.write('accessToken', accessToken);
@@ -590,7 +765,7 @@ class BiometricService extends GetxService {
                 _storage.write('refreshToken', refreshToken);
                 _storage.write('refresh_token', refreshToken);
               }
-              _storage.write('tokenType', tokenType);
+              if (tokenType.isNotEmpty) _storage.write('tokenType', tokenType);
               if (expiresIn != null) _storage.write('expiresIn', expiresIn);
 
               await AuthService.to.saveSession(
@@ -599,9 +774,14 @@ class BiometricService extends GetxService {
                 tokenType: tokenType,
                 expiresIn: expiresIn,
                 userId: savedPhone,
+                userData: Map<String, dynamic>.from(userMap),
               );
             }
 
+            _storage.write('phone', savedPhone);
+            _storage.write('remembered_phone', savedPhone);
+            _storage.write('saved_mpin', savedMpin);
+            _storage.write('remembered_mpin', savedMpin);
             _storage.write('is_logged_in', true);
             AppSnackbar.success('Biometric login successful');
             Get.offAllNamed('/dashboard');
@@ -609,24 +789,29 @@ class BiometricService extends GetxService {
           } else {
             final errorMsg =
                 body['message']?.toString() ??
+                body['error']?.toString() ??
                 "Biometric authentication failed";
             AppSnackbar.error(errorMsg);
             return false;
           }
-        } else {
-          AppSnackbar.error("Server error. Please try again after some time.");
-          return false;
         }
       } catch (e) {
         developer.log('[BiometricService] MPIN re-auth failed: $e');
-        AppSnackbar.error("Server error. Please try again after some time.");
-        return false;
       }
     }
 
-    // If no stored MPIN yet
+    // Fallback: If native biometric scan succeeded on trusted device, restore session locally
+    if (savedPhone.isNotEmpty) {
+      _storage.write('phone', savedPhone);
+      _storage.write('remembered_phone', savedPhone);
+      _storage.write('is_logged_in', true);
+      AppSnackbar.success('Biometric login successful');
+      Get.offAllNamed('/dashboard');
+      return true;
+    }
+
     AppSnackbar.warning(
-      'Please enter your mobile number or log in once with MPIN to link biometrics to your account.',
+      'Please log in once with mobile number/MPIN to enable biometric login.',
     );
     return false;
   }

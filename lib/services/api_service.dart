@@ -12,6 +12,7 @@ class ApiService extends GetConnect {
   static ApiService get to => Get.find<ApiService>();
 
   // Default config
+  // final String _defaultBaseUrl = 'https://devapitcapp.transcorpint.com';
   final String _defaultBaseUrl = 'http://192.168.1.202:3001';
   final Duration _defaultTimeout = const Duration(seconds: 30);
 
@@ -22,10 +23,15 @@ class ApiService extends GetConnect {
   void onInit() {
     // Read saved custom base URL if configured, otherwise fallback to default
     final savedBaseUrl = GetStorage().read<String>('api_base_url');
-    httpClient.baseUrl =
-        (savedBaseUrl != null && savedBaseUrl.trim().isNotEmpty)
-        ? savedBaseUrl.trim()
-        : _defaultBaseUrl;
+    if (savedBaseUrl == null ||
+        savedBaseUrl.trim().isEmpty ||
+        savedBaseUrl.contains('192.168.') ||
+        savedBaseUrl.contains('localhost')) {
+      GetStorage().write('api_base_url', _defaultBaseUrl);
+      httpClient.baseUrl = _defaultBaseUrl;
+    } else {
+      httpClient.baseUrl = savedBaseUrl.trim();
+    }
     httpClient.timeout = _defaultTimeout;
 
     // 1. Request Interceptor
@@ -861,6 +867,105 @@ class ApiService extends GetConnect {
     return null;
   }
 
+  /// Initiate VKYC Upgrade via POST /api/v1/kyc/vkyc/upgrade
+  Future<Map<String, dynamic>?> upgradeVkyc({
+    Map<String, dynamic>? payload,
+  }) async {
+    try {
+      final reqPayload = payload ?? {};
+      developer.log('[API Upgrade VKYC Request] Payload: $reqPayload');
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/kyc/vkyc/upgrade',
+        reqPayload,
+      );
+      developer.log(
+        '[API Upgrade VKYC Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final Map<String, dynamic> mapBody = response.body!;
+        if (mapBody['data'] != null && mapBody['data'] is Map) {
+          return Map<String, dynamic>.from(mapBody['data'] as Map);
+        }
+        return mapBody;
+      } else {
+        final errorMsg =
+            response.body?['message']?.toString() ??
+            "Failed to initiate VKYC upgrade (${response.statusCode})";
+        AppSnackbar.error(errorMsg);
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error in upgradeVkyc: $e');
+      AppSnackbar.error("Network error while upgrading VKYC: $e");
+    }
+    return null;
+  }
+
+  /// Fetch card widget session via POST /api/v1/cards/widget-session
+  Future<Map<String, dynamic>?> fetchCardWidgetSession({
+    String widgetType = "CARD_DETAILS",
+    String? callbackUrl,
+    String? kitNumber,
+    String? entityId,
+    String? cardId,
+  }) async {
+    try {
+      final Map<String, dynamic> payload = {
+        "widgetType": widgetType,
+        "callbackUrl": callbackUrl ?? "ppiapp://card-widget/return",
+      };
+
+      developer.log('[API Widget Session Request Body] $payload');
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/cards/widget-session',
+        payload,
+      );
+      developer.log(
+        '[API Fetch Widget Session] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+
+        String? extractedUrl;
+        if (body['result'] != null && body['result'] is String) {
+          extractedUrl = body['result'] as String;
+        } else if (body['widgetUrl'] != null && body['widgetUrl'] is String) {
+          extractedUrl = body['widgetUrl'] as String;
+        } else if (body['url'] != null && body['url'] is String) {
+          extractedUrl = body['url'] as String;
+        } else if (body['data'] != null) {
+          if (body['data'] is String) {
+            extractedUrl = body['data'] as String;
+          } else if (body['data'] is Map) {
+            final dataMap = body['data'] as Map;
+            extractedUrl =
+                dataMap['widgetUrl']?.toString() ??
+                dataMap['result']?.toString() ??
+                dataMap['url']?.toString();
+          }
+        }
+
+        Map<String, dynamic> resMap = {};
+        if (body['data'] != null && body['data'] is Map) {
+          resMap = Map<String, dynamic>.from(body['data'] as Map);
+        } else {
+          resMap = Map<String, dynamic>.from(body);
+        }
+
+        if (extractedUrl != null && extractedUrl.isNotEmpty) {
+          resMap['widgetUrl'] = extractedUrl;
+          resMap['result'] = extractedUrl;
+        }
+
+        return resMap;
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error fetching card widget session: $e');
+    }
+    return null;
+  }
+
   /// Initiate wallet load via POST /api/v1/wallet/loads
   Future<Map<String, dynamic>?> initiateWalletLoad({
     required double amount,
@@ -1243,10 +1348,7 @@ class ApiService extends GetConnect {
     int pageSize = 20,
   }) async {
     try {
-      final query = {
-        'page': page.toString(),
-        'pageSize': pageSize.toString(),
-      };
+      final query = {'page': page.toString(), 'pageSize': pageSize.toString()};
 
       developer.log('[API GET /api/v1/notifications Request] Query: $query');
 
@@ -1276,4 +1378,3 @@ class ApiService extends GetConnect {
     return null;
   }
 }
-

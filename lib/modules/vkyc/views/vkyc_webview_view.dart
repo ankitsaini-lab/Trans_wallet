@@ -4,6 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/modules/vkyc/controllers/vkyc_controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
 class VkycWebviewView extends GetView<VkycController> {
@@ -102,6 +103,10 @@ class VkycWebviewView extends GetView<VkycController> {
 
   @override
   Widget build(BuildContext context) {
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.vkyc);
+    }
+
     final RxBool isWebViewLoading = true.obs;
     final RxBool hasError = false.obs;
 
@@ -110,6 +115,10 @@ class VkycWebviewView extends GetView<VkycController> {
     safetyTimer = Timer(const Duration(milliseconds: 500), () {
       isWebViewLoading.value = false;
     });
+
+    final String? passedUrl = Get.arguments is String ? Get.arguments as String : null;
+    final bool isWebUrl = passedUrl != null &&
+        (passedUrl.startsWith('http://') || passedUrl.startsWith('https://'));
 
     return PopScope(
       canPop: true,
@@ -147,12 +156,15 @@ class VkycWebviewView extends GetView<VkycController> {
         body: Stack(
           children: [
             InAppWebView(
-              initialData: InAppWebViewInitialData(
-                data: vkycHtmlContent,
-                mimeType: 'text/html',
-                encoding: 'utf-8',
-                baseUrl: WebUri('about:blank'),
-              ),
+              initialUrlRequest: isWebUrl ? URLRequest(url: WebUri(passedUrl)) : null,
+              initialData: isWebUrl
+                  ? null
+                  : InAppWebViewInitialData(
+                      data: vkycHtmlContent,
+                      mimeType: 'text/html',
+                      encoding: 'utf-8',
+                      baseUrl: WebUri('about:blank'),
+                    ),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 useShouldOverrideUrlLoading: true,

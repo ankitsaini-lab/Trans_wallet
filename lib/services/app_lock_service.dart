@@ -9,6 +9,14 @@ import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
+enum ExternalFlowType {
+  none,
+  payment,       // PayU Checkout / Payment Gateway
+  vkyc,          // VKYC WebView, camera/video, redirect/callback
+  mediaPicker,   // Camera / Gallery picker
+  customWebview, // Approved secure WebView
+}
+
 /// Service that monitors application lifecycle and locks the app
 /// after being backgrounded for at least 2 seconds.
 class AppLockService extends GetxService with WidgetsBindingObserver {
@@ -37,8 +45,25 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
   /// Maximum allowed biometric attempts before switching exclusively to MPIN
   static const int maxBiometricAttempts = 3;
 
-  /// Background duration threshold before locking (default: 2 seconds)
-  final Duration backgroundLockDuration = const Duration(seconds: 2);
+  /// Returns configured App Lock timeout in seconds (Default: 30 seconds)
+  int get appLockTimeoutSeconds =>
+      _storage.read<int>('app_lock_timeout_seconds') ?? 30;
+
+  /// Background duration threshold before locking (Default: 30 seconds)
+  Duration get backgroundLockDuration =>
+      Duration(seconds: appLockTimeoutSeconds);
+
+  /// Configures the lock timeout (0 = Immediate, 30 = 30s, 60 = 1m, 300 = 5m)
+  void setAppLockTimeout(int seconds) {
+    _storage.write('app_lock_timeout_seconds', seconds);
+    developer.log('[AppLockService] Set app lock timeout to $seconds seconds');
+  }
+
+  /// Toggles App Lock setting
+  void setAppLockEnabled(bool enabled) {
+    _storage.write('app_lock_enabled', enabled);
+    developer.log('[AppLockService] Set app lock enabled to $enabled');
+  }
 
   DateTime? _pausedTimestamp;
   Timer? _backgroundTimer;
@@ -50,6 +75,9 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
   DateTime? get pausedTimestamp => _pausedTimestamp;
   bool get isBackgrounded => _isBackgrounded;
 
+  /// Centralized set of active external secure flow types
+  final RxSet<ExternalFlowType> activeExternalFlows = <ExternalFlowType>{}.obs;
+
   Future<AppLockService> init() async {
     WidgetsBinding.instance.addObserver(this);
     return this;
@@ -60,6 +88,39 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _backgroundTimer?.cancel();
     super.onClose();
+  }
+
+  /// Start an external secure flow (Payment, VKYC, MediaPicker, etc.)
+  void startExternalFlow(ExternalFlowType flow) {
+    if (flow == ExternalFlowType.none) return;
+    activeExternalFlows.add(flow);
+    _backgroundTimer?.cancel();
+    _pausedTimestamp = null;
+    _isBackgrounded = false;
+    developer.log(
+      '[AppLockService] External secure flow STARTED: $flow (Active flows: ${activeExternalFlows.toList()})',
+    );
+  }
+
+  /// Finish an external secure flow
+  void finishExternalFlow(ExternalFlowType flow) {
+    if (flow == ExternalFlowType.none) return;
+    activeExternalFlows.remove(flow);
+    developer.log(
+      '[AppLockService] External secure flow FINISHED: $flow (Remaining active flows: ${activeExternalFlows.toList()})',
+    );
+  }
+
+  /// Clear all active external secure flows
+  void clearAllExternalFlows() {
+    activeExternalFlows.clear();
+    developer.log('[AppLockService] Cleared all active external secure flows.');
+  }
+
+  /// Checks whether an external secure flow is currently active
+  bool isExternalFlowActive([ExternalFlowType? flow]) {
+    if (flow != null) return activeExternalFlows.contains(flow);
+    return activeExternalFlows.isNotEmpty;
   }
 
   /// Checks whether biometric authentication is available and enabled on device
@@ -115,9 +176,11 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
 
   void setPickingMedia(bool active) {
     isPickingMedia.value = active;
-    _backgroundTimer?.cancel();
-    _pausedTimestamp = null;
-    _isBackgrounded = false;
+    if (active) {
+      startExternalFlow(ExternalFlowType.mediaPicker);
+    } else {
+      finishExternalFlow(ExternalFlowType.mediaPicker);
+    }
     developer.log('[AppLockService] setPickingMedia: $active');
   }
 
@@ -126,17 +189,29 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
 
   void setPaymentFlowActive(bool active) {
     isPaymentFlowActive.value = active;
-    _backgroundTimer?.cancel();
-    _pausedTimestamp = null;
-    _isBackgrounded = false;
+    if (active) {
+      startExternalFlow(ExternalFlowType.payment);
+    } else {
+      finishExternalFlow(ExternalFlowType.payment);
+    }
     developer.log('[AppLockService] setPaymentFlowActive: $active');
   }
 
+  /// Flag indicating VKYC flow is active
+  void setVkycFlowActive(bool active) {
+    if (active) {
+      startExternalFlow(ExternalFlowType.vkyc);
+    } else {
+      finishExternalFlow(ExternalFlowType.vkyc);
+    }
+    developer.log('[AppLockService] setVkycFlowActive: $active');
+  }
+
   /// Checks whether app lock should trigger when backgrounded:
-  /// Only activates when the user is logged in and media picker / payment flow is NOT active.
+  /// Only activates when the user is logged in and no external secure flow is active.
   bool get canAppLock {
-    // Media picker or payment flow active override
-    if (isPickingMedia.value || isPaymentFlowActive.value) return false;
+    // Media picker, payment flow, VKYC flow, or external secure flow active override
+    if (isExternalFlowActive()) return false;
 
     // Developer test mode override
     if (_storage.read<bool>('app_lock_test_mode') == true) return true;

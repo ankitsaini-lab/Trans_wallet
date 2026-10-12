@@ -1598,195 +1598,209 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            children: [
-              const SizedBox(height: 32),
-
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 400),
-                child: _isSuccess
-                    ? Container(
-                        key: const ValueKey('success'),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF22C55E).withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF22C55E),
-                          size: 48,
-                        ),
-                      )
-                    : Container(
-                        key: const ValueKey('lock'),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: primaryRed.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.lock_rounded,
-                          color: primaryRed,
-                          size: 40,
-                        ),
-                      ),
-              ),
-
-              const SizedBox(height: 24),
-
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: _isSuccess
-                    ? const Text(
-                        'MPIN Created!',
-                        key: ValueKey('t_success'),
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF22C55E),
-                          letterSpacing: -0.4,
-                        ),
-                      )
-                    : Text(
-                        _step == 1 ? 'Create MPIN' : 'Confirm MPIN',
-                        key: ValueKey('t_$_step'),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: _textColor,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-              ),
-
-              const SizedBox(height: 8),
-
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: _isSuccess
-                    ? const Text(
-                        'Your MPIN has been set.\nRedirecting to dashboard...',
-                        key: ValueKey('s_success'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _secondaryText,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      )
-                    : Text(
-                        _step == 1
-                            ? 'Set a 4-digit MPIN to secure\nyour transactions'
-                            : 'Re-enter your MPIN to confirm',
-                        key: ValueKey('s_$_step'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _secondaryText,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-              ),
-
-              const SizedBox(height: 40),
-
-              if (!_isSuccess)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _StepDot(active: _step == 1, done: _step > 1),
-                    const SizedBox(width: 8),
-                    _StepDot(active: _step == 2),
-                  ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
                 ),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 24),
 
-              const SizedBox(height: 32),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 400),
+                          child: _isSuccess
+                              ? Container(
+                                  key: const ValueKey('success'),
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF22C55E).withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: Color(0xFF22C55E),
+                                    size: 48,
+                                  ),
+                                )
+                              : Container(
+                                  key: const ValueKey('lock'),
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: primaryRed.withOpacity(0.08),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.lock_rounded,
+                                    color: primaryRed,
+                                    size: 40,
+                                  ),
+                                ),
+                        ),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (i) {
-                  final filled = i < _currentPin.length;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isSuccess
-                          ? const Color(0xFF22C55E)
-                          : _hasError
-                          ? Colors.red
-                          : filled
-                          ? primaryRed
-                          : const Color(0xFFECECEC),
-                      border: Border.all(
-                        color: _hasError
-                            ? Colors.red.withOpacity(0.3)
-                            : Colors.transparent,
-                        width: 2,
-                      ),
+                        const SizedBox(height: 20),
+
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: _isSuccess
+                              ? const Text(
+                                  'MPIN Created!',
+                                  key: ValueKey('t_success'),
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF22C55E),
+                                    letterSpacing: -0.4,
+                                  ),
+                                )
+                              : Text(
+                                  _step == 1 ? 'Create MPIN' : 'Confirm MPIN',
+                                  key: ValueKey('t_$_step'),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    color: _textColor,
+                                    letterSpacing: -0.4,
+                                  ),
+                                ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: _isSuccess
+                              ? const Text(
+                                  'Your MPIN has been set.\nRedirecting to dashboard...',
+                                  key: ValueKey('s_success'),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _secondaryText,
+                                    fontSize: 13,
+                                    height: 1.5,
+                                  ),
+                                )
+                              : Text(
+                                  _step == 1
+                                      ? 'Set a 4-digit MPIN to secure\nyour transactions'
+                                      : 'Re-enter your MPIN to confirm',
+                                  key: ValueKey('s_$_step'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: _secondaryText,
+                                    fontSize: 13,
+                                    height: 1.5,
+                                  ),
+                                ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        if (!_isSuccess)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _StepDot(active: _step == 1, done: _step > 1),
+                              const SizedBox(width: 8),
+                              _StepDot(active: _step == 2),
+                            ],
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(4, (i) {
+                            final filled = i < _currentPin.length;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              margin: const EdgeInsets.symmetric(horizontal: 10),
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _isSuccess
+                                    ? const Color(0xFF22C55E)
+                                    : _hasError
+                                    ? Colors.red
+                                    : filled
+                                    ? primaryRed
+                                    : const Color(0xFFECECEC),
+                                border: Border.all(
+                                  color: _hasError
+                                      ? Colors.red.withOpacity(0.3)
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+
+                        if (_hasError) ...[
+                          const SizedBox(height: 14),
+                          Text(
+                            _errorMessage,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+
+                        const Spacer(),
+
+                        if (_isLoading) ...[
+                          const SizedBox(
+                            height: 28,
+                            width: 28,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(primaryRed),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Setting MPIN...',
+                            style: TextStyle(
+                              color: _secondaryText,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const Spacer(),
+                          const SizedBox(height: 24),
+                        ] else if (!_isSuccess) ...[
+                          _buildKeypad(),
+                          const SizedBox(height: 24),
+                        ] else ...[
+                          SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                const Color(0xFF22C55E),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ],
                     ),
-                  );
-                }),
+                  ),
+                ),
               ),
-
-              if (_hasError) ...[
-                const SizedBox(height: 14),
-                Text(
-                  _errorMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-
-              const Spacer(),
-
-              if (_isLoading) ...[
-                const SizedBox(
-                  height: 28,
-                  width: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(primaryRed),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Setting MPIN...',
-                  style: TextStyle(
-                    color: _secondaryText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                const SizedBox(height: 40),
-              ] else if (!_isSuccess) ...[
-                _buildKeypad(),
-                const SizedBox(height: 32),
-              ] else ...[
-                SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      const Color(0xFF22C55E),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

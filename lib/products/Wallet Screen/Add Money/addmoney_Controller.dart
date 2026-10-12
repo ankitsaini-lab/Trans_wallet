@@ -426,6 +426,10 @@ class AddmoneyController extends GetxController
     isProcessing.value = true;
     HapticFeedback.mediumImpact();
 
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.payment);
+    }
+
     final String txnId = "TXN${DateTime.now().millisecondsSinceEpoch}";
     final String userPhone =
         box.read('phone')?.toString() ??
