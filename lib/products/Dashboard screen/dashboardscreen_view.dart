@@ -785,36 +785,93 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SizedBox(
-                  height: 100,
-                  width: double.infinity,
-                  child: Obx(() {
-                    final weekly = controller.weeklyAnalytics;
-                    final List<double> values = [];
-                    if (weekly.isNotEmpty) {
-                      for (var w in weekly) {
-                        double val = 0.0;
-                        if (w['expenses'] != null &&
-                            (w['expenses'] as num) > 0) {
-                          val = (w['expenses'] as num).toDouble();
-                        } else if (w['income'] != null &&
-                            (w['income'] as num) > 0) {
-                          val = (w['income'] as num).toDouble();
-                        } else if (w['savings'] != null) {
-                          val = (w['savings'] as num).toDouble();
-                        }
-                        values.add(val);
+                child: Obx(() {
+                  final weekly = controller.weeklyAnalytics;
+                  final List<double> values = [];
+                  if (weekly.isNotEmpty) {
+                    for (var w in weekly) {
+                      double val = 0.0;
+                      if (w['expenses'] != null && (w['expenses'] as num) > 0) {
+                        val = (w['expenses'] as num).toDouble();
+                      } else if (w['income'] != null &&
+                          (w['income'] as num) > 0) {
+                        val = (w['income'] as num).toDouble();
+                      } else if (w['savings'] != null) {
+                        val = (w['savings'] as num).toDouble();
                       }
+                      values.add(val);
                     }
-                    return CustomPaint(
-                      painter: BezierChartPainter(values: values),
-                    );
-                  }),
-                ),
+                  }
+
+                  final selectedIdx = controller.selectedAnalyticsWeek.value;
+                  String? tooltip;
+                  if (selectedIdx >= 0 && selectedIdx < values.length) {
+                    tooltip =
+                        "W${selectedIdx + 1}: ₹${values[selectedIdx].toStringAsFixed(0)}";
+                  }
+
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final chartWidth = constraints.maxWidth;
+                      final count = values.isNotEmpty ? values.length : 4;
+                      final stepX = count > 1
+                          ? chartWidth / (count - 1)
+                          : chartWidth;
+
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (details) {
+                          final idx = (details.localPosition.dx / stepX)
+                              .round()
+                              .clamp(0, count - 1);
+                          HapticFeedback.selectionClick();
+                          controller.selectedAnalyticsWeek.value = idx;
+                          _showWeeklyTransactionsModal(
+                            context,
+                            controller,
+                            idx,
+                          );
+                        },
+                        onPanUpdate: (details) {
+                          final idx = (details.localPosition.dx / stepX)
+                              .round()
+                              .clamp(0, count - 1);
+                          if (controller.selectedAnalyticsWeek.value != idx) {
+                            HapticFeedback.selectionClick();
+                            controller.selectedAnalyticsWeek.value = idx;
+                          }
+                        },
+                        onPanEnd: (_) {
+                          final idx = controller.selectedAnalyticsWeek.value;
+                          if (idx >= 0 && idx < count) {
+                            _showWeeklyTransactionsModal(
+                              context,
+                              controller,
+                              idx,
+                            );
+                          }
+                        },
+                        child: SizedBox(
+                          height: 100,
+                          width: double.infinity,
+                          child: CustomPaint(
+                            painter: BezierChartPainter(
+                              values: values,
+                              selectedIndex: selectedIdx >= 0
+                                  ? selectedIdx
+                                  : null,
+                              tooltipText: tooltip,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Obx(() {
                   final weekly = controller.weeklyAnalytics;
                   final List<String> labels = weekly.isNotEmpty
@@ -822,25 +879,123 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                             .map((w) => (w['label'] ?? '').toString())
                             .toList()
                       : ["W1", "W2", "W3", "W4"];
+                  final selectedIdx = controller.selectedAnalyticsWeek.value;
 
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: labels
-                        .map(
-                          (lbl) => Text(
-                            lbl,
+                    children: List.generate(labels.length, (idx) {
+                      final isSelected = selectedIdx == idx;
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          controller.selectedAnalyticsWeek.value = idx;
+                          _showWeeklyTransactionsModal(
+                            context,
+                            controller,
+                            idx,
+                          );
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? lightprimaryred
+                                : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? primaryRed
+                                  : const Color(0xFFE2E8F0),
+                              width: 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: primaryRed.withValues(alpha: 0.12),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            labels[idx],
                             style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: context.responsive(13),
-                              fontWeight: FontWeight.w500,
+                              color: isSelected
+                                  ? primaryRed
+                                  : const Color(0xFF475569),
+                              fontSize: context.responsive(12.5),
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
                             ),
                           ),
-                        )
-                        .toList(),
+                        ),
+                      );
+                    }),
                   );
                 }),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              // Helper tap banner to view transactions
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Obx(() {
+                  final selIdx = controller.selectedAnalyticsWeek.value;
+                  return Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        final idx = selIdx >= 0 ? selIdx : 0;
+                        _showWeeklyTransactionsModal(context, controller, idx);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.touch_app_outlined,
+                              size: 13,
+                              color: primaryRed,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              selIdx >= 0
+                                  ? "View Week ${selIdx + 1} Transactions"
+                                  : "Tap graph or week to view transactions",
+                              style: const TextStyle(
+                                color: Color(0xFF475569),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              size: 14,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 14),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 child: Divider(
@@ -849,40 +1004,584 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                   height: 1,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Obx(() {
-                  final incomeStr =
-                      "₹${controller.totalIncome.value.toStringAsFixed(0)}";
-                  final expenseStr =
-                      "₹${controller.totalExpenses.value.toStringAsFixed(0)}";
-                  final savingsStr =
-                      "₹${controller.totalSavings.value.toStringAsFixed(0)}";
+                  final selIdx = controller.selectedAnalyticsWeek.value;
+                  double inc = controller.totalIncome.value;
+                  double exp = controller.totalExpenses.value;
+                  double sav = controller.totalSavings.value;
 
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  if (selIdx >= 0 &&
+                      selIdx < controller.weeklyAnalytics.length) {
+                    final w = controller.weeklyAnalytics[selIdx];
+                    exp = (w['expenses'] is num)
+                        ? (w['expenses'] as num).toDouble()
+                        : 0.0;
+                    inc = (w['income'] is num)
+                        ? (w['income'] as num).toDouble()
+                        : 0.0;
+                    sav = (w['savings'] is num)
+                        ? (w['savings'] as num).toDouble()
+                        : (inc - exp > 0 ? inc - exp : 0.0);
+                  }
+
+                  final incomeStr = "₹${inc.toStringAsFixed(0)}";
+                  final expenseStr = "₹${exp.toStringAsFixed(0)}";
+                  final savingsStr = "₹${sav.toStringAsFixed(0)}";
+
+                  return Column(
                     children: [
-                      _buildStatItem(
-                        "Income",
-                        incomeStr,
-                        const Color(0xFF10B981),
-                      ),
-                      _buildStatItem(
-                        "Expenses",
-                        expenseStr,
-                        const Color(0xFFFF4500),
-                      ),
-                      _buildStatItem(
-                        "Savings",
-                        savingsStr,
-                        const Color(0xFF2196F3),
+                      if (selIdx >= 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Week ${selIdx + 1} Breakdown",
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () =>
+                                    controller.selectedAnalyticsWeek.value = -1,
+                                child: const Text(
+                                  "Show Month Total",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: primaryRed,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildStatItem(
+                            "Income",
+                            incomeStr,
+                            const Color(0xFF10B981),
+                          ),
+                          _buildStatItem(
+                            "Expenses",
+                            expenseStr,
+                            const Color(0xFFFF4500),
+                          ),
+                          _buildStatItem(
+                            "Savings",
+                            savingsStr,
+                            const Color(0xFF2196F3),
+                          ),
+                        ],
                       ),
                     ],
                   );
                 }),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWeeklyTransactionsModal(
+    BuildContext context,
+    DashboardscreenController controller,
+    int initialWeekIndex,
+  ) {
+    controller.selectedAnalyticsWeek.value = initialWeekIndex;
+    controller.loadTransactionsForWeek(initialWeekIndex);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.78,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Modal Header with selected week info
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Obx(() {
+                  final selWeek = controller.selectedAnalyticsWeek.value;
+                  final info = controller.getWeekDateRange(
+                    selWeek >= 0 ? selWeek : 0,
+                  );
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: lightprimaryred,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.bar_chart_rounded,
+                          color: primaryRed,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Week ${(selWeek >= 0 ? selWeek : 0) + 1} Transactions",
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              info['displayRange']?.toString() ?? "",
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: secondaryText,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: textColor),
+                        splashRadius: 20,
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Segmented Week Switcher (W1, W2, W3, W4 tabs)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Obx(() {
+                  final selWeek = controller.selectedAnalyticsWeek.value;
+                  const tabs = [
+                    {"label": "W1", "range": "1 - 7"},
+                    {"label": "W2", "range": "8 - 14"},
+                    {"label": "W3", "range": "15 - 21"},
+                    {"label": "W4", "range": "22+"},
+                  ];
+
+                  return Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: List.generate(tabs.length, (idx) {
+                        final isSelected = (selWeek == idx);
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              if (selWeek != idx) {
+                                HapticFeedback.selectionClick();
+                                controller.selectedAnalyticsWeek.value = idx;
+                                controller.loadTransactionsForWeek(idx);
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? primaryRed
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: primaryRed.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              alignment: Alignment.center,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    tabs[idx]['label']!,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : const Color(0xFF475569),
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    tabs[idx]['range']!,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white70
+                                          : const Color(0xFF94A3B8),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Weekly Summary Stats Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Obx(() {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildModalStat(
+                          "Expenses",
+                          "₹${controller.weekExpenses.value.toStringAsFixed(0)}",
+                          const Color(0xFFFF4500),
+                          Icons.arrow_downward_rounded,
+                        ),
+                        Container(
+                          height: 28,
+                          width: 1,
+                          color: const Color(0xFFE2E8F0),
+                        ),
+                        _buildModalStat(
+                          "Income",
+                          "₹${controller.weekIncome.value.toStringAsFixed(0)}",
+                          const Color(0xFF10B981),
+                          Icons.arrow_upward_rounded,
+                        ),
+                        Container(
+                          height: 28,
+                          width: 1,
+                          color: const Color(0xFFE2E8F0),
+                        ),
+                        _buildModalStat(
+                          "Savings",
+                          "₹${controller.weekSavings.value.toStringAsFixed(0)}",
+                          const Color(0xFF2196F3),
+                          Icons.savings_outlined,
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Transactions Header
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: Obx(() {
+                  final count = controller.weeklyTransactionsList.length;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Transactions ($count)",
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                      if (controller.isWeeklyTxLoading.value)
+                        const SizedBox(
+                          height: 14,
+                          width: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: primaryRed,
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+              ),
+
+              const Divider(height: 12, color: borderColor),
+
+              // Transactions List
+              Expanded(
+                child: Obx(() {
+                  if (controller.isWeeklyTxLoading.value &&
+                      controller.weeklyTransactionsList.isEmpty) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: primaryRed),
+                    );
+                  }
+
+                  final list = controller.weeklyTransactionsList;
+                  if (list.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 60,
+                              width: 60,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF1F5F9),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.receipt_long_rounded,
+                                size: 28,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              "No Transactions in This Week",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              "No spending or deposits were found for this selected week range.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: secondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    itemCount: list.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    itemBuilder: (context, index) {
+                      final tx = list[index];
+                      final bool isCredit = tx['isCredit'] == true;
+                      final bool isFailed = tx['isFailed'] == true;
+
+                      return InkWell(
+                        onTap: () {
+                          Get.toNamed(
+                            "/transactiondetails",
+                            arguments: {"tx": tx},
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                height: 44,
+                                width: 44,
+                                decoration: BoxDecoration(
+                                  color: isCredit
+                                      ? const Color(
+                                          0xFF10B981,
+                                        ).withValues(alpha: 0.1)
+                                      : const Color(
+                                          0xFFFF4500,
+                                        ).withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Icon(
+                                  isCredit
+                                      ? Icons.south_west_rounded
+                                      : Icons.arrow_outward_rounded,
+                                  color: isCredit
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFFF4500),
+                                  size: 19,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      tx['title']?.toString() ?? "Transaction",
+                                      style: const TextStyle(
+                                        color: textColor,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      tx['subtitle']?.toString() ?? "",
+                                      style: const TextStyle(
+                                        color: secondaryText,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    tx['amount']?.toString() ?? "",
+                                    style: TextStyle(
+                                      color: isCredit
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFFF4500),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  if (isFailed) ...[
+                                    const SizedBox(height: 3),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 1.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFFFF4500,
+                                        ).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        "Failed",
+                                        style: TextStyle(
+                                          color: Color(0xFFFF4500),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                size: 18,
+                                color: Color(0xFFCBD5E1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModalStat(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 14.5,
           ),
         ),
       ],

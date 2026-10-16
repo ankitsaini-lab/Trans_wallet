@@ -1,8 +1,9 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
-import 'package:get/get.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:transwallet/widgets/app_bar_back_button.dart';
+import 'package:transwallet/widgets/constsize.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String pdfUrl;
@@ -37,24 +38,25 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color brandColor = Color(0xFFFFCC00);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        flexibleSpace: Container(decoration: const BoxDecoration(gradient: appBarGradient)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: appBarGradient),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.black),
-          onPressed: () => Get.back(),
-        ),
+        leadingWidth: context.responsive(60),
+        leading: const AppBarBackButton(),
+        centerTitle: true,
         title: Text(
           widget.title,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
+            fontSize: context.responsive(18),
+            letterSpacing: 0,
           ),
         ),
       ),
@@ -81,7 +83,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           if (_isLoading && _errorMessage == null)
             const Center(
               child: CircularProgressIndicator(
-                color: brandColor,
+                color: primaryRed,
               ),
             ),
           if (_errorMessage != null)

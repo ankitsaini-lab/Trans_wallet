@@ -12,8 +12,8 @@ class ApiService extends GetConnect {
   static ApiService get to => Get.find<ApiService>();
 
   // Default config
-  // final String _defaultBaseUrl = 'https://devapitcapp.transcorpint.com';
-  final String _defaultBaseUrl = 'http://192.168.1.202:3001';
+  final String _defaultBaseUrl = 'https://devapitcapp.transcorpint.com';
+  // final String _defaultBaseUrl = 'http://192.168.1.202:3001';
   final Duration _defaultTimeout = const Duration(seconds: 30);
 
   // Mutex to prevent multiple concurrent token refresh calls
@@ -525,6 +525,19 @@ class ApiService extends GetConnect {
             box.write('profilePictureUrl', data['profilePictureUrl']);
           } else {
             box.remove('profilePictureUrl');
+          }
+
+          // Persist KYC status
+          if (data['isKycCompleted'] != null) {
+            box.write('is_kyc_completed', data['isKycCompleted'] == true);
+          } else if (data['kycStatus'] != null) {
+            final st = data['kycStatus'].toString().toLowerCase();
+            final isV = (st == 'verified' || st == 'completed' || st == 'approved');
+            box.write('is_kyc_completed', isV);
+            box.write('kyc_status', st);
+          }
+          if (data['isMinKycCompleted'] != null) {
+            box.write('min_kyc_completed', data['isMinKycCompleted'] == true);
           }
 
           if (data['address'] != null && data['address'] is Map) {
@@ -1340,6 +1353,100 @@ class ApiService extends GetConnect {
       );
     }
     return null;
+  }
+
+  /// Verify DeepID SIM Binding with backend via POST /api/v1/auth/sim-binding/verify
+  ///
+  /// Submits the native DeepID binding tokens (deepId, sessionId, mobile, clientId)
+  /// so the backend can verify them with DeepID servers, associate them with the user/device,
+  /// and persist authoritative trust.
+  Future<Map<String, dynamic>?> verifySimBinding({
+    required String deepId,
+    required String sessionId,
+    required String mobile,
+    String? clientId,
+    Map<String, dynamic>? deviceIntelligence,
+    String? deviceModel,
+    String? osVersion,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'deepId': deepId,
+        'sessionId': sessionId,
+        'mobile': mobile,
+        if (clientId != null && clientId.isNotEmpty) 'clientId': clientId,
+        if (deviceIntelligence != null) 'deviceIntelligence': deviceIntelligence,
+        'platform': GetPlatform.isIOS ? 'ios' : 'android',
+        if (deviceModel != null) 'deviceModel': deviceModel,
+        if (osVersion != null) 'osVersion': osVersion,
+      };
+
+      // Security check: Never log raw sensitive token structures
+      developer.log(
+        '[API Sim Binding Verify Request] Submitting binding verification for deepId: $deepId, mobile: $mobile, clientId: $clientId',
+      );
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/auth/sim-binding/verify',
+        payload,
+      );
+
+      developer.log(
+        '[API Sim Binding Verify Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        return Map<String, dynamic>.from(response.body!);
+      } else {
+        developer.log(
+          '[API Sim Binding Verify Error] Status: ${response.statusCode}, Body: ${response.body}',
+        );
+        return response.body != null
+            ? Map<String, dynamic>.from(response.body!)
+            : null;
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        '[API Exception] Error in verifySimBinding: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
+  /// Check authoritative SIM binding & device trust status via GET /api/v1/auth/sim-binding/status
+  Future<Map<String, dynamic>?> getSimBindingStatus({String? mobile}) async {
+    try {
+      final query = mobile != null && mobile.isNotEmpty
+          ? '?mobile=${Uri.encodeComponent(mobile)}'
+          : '';
+      developer.log(
+        '[API Sim Binding Status Request] Checking status$query',
+      );
+
+      final response = await getRequest<Map<String, dynamic>>(
+        '/api/v1/auth/sim-binding/status$query',
+      );
+
+      developer.log(
+        '[API Sim Binding Status Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        return Map<String, dynamic>.from(response.body!);
+      }
+      return response.body != null
+          ? Map<String, dynamic>.from(response.body!)
+          : null;
+    } catch (e, stackTrace) {
+      developer.log(
+        '[API Exception] Error in getSimBindingStatus: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
   }
 
   /// Fetch user notifications from GET /api/v1/notifications

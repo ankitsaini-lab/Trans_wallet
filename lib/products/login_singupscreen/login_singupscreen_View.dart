@@ -1,8 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/login_singupscreen/login_singupscreen_Controller.dart';
+import 'package:transwallet/widgets/common_webview_screen.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
 class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
@@ -352,6 +354,15 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                           children: [
                                             TextSpan(
                                               text: "Terms & Conditions",
+                                              recognizer: TapGestureRecognizer()
+                                                ..onTap = () {
+                                                  Get.to(
+                                                    () => const CommonWebViewScreen(
+                                                      url: "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile",
+                                                      title: "Terms & Conditions",
+                                                    ),
+                                                  );
+                                                },
                                               style: TextStyle(
                                                 fontSize: context.responsive(
                                                   14,
@@ -712,68 +723,201 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
     BuildContext context,
     LoginSingupscreenController controller,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 55,
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(249, 249, 249, 1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border(bottom: BorderSide(color: primaryRed, width: 1.5)),
-          ),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Text(
-                      "+91",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w500,
+    return Obx(() {
+      final isBound = controller.isSimBound.value;
+      final isSkipped = controller.box.read('sim_binding_skipped') == true;
+      final isEffectivelyBound = isBound && !isSkipped;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 55,
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(249, 249, 249, 1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border(bottom: BorderSide(color: primaryRed, width: 1.5)),
+            ),
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Text(
+                        "+91",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: context.responsive(15),
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1.0, height: 24, color: Colors.grey.shade300),
+                Expanded(
+                  child: TextField(
+                    controller: controller.phoneController,
+                    focusNode: controller.phoneFocusNode,
+                    keyboardType: TextInputType.phone,
+                    readOnly: isEffectivelyBound,
+                    autofocus: false,
+                    onChanged: controller.updatePhone,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: context.responsive(15),
+                      color: isEffectivelyBound ? Colors.black87 : Colors.black,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
+                    decoration: InputDecoration(
+                      hintText: "Enter Phone Number",
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade400,
                         fontSize: context.responsive(15),
-                        color: Colors.black,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(16),
+                        vertical: context.responsive(15),
+                      ),
+                      border: InputBorder.none,
+                      suffixIcon: isEffectivelyBound
+                          ? const Padding(
+                              padding: EdgeInsets.only(right: 14),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.verified_rounded,
+                                    color: Color(0xFF4CAF50),
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "Bound",
+                                    style: TextStyle(
+                                      color: Color(0xFF2E7D32),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : isSkipped
+                              ? Padding(
+                                  padding: const EdgeInsets.only(right: 14),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline_rounded,
+                                        color: Colors.orange.shade700,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Bypassed",
+                                        style: TextStyle(
+                                          color: Colors.orange.shade800,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isEffectivelyBound) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.sim_card_rounded,
+                        size: 13,
+                        color: Color(0xFF2E7D32),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Verified from device SIM",
+                        style: TextStyle(
+                          fontSize: context.responsive(11.5),
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF2E7D32),
+                        ),
+                      ),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () => controller.rebindSim(),
+                    child: Text(
+                      "Switch SIM",
+                      style: TextStyle(
+                        fontSize: context.responsive(11.5),
+                        fontWeight: FontWeight.w700,
+                        color: primaryRed,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Container(width: 1.0, height: 24, color: Colors.grey.shade300),
-              Expanded(
-                child: TextField(
-                  controller: controller.phoneController,
-                  focusNode: controller.phoneFocusNode,
-                  keyboardType: TextInputType.phone,
-                  autofocus: false,
-                  onChanged: controller.updatePhone,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: context.responsive(15),
-                    color: Colors.black,
                   ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                  decoration: InputDecoration(
-                    hintText: "Enter Phone Number",
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: context.responsive(15),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: context.responsive(16),
-                      vertical: context.responsive(15),
-                    ),
-                    border: InputBorder.none,
-                  ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
-    );
+            ),
+          ] else if (isSkipped) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 13,
+                        color: Colors.orange.shade800,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "SIM verification skipped",
+                        style: TextStyle(
+                          fontSize: context.responsive(11),
+                          fontWeight: FontWeight.w500,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () => controller.rebindSim(),
+                    child: Text(
+                      "Verify SIM",
+                      style: TextStyle(
+                        fontSize: context.responsive(11),
+                        fontWeight: FontWeight.w700,
+                        color: primaryRed,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      );
+    });
   }
 }

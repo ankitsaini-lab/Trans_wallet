@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
 class AnimatedLogoutDialog extends StatefulWidget {
@@ -93,7 +92,7 @@ class _AnimatedLogoutDialogState extends State<AnimatedLogoutDialog>
                   borderRadius: BorderRadius.circular(context.responsive(28)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 30,
                       offset: const Offset(0, 15),
                     ),
@@ -123,8 +122,8 @@ class _AnimatedLogoutDialogState extends State<AnimatedLogoutDialog>
                                 height: baseRadius + extraRadius,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: primaryRed.withOpacity(
-                                    (1.0 - _rippleAnimation.value) * 0.20,
+                                  color: primaryRed.withValues(
+                                    alpha: (1.0 - _rippleAnimation.value) * 0.20,
                                   ),
                                 ),
                               ),
@@ -134,8 +133,8 @@ class _AnimatedLogoutDialogState extends State<AnimatedLogoutDialog>
                                 height: baseRadius + innerExtraRadius,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: primaryRed.withOpacity(
-                                    (1.0 - _rippleAnimation.value) * 0.40,
+                                  color: primaryRed.withValues(
+                                    alpha: (1.0 - _rippleAnimation.value) * 0.40,
                                   ),
                                 ),
                               ),
@@ -155,7 +154,7 @@ class _AnimatedLogoutDialogState extends State<AnimatedLogoutDialog>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: primaryRed.withOpacity(0.35),
+                                      color: primaryRed.withValues(alpha: 0.35),
                                       blurRadius: 15,
                                       offset: const Offset(0, 6),
                                     ),
@@ -278,7 +277,7 @@ class _AnimatedButtonState extends State<_AnimatedButton> {
                 ? null
                 : [
                     BoxShadow(
-                      color: widget.backgroundColor.withOpacity(0.2),
+                      color: widget.backgroundColor.withValues(alpha: 0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),

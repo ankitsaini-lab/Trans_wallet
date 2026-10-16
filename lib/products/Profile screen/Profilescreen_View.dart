@@ -12,6 +12,7 @@ import 'package:transwallet/widgets/user_avatar.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
+import 'package:transwallet/products/Profile%20screen/widgets/profile_info_sheets.dart';
 
 class ProfilescreenView extends GetView<ProfilescreenController> {
   const ProfilescreenView({super.key});
@@ -161,32 +162,54 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                     context,
                     iconAsset: "assets/kyc.svg",
                     title: "KYC & Verification",
-                    trailingWidget: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          controller.isKycVerified.value
-                              ? Icons.verified
-                              : Icons.pending_actions,
+                    subtitle: controller.isKycVerified.value
+                        ? "Account fully verified"
+                        : "Action required • Tap to complete",
+                    trailingWidget: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(10),
+                        vertical: context.responsive(4),
+                      ),
+                      decoration: BoxDecoration(
+                        color: controller.isKycVerified.value
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(
+                          context.responsive(12),
+                        ),
+                        border: Border.all(
                           color: controller.isKycVerified.value
-                              ? Colors.green.shade600
-                              : Colors.orange.shade600,
-                          size: context.responsive(16),
+                              ? const Color(0xFFBBF7D0)
+                              : const Color(0xFFFDE68A),
                         ),
-                        SizedBox(width: context.responsive(4)),
-                        Text(
-                          controller.isKycVerified.value
-                              ? "Verified"
-                              : "Pending",
-                          style: TextStyle(
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            controller.isKycVerified.value
+                                ? Icons.verified_rounded
+                                : Icons.pending_actions_rounded,
                             color: controller.isKycVerified.value
-                                ? Colors.green.shade600
-                                : Colors.orange.shade600,
-                            fontSize: context.responsive(12),
-                            fontWeight: FontWeight.w600,
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD97706),
+                            size: context.responsive(13),
                           ),
-                        ),
-                      ],
+                          SizedBox(width: context.responsive(4)),
+                          Text(
+                            controller.isKycVerified.value
+                                ? "Verified"
+                                : "Pending",
+                            style: TextStyle(
+                              color: controller.isKycVerified.value
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFD97706),
+                              fontSize: context.responsive(11.5),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     onTap: controller.handleKycTap,
                   ),
@@ -242,11 +265,15 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                     subtitle: "Fast login using fingerprint or Face ID",
                     trailingWidget: Transform.scale(
                       scale: 0.8,
-                      child: CupertinoSwitch(
-                        value: controller.biometricEnabled.value,
-                        activeColor: primaryRed,
-                        trackColor: Colors.grey.shade300,
-                        onChanged: controller.toggleBiometric,
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 51,
+                        child: CupertinoSwitch(
+                          value: controller.biometricEnabled.value,
+                          activeTrackColor: primaryRed,
+                          inactiveTrackColor: Colors.grey.shade300,
+                          onChanged: controller.toggleBiometric,
+                        ),
                       ),
                     ),
                     showChevron: false,
@@ -262,28 +289,41 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
               children: [
                 _buildRow(
                   context,
-                  iconAsset: "assets/help.svg",
-                  title: "Help Center",
+                  iconAsset: "assets/contactus.svg",
+                  title: "Contact Support",
                   onTap: () => Get.toNamed('/contactsupport'),
                 ),
                 _buildDivider(context),
                 _buildRow(
                   context,
-                  iconAsset: "assets/contactus.svg",
-                  title: "Contact Us",
-                  onTap: () => Get.toNamed('/contactsupport'),
+                  iconAsset: "assets/help.svg",
+                  title: "FAQs",
+                  onTap: () => ProfileInfoSheets.openPolicyWebView(
+                    title: "FAQs",
+                    policyUrl:
+                        "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=faq",
+                  ),
                 ),
                 _buildDivider(context),
                 _buildRow(
                   context,
                   iconAsset: "assets/termsandpolicy.svg",
-                  title: "Terms & Privacy Policy",
-                  onTap: () => Get.snackbar(
-                    "Terms & Privacy",
-                    "Terms and Privacy Policy will be available soon.",
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: const Color(0xFF111111),
-                    colorText: Colors.white,
+                  title: "Terms & Conditions",
+                  onTap: () => ProfileInfoSheets.openPolicyWebView(
+                    title: "Terms & Conditions",
+                    policyUrl:
+                        "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=terms",
+                  ),
+                ),
+                _buildDivider(context),
+                _buildRow(
+                  context,
+                  iconData: Icons.privacy_tip_outlined,
+                  title: "Privacy Policy",
+                  onTap: () => ProfileInfoSheets.openPolicyWebView(
+                    title: "Privacy Policy",
+                    policyUrl:
+                        "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=privacy",
                   ),
                 ),
               ],
@@ -381,7 +421,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
               border: Border.all(color: Colors.grey.shade200),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -395,16 +435,13 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
   }
 
   Widget _buildDivider(BuildContext context) {
-    return Divider(
-      height: 1,
-      color: const Color(0xFFF3F4F6),
-      indent: context.responsive(56),
-    );
+    return Divider(height: 1, color: const Color(0xFFF3F4F6));
   }
 
   Widget _buildRow(
     BuildContext context, {
     String? iconAsset,
+    IconData? iconData,
     required String title,
     String? subtitle,
     Widget? trailingWidget,
@@ -429,15 +466,21 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                 border: Border.all(color: primaryYellow),
               ),
               child: Center(
-                child: SvgPicture.asset(
-                  iconAsset ?? "",
-                  height: context.responsive(22),
-                  width: context.responsive(22),
-                  colorFilter: const ColorFilter.mode(
-                    Colors.black87,
-                    BlendMode.srcIn,
-                  ),
-                ),
+                child: iconAsset != null && iconAsset.isNotEmpty
+                    ? SvgPicture.asset(
+                        iconAsset,
+                        height: context.responsive(22),
+                        width: context.responsive(22),
+                        colorFilter: const ColorFilter.mode(
+                          Colors.black87,
+                          BlendMode.srcIn,
+                        ),
+                      )
+                    : Icon(
+                        iconData ?? Icons.circle,
+                        size: context.responsive(22),
+                        color: Colors.black87,
+                      ),
               ),
             ),
             SizedBox(width: context.responsive(16)),
@@ -468,15 +511,18 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                 ],
               ),
             ),
-            if (trailingWidget != null) ...[
-              trailingWidget,
-              SizedBox(width: context.responsive(8)),
-            ],
+            if (trailingWidget != null) ...[trailingWidget],
             if (showChevron)
-              Icon(
-                Icons.chevron_right_rounded,
-                color: const Color(0xFF9CA3AF),
-                size: context.responsive(20),
+              SizedBox(
+                width: 51,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: const Color(0xFF9CA3AF),
+                    size: context.responsive(20),
+                  ),
+                ),
               ),
           ],
         ),

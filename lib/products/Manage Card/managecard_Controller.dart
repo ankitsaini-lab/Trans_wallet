@@ -495,7 +495,10 @@ class ManagecardController extends GetxController {
               SizedBox(
                 width: 32,
                 height: 32,
-                child: CircularProgressIndicator(color: primaryRed, strokeWidth: 3),
+                child: CircularProgressIndicator(
+                  color: primaryRed,
+                  strokeWidth: 3,
+                ),
               ),
               SizedBox(height: 16),
               Text(
@@ -524,7 +527,8 @@ class ManagecardController extends GetxController {
       Get.back();
     }
 
-    final String? widgetUrl =
+    final String?
+    widgetUrl = // "https://transcorpint.com/assets/app/Set-pin-for-M2p.html";
         res?['result']?.toString() ?? res?['widgetUrl']?.toString();
 
     if (widgetUrl == null || widgetUrl.isEmpty) {
@@ -534,10 +538,7 @@ class ManagecardController extends GetxController {
 
     // Open Reset PIN WebView BottomSheet
     Get.bottomSheet(
-      ResetPinWebViewSheet(
-        widgetUrl: widgetUrl,
-        cardData: cardData,
-      ),
+      ResetPinWebViewSheet(widgetUrl: widgetUrl, cardData: cardData),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
     );
@@ -1095,7 +1096,11 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.lock_reset_rounded, color: primaryRed, size: 22),
+                          Icon(
+                            Icons.lock_reset_rounded,
+                            color: primaryRed,
+                            size: 22,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             "Reset Card PIN",
@@ -1192,20 +1197,21 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                       setState(() => _isLoading = false);
                       developer.log("WebView error: $code, $message");
                     },
-                    shouldOverrideUrlLoading: (controller, navigationAction) async {
-                      final uri = navigationAction.request.url;
-                      if (uri != null) {
-                        final urlStr = uri.toString();
-                        final lower = urlStr.toLowerCase();
-                        if (lower.startsWith("ppiapp://") ||
-                            lower.startsWith("yappay://") ||
-                            lower.contains("card-widget/return")) {
-                          _handleCallback(urlStr);
-                          return NavigationActionPolicy.CANCEL;
-                        }
-                      }
-                      return NavigationActionPolicy.ALLOW;
-                    },
+                    shouldOverrideUrlLoading:
+                        (controller, navigationAction) async {
+                          final uri = navigationAction.request.url;
+                          if (uri != null) {
+                            final urlStr = uri.toString();
+                            final lower = urlStr.toLowerCase();
+                            if (lower.startsWith("ppiapp://") ||
+                                lower.startsWith("yappay://") ||
+                                lower.contains("card-widget/return")) {
+                              _handleCallback(urlStr);
+                              return NavigationActionPolicy.CANCEL;
+                            }
+                          }
+                          return NavigationActionPolicy.ALLOW;
+                        },
                   ),
 
                   if (_isLoading && _progress < 0.1)
@@ -1224,4 +1230,3 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
     );
   }
 }
-

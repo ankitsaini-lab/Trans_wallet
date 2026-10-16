@@ -68,6 +68,12 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Authenticate securely using Face ID to log in to your Transwallet account</string>
+	<key>NSCameraUsageDescription</key>
+	<string>DeepID Protect queries camera hardware capabilities to build a device fingerprint. No image or video is captured.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DeepID Protect checks location-service availability as a device-integrity signal.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>DeepID Protect inspects motion-sensor availability as a device-integrity signal. No sensor data is recorded.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
+import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/widgets/app_bar_back_button.dart';
+import 'package:transwallet/widgets/constsize.dart';
 
 class CommonWebViewScreen extends StatefulWidget {
   final String url;
@@ -27,6 +30,17 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   void initState() {
     super.initState();
     developer.log("WebView Screen Opened for URL => ${widget.url}");
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.customWebview);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.finishExternalFlow(ExternalFlowType.customWebview);
+    }
+    super.dispose();
   }
 
   bool _isPdfUrl(String urlString) {
@@ -38,24 +52,25 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color brandColor = Color(0xFFFFCC00);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        flexibleSpace: Container(decoration: const BoxDecoration(gradient: appBarGradient)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: appBarGradient),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.black),
-          onPressed: () => Get.back(),
-        ),
+        leadingWidth: context.responsive(60),
+        leading: const AppBarBackButton(),
+        centerTitle: true,
         title: Text(
           widget.title,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
+            fontSize: context.responsive(18),
+            letterSpacing: 0,
           ),
         ),
       ),
@@ -159,8 +174,8 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
               child: LinearProgressIndicator(
                 value: progress > 0 ? progress : null,
                 minHeight: 3,
-                color: brandColor,
-                backgroundColor: Colors.transparent,
+                color: primaryRed,
+                backgroundColor: lightprimaryred,
               ),
             ),
         ],

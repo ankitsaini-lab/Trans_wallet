@@ -60,7 +60,7 @@ class SendmoneyView extends GetView<SendmoneyController> {
               child: ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: controller.phonebookContacts.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final contact = controller.phonebookContacts[index];
                   return ListTile(
@@ -145,60 +145,66 @@ class SendmoneyView extends GetView<SendmoneyController> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Top W2W Header Banner
-            Container(
-              color: backgroundColor,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [textColor, Colors.grey.shade900],
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top W2W Header Banner
+              Container(
+                color: backgroundColor,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: lightprimaryred,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.swap_horiz_rounded,
-                        color: primaryRed,
-                        size: 20,
-                      ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [textColor, Colors.grey.shade900],
                     ),
-                    const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "W2W Transfer",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: lightprimaryred,
+                          shape: BoxShape.circle,
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          "Wallet to Wallet Instant Money Transfer",
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        child: const Icon(
+                          Icons.swap_horiz_rounded,
+                          color: primaryRed,
+                          size: 20,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "W2W Transfer",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              "Wallet to Wallet Instant Money Transfer",
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
             // Input Card section (Manual Mobile Number or Pick from Phonebook)
             Container(
@@ -344,130 +350,131 @@ class SendmoneyView extends GetView<SendmoneyController> {
             const SizedBox(height: 8),
 
             // Recent Payments Name List
-            Expanded(
-              child: Obx(() {
-                final list = controller.filteredRecipients;
-                if (list.isEmpty) {
-                  return const Center(
+            Obx(() {
+              final list = controller.filteredRecipients;
+              if (list.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 36),
+                  child: Center(
                     child: Text(
                       "No recent payments found",
                       style: TextStyle(color: secondaryText, fontSize: 14),
                     ),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
                   ),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final user = list[index];
-                    return GestureDetector(
-                      onTap: () => controller.selectRecipient(user),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: borderColor),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              height: 46,
-                              width: 46,
-                              decoration: const BoxDecoration(
-                                color: lightprimaryred,
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                user['avatar'] ?? "",
-                                style: const TextStyle(
-                                  color: primaryRed,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    user['name'] ?? "",
-                                    style: const TextStyle(
-                                      color: textColor,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    user['phone'] ?? "",
-                                    style: const TextStyle(
-                                      color: secondaryText,
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Obx(() {
-                              final rawPhone = user['phone'] ?? '';
-                              final cleanedPhone = rawPhone.replaceAll(
-                                RegExp(r'\D'),
-                                '',
-                              );
-                              final phoneToVerify = cleanedPhone.length > 10
-                                  ? cleanedPhone.substring(
-                                      cleanedPhone.length - 10,
-                                    )
-                                  : cleanedPhone;
-                              final isChecking =
-                                  controller.isLoading.value &&
-                                  controller.checkingPhone.value ==
-                                      phoneToVerify;
-
-                              if (isChecking) {
-                                return const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: primaryRed,
-                                  ),
-                                );
-                              }
-                              return const Icon(
-                                Icons.chevron_right_rounded,
-                                color: secondaryText,
-                                size: 22,
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
                 );
-              }),
-            ),
+              }
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                itemCount: list.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final user = list[index];
+                  return GestureDetector(
+                    onTap: () => controller.selectRecipient(user),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: borderColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            height: 46,
+                            width: 46,
+                            decoration: const BoxDecoration(
+                              color: lightprimaryred,
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              user['avatar'] ?? "",
+                              style: const TextStyle(
+                                color: primaryRed,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user['name'] ?? "",
+                                  style: const TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                SizedBox(height: 3),
+                                Text(
+                                  user['phone'] ?? "",
+                                  style: const TextStyle(
+                                    color: secondaryText,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Obx(() {
+                            final rawPhone = user['phone'] ?? '';
+                            final cleanedPhone = rawPhone.replaceAll(
+                              RegExp(r'\D'),
+                              '',
+                            );
+                            final phoneToVerify = cleanedPhone.length > 10
+                                ? cleanedPhone.substring(
+                                    cleanedPhone.length - 10,
+                                  )
+                                : cleanedPhone;
+                            final isChecking =
+                                controller.isLoading.value &&
+                                controller.checkingPhone.value ==
+                                    phoneToVerify;
+
+                            if (isChecking) {
+                              return const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: primaryRed,
+                                ),
+                              );
+                            }
+                            return const Icon(
+                              Icons.chevron_right_rounded,
+                              color: secondaryText,
+                              size: 22,
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            }),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

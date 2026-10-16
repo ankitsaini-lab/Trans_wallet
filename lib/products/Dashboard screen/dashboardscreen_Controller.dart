@@ -45,7 +45,8 @@ class DashboardscreenController extends GetxController {
     }
   }
 
-  final RxList<Map<String, dynamic>> recentTransactions = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> recentTransactions =
+      <Map<String, dynamic>>[].obs;
   final RxBool isTransactionsLoading = false.obs;
   final RxBool isDashboardLoading = false.obs;
 
@@ -54,9 +55,8 @@ class DashboardscreenController extends GetxController {
 
   void loadUserData() {
     final box = GetStorage();
-    final stored = box.read('name') ??
-        box.read('firstName') ??
-        box.read('userName');
+    final stored =
+        box.read('name') ?? box.read('firstName') ?? box.read('userName');
     userName.value = formatUserName(stored);
 
     final pic = box.read('profilePictureUrl')?.toString() ?? '';
@@ -74,9 +74,13 @@ class DashboardscreenController extends GetxController {
       }
       futures.add(loadWalletBalance());
       futures.add(fetchRecentTransactions());
-      futures.add(fetchTransactionAnalytics(
-        month: selectedAnalyticsMonth.value.isNotEmpty ? selectedAnalyticsMonth.value : null,
-      ));
+      futures.add(
+        fetchTransactionAnalytics(
+          month: selectedAnalyticsMonth.value.isNotEmpty
+              ? selectedAnalyticsMonth.value
+              : null,
+        ),
+      );
       if (Get.isRegistered<WalletCardController>()) {
         futures.add(Get.find<WalletCardController>().fetchCardsFromApi());
       }
@@ -94,8 +98,253 @@ class DashboardscreenController extends GetxController {
   final RxDouble totalExpenses = 0.0.obs;
   final RxDouble totalSavings = 0.0.obs;
   final RxString selectedAnalyticsMonth = ''.obs;
-  final RxList<Map<String, dynamic>> weeklyAnalytics = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> weeklyAnalytics =
+      <Map<String, dynamic>>[].obs;
   final RxBool isAnalyticsLoading = false.obs;
+
+  // Selected week index on the Spending Analytics chart (0: W1, 1: W2, 2: W3, 3: W4, -1: none)
+  final RxInt selectedAnalyticsWeek = (-1).obs;
+  final RxBool isWeeklyTxLoading = false.obs;
+  final RxList<Map<String, dynamic>> weeklyTransactionsList =
+      <Map<String, dynamic>>[].obs;
+  final RxDouble weekIncome = 0.0.obs;
+  final RxDouble weekExpenses = 0.0.obs;
+  final RxDouble weekSavings = 0.0.obs;
+
+  Map<String, dynamic> getWeekDateRange(int weekIndex) {
+    int year = DateTime.now().year;
+    int month = DateTime.now().month;
+
+    if (selectedAnalyticsMonth.value.isNotEmpty) {
+      try {
+        final parts = selectedAnalyticsMonth.value.split('-');
+        if (parts.length == 2) {
+          year = int.parse(parts[0]);
+          month = int.parse(parts[1]);
+        }
+      } catch (_) {}
+    }
+
+    final int lastDay = DateTime(year, month + 1, 0).day;
+    int startDay = 1;
+    int endDay = 7;
+
+    switch (weekIndex) {
+      case 0:
+        startDay = 1;
+        endDay = 7;
+        break;
+      case 1:
+        startDay = 8;
+        endDay = 14;
+        break;
+      case 2:
+        startDay = 15;
+        endDay = 21;
+        break;
+      case 3:
+      default:
+        startDay = 22;
+        endDay = lastDay;
+        break;
+    }
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final monthName = monthNames[month - 1];
+
+    final fromDateStr =
+        "$year-${month.toString().padLeft(2, '0')}-${startDay.toString().padLeft(2, '0')}";
+    final toDateStr =
+        "$year-${month.toString().padLeft(2, '0')}-${endDay.toString().padLeft(2, '0')}";
+    final displayRange =
+        "${startDay.toString().padLeft(2, '0')} $monthName – ${endDay.toString().padLeft(2, '0')} $monthName $year";
+
+    return {
+      "year": year,
+      "month": month,
+      "startDay": startDay,
+      "endDay": endDay,
+      "fromDate": fromDateStr,
+      "toDate": toDateStr,
+      "displayRange": displayRange,
+    };
+  }
+
+  Future<void> loadTransactionsForWeek(int weekIndex) async {
+    isWeeklyTxLoading.value = true;
+    weeklyTransactionsList.clear();
+
+    final info = getWeekDateRange(weekIndex);
+    final String fromDate = info['fromDate'];
+    final String toDate = info['toDate'];
+    final int year = info['year'];
+    final int month = info['month'];
+    final int startDay = info['startDay'];
+    final int endDay = info['endDay'];
+
+    // Read weekly summary stats from weeklyAnalytics if available
+    if (weeklyAnalytics.isNotEmpty && weekIndex < weeklyAnalytics.length) {
+      final w = weeklyAnalytics[weekIndex];
+      final exp = (w['expenses'] is num)
+          ? (w['expenses'] as num).toDouble()
+          : 0.0;
+      final inc = (w['income'] is num) ? (w['income'] as num).toDouble() : 0.0;
+      final sav = (w['savings'] is num)
+          ? (w['savings'] as num).toDouble()
+          : (inc - exp > 0 ? inc - exp : 0.0);
+      weekExpenses.value = exp;
+      weekIncome.value = inc;
+      weekSavings.value = sav;
+    } else {
+      weekExpenses.value = 0.0;
+      weekIncome.value = 0.0;
+      weekSavings.value = 0.0;
+    }
+
+    try {
+      if (Get.isRegistered<ApiService>()) {
+        final res = await ApiService.to.fetchTransactions(
+          fromDate: fromDate,
+          toDate: toDate,
+          pageSize: 50,
+        );
+
+        if (res != null &&
+            res['items'] is List &&
+            (res['items'] as List).isNotEmpty) {
+          final List items = res['items'];
+          final List<Map<String, dynamic>> parsed = [];
+          double calcInc = 0.0;
+          double calcExp = 0.0;
+
+          for (var item in items) {
+            if (item is Map) {
+              final type = item['type']?.toString().toUpperCase() ?? '';
+              final isCredit = type == 'CREDIT';
+              final status =
+                  item['transactionStatus']?.toString().toUpperCase() ?? '';
+              final isFailed =
+                  status.contains('FAIL') || status.contains('REJECT');
+
+              final num amt = (item['amount'] is num)
+                  ? item['amount']
+                  : num.tryParse(item['amount']?.toString() ?? '0') ?? 0;
+
+              if (!isFailed) {
+                if (isCredit)
+                  calcInc += amt.toDouble();
+                else
+                  calcExp += amt.toDouble();
+              }
+
+              DateTime rawDate = DateTime.now();
+              if (item['time'] != null) {
+                try {
+                  rawDate = DateTime.parse(item['time'].toString());
+                } catch (_) {}
+              }
+
+              String title = "Transaction";
+              if (item['otherPartyName'] != null &&
+                  item['otherPartyName'] is String &&
+                  (item['otherPartyName'] as String).isNotEmpty) {
+                title = item['otherPartyName'];
+              } else if (item['description'] != null &&
+                  item['description'] is String &&
+                  (item['description'] as String).isNotEmpty) {
+                title = item['description'];
+              } else if (item['yourWallet'] != null &&
+                  item['yourWallet'].toString().isNotEmpty) {
+                title = "${item['yourWallet']} Wallet";
+              } else if (item['transactionType'] != null) {
+                title = item['transactionType'].toString();
+              }
+
+              final String formattedAmount = isCredit ? "+₹$amt" : "-₹$amt";
+              final String subtitle = _formatShortDate(rawDate);
+
+              parsed.add({
+                "title": title,
+                "name": title,
+                "subtitle": subtitle,
+                "amount": formattedAmount,
+                "rawAmount": amt.toDouble(),
+                "rawDate": rawDate,
+                "isCredit": isCredit,
+                "isFailed": isFailed,
+                "txRef": item['txRef'],
+                "status": status,
+                "yourWallet": item['yourWallet'],
+                "time": item['time']?.toString() ?? rawDate.toIso8601String(),
+              });
+            }
+          }
+
+          if (parsed.isNotEmpty) {
+            weeklyTransactionsList.value = parsed;
+            if (weekExpenses.value == 0.0 && weekIncome.value == 0.0) {
+              weekExpenses.value = calcExp;
+              weekIncome.value = calcInc;
+              weekSavings.value = (calcInc - calcExp) > 0
+                  ? (calcInc - calcExp)
+                  : 0.0;
+            }
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      log('Error fetching weekly transactions from API: $e');
+    } finally {
+      isWeeklyTxLoading.value = false;
+    }
+
+    // Fallback: Filter from locally loaded recentTransactions
+    final filtered = recentTransactions.where((tx) {
+      final DateTime dt = (tx['rawDate'] is DateTime)
+          ? tx['rawDate'] as DateTime
+          : DateTime.now();
+      return dt.year == year &&
+          dt.month == month &&
+          dt.day >= startDay &&
+          dt.day <= endDay;
+    }).toList();
+
+    weeklyTransactionsList.value = filtered;
+
+    if (weekExpenses.value == 0.0 &&
+        weekIncome.value == 0.0 &&
+        filtered.isNotEmpty) {
+      double calcInc = 0.0;
+      double calcExp = 0.0;
+      for (var tx in filtered) {
+        if (tx['isFailed'] == true) continue;
+        final double amt = (tx['rawAmount'] is num)
+            ? (tx['rawAmount'] as num).toDouble()
+            : 0.0;
+        if (tx['isCredit'] == true)
+          calcInc += amt;
+        else
+          calcExp += amt;
+      }
+      weekExpenses.value = calcExp;
+      weekIncome.value = calcInc;
+      weekSavings.value = (calcInc - calcExp) > 0 ? (calcInc - calcExp) : 0.0;
+    }
+  }
 
   String get selectedAnalyticsMonthDisplay {
     if (selectedAnalyticsMonth.value.isEmpty) return "This Month";
@@ -105,8 +354,18 @@ class DashboardscreenController extends GetxController {
         final year = int.tryParse(parts[0]);
         final monthInt = int.tryParse(parts[1]) ?? 1;
         const monthNames = [
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
         ];
         final now = DateTime.now();
         if (now.year == year && now.month == monthInt) {
@@ -121,6 +380,7 @@ class DashboardscreenController extends GetxController {
   Future<void> fetchTransactionAnalytics({String? month}) async {
     if (!Get.isRegistered<ApiService>()) return;
     isAnalyticsLoading.value = true;
+    selectedAnalyticsWeek.value = -1;
     try {
       final res = await ApiService.to.fetchTransactionAnalytics(month: month);
       if (res != null) {
@@ -166,7 +426,9 @@ class DashboardscreenController extends GetxController {
     }
   }
 
-  void _calculateFallbackAnalyticsFromTransactions(List<Map<String, dynamic>> items) {
+  void _calculateFallbackAnalyticsFromTransactions(
+    List<Map<String, dynamic>> items,
+  ) {
     if (items.isEmpty) return;
 
     double w1Inc = 0.0, w1Exp = 0.0;
@@ -189,13 +451,25 @@ class DashboardscreenController extends GetxController {
 
       final day = dt.day;
       if (day <= 7) {
-        if (isCredit) w1Inc += amt; else w1Exp += amt;
+        if (isCredit)
+          w1Inc += amt;
+        else
+          w1Exp += amt;
       } else if (day <= 14) {
-        if (isCredit) w2Inc += amt; else w2Exp += amt;
+        if (isCredit)
+          w2Inc += amt;
+        else
+          w2Exp += amt;
       } else if (day <= 21) {
-        if (isCredit) w3Inc += amt; else w3Exp += amt;
+        if (isCredit)
+          w3Inc += amt;
+        else
+          w3Exp += amt;
       } else {
-        if (isCredit) w4Inc += amt; else w4Exp += amt;
+        if (isCredit)
+          w4Inc += amt;
+        else
+          w4Exp += amt;
       }
 
       if (isCredit) {
@@ -205,7 +479,9 @@ class DashboardscreenController extends GetxController {
       }
     }
 
-    if (totalIncome.value == 0.0 && totalExpenses.value == 0.0 && totalSavings.value == 0.0) {
+    if (totalIncome.value == 0.0 &&
+        totalExpenses.value == 0.0 &&
+        totalSavings.value == 0.0) {
       totalIncome.value = sumInc;
       totalExpenses.value = sumExp;
       totalSavings.value = (sumInc - sumExp) > 0 ? (sumInc - sumExp) : 0.0;
@@ -213,10 +489,30 @@ class DashboardscreenController extends GetxController {
 
     if (weeklyAnalytics.isEmpty) {
       weeklyAnalytics.value = [
-        {"label": "W1", "expenses": w1Exp, "income": w1Inc, "savings": (w1Inc - w1Exp) > 0 ? (w1Inc - w1Exp) : 0.0},
-        {"label": "W2", "expenses": w2Exp, "income": w2Inc, "savings": (w2Inc - w2Exp) > 0 ? (w2Inc - w2Exp) : 0.0},
-        {"label": "W3", "expenses": w3Exp, "income": w3Inc, "savings": (w3Inc - w3Exp) > 0 ? (w3Inc - w3Exp) : 0.0},
-        {"label": "W4", "expenses": w4Exp, "income": w4Inc, "savings": (w4Inc - w4Exp) > 0 ? (w4Inc - w4Exp) : 0.0},
+        {
+          "label": "W1",
+          "expenses": w1Exp,
+          "income": w1Inc,
+          "savings": (w1Inc - w1Exp) > 0 ? (w1Inc - w1Exp) : 0.0,
+        },
+        {
+          "label": "W2",
+          "expenses": w2Exp,
+          "income": w2Inc,
+          "savings": (w2Inc - w2Exp) > 0 ? (w2Inc - w2Exp) : 0.0,
+        },
+        {
+          "label": "W3",
+          "expenses": w3Exp,
+          "income": w3Inc,
+          "savings": (w3Inc - w3Exp) > 0 ? (w3Inc - w3Exp) : 0.0,
+        },
+        {
+          "label": "W4",
+          "expenses": w4Exp,
+          "income": w4Inc,
+          "savings": (w4Inc - w4Exp) > 0 ? (w4Inc - w4Exp) : 0.0,
+        },
       ];
     }
   }
@@ -225,7 +521,10 @@ class DashboardscreenController extends GetxController {
     if (!Get.isRegistered<ApiService>()) return;
     isTransactionsLoading.value = true;
     try {
-      final res = await ApiService.to.fetchTransactions(pageNumber: 0, pageSize: 20);
+      final res = await ApiService.to.fetchTransactions(
+        pageNumber: 0,
+        pageSize: 20,
+      );
       if (res != null && res['items'] is List) {
         final List items = res['items'];
         final List<Map<String, dynamic>> parsedList = [];
@@ -237,8 +536,10 @@ class DashboardscreenController extends GetxController {
           if (item is Map) {
             final type = item['type']?.toString().toUpperCase() ?? '';
             final isCredit = type == 'CREDIT';
-            final status = item['transactionStatus']?.toString().toUpperCase() ?? '';
-            final isFailed = status.contains('FAIL') || status.contains('REJECT');
+            final status =
+                item['transactionStatus']?.toString().toUpperCase() ?? '';
+            final isFailed =
+                status.contains('FAIL') || status.contains('REJECT');
 
             final num amt = (item['amount'] is num)
                 ? item['amount']
@@ -301,14 +602,29 @@ class DashboardscreenController extends GetxController {
         recentTransactions.value = [];
       }
     } catch (e) {
-      log('Error fetching recent transactions in DashboardscreenController: $e');
+      log(
+        'Error fetching recent transactions in DashboardscreenController: $e',
+      );
     } finally {
       isTransactionsLoading.value = false;
     }
   }
 
   String _formatShortDate(DateTime dt) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     final month = months[dt.month - 1];
     final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final ampm = dt.hour >= 12 ? 'PM' : 'AM';

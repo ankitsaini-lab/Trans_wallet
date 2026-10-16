@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -44,12 +45,15 @@ import 'package:transwallet/products/Dashboard%20screen/widgets/all_cards_screen
 import 'package:transwallet/widgets/pdf_viewer_screen.dart';
 import 'package:transwallet/products/minKYCScreen/minkycScreen_Controller.dart';
 import 'package:transwallet/products/Send%20money%20screen/send%20money%20process/sendmoneyProcess_Controller.dart';
+import 'package:transwallet/services/network_service.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/services/firebase_service.dart';
 import 'package:transwallet/services/deep_link_service.dart';
+import 'package:transwallet/services/deepid_service.dart';
+import 'package:transwallet/products/auth/sim_binding/sim_binding_view.dart';
 import 'package:transwallet/modules/vkyc/bindings/vkyc_binding.dart';
 import 'package:transwallet/modules/vkyc/views/vkyc_test_view.dart';
 import 'package:transwallet/modules/vkyc/views/vkyc_webview_view.dart';
@@ -66,20 +70,19 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 Future<void> main() async {
+  final bootstrapStopwatch = Stopwatch()..start();
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
 
-  // Initialize Auth, API, Firebase, DeepLink, Biometric, and AppLock Services
+  // Core synchronous service registration (available immediately throughout app)
   Get.put(AuthService());
   Get.put(ApiService());
+  final networkService = Get.put(NetworkService());
   final firebaseService = Get.put(FirebaseService());
-  await firebaseService.init();
   final deepLinkService = Get.put(DeepLinkService());
-  await deepLinkService.init();
   final biometricService = Get.put(BiometricService());
-  await biometricService.init();
   final appLockService = Get.put(AppLockService());
-  await appLockService.init();
+  final deepIdService = Get.put(DeepIdService());
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -90,7 +93,46 @@ Future<void> main() async {
   );
   HttpOverrides.global = MyHttpOverrides();
 
+  // Non-blocking concurrent background initialization of heavy services
+  // This allows the Flutter engine to mount the Splash UI immediately on frame 1
+  _initAsyncServices(
+    networkService: networkService,
+    firebaseService: firebaseService,
+    deepLinkService: deepLinkService,
+    biometricService: biometricService,
+    appLockService: appLockService,
+    deepIdService: deepIdService,
+  );
+
+  debugPrint(
+    '⚡ [Startup] Synchronous bootstrap finished in ${bootstrapStopwatch.elapsedMilliseconds}ms. Launching runApp()...',
+  );
   runApp(const MyApp());
+}
+
+void _initAsyncServices({
+  required NetworkService networkService,
+  required FirebaseService firebaseService,
+  required DeepLinkService deepLinkService,
+  required BiometricService biometricService,
+  required AppLockService appLockService,
+  required DeepIdService deepIdService,
+}) {
+  unawaited(
+    Future.wait([
+      networkService.init(),
+      firebaseService.init(),
+      deepLinkService.init(),
+      biometricService.init(),
+      appLockService.init(),
+      deepIdService.init(),
+    ]).then((_) {
+      debugPrint('✅ [Startup] All background services initialized successfully.');
+    }).catchError((e, stack) {
+      debugPrint('⚠️ [Startup] Non-blocking service initialization warning: $e');
+      return null;
+    }),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -207,6 +249,10 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/createaccountview',
           page: () => const CreateaccountView(),
+        ),
+        GetPage(
+          name: '/sim_binding',
+          page: () => const SimBindingView(),
         ),
         GetPage(
           name: '/dashboard',

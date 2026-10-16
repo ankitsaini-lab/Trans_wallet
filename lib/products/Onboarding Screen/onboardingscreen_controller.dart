@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+
+import 'package:transwallet/services/deepid_service.dart';
 
 class OnboardingscreenController extends GetxController {
   final PageController pageController = PageController();
@@ -31,6 +34,14 @@ class OnboardingscreenController extends GetxController {
   }
 
   void goToWelcome() {
-    Get.offAllNamed('/login_singupview');
+    GetStorage().write('has_seen_onboarding', true);
+    final bool isSkipped = GetStorage().read('sim_binding_skipped') == true;
+    final isTrusted = isSkipped ||
+        (Get.isRegistered<DeepIdService>() && DeepIdService.to.isDeviceTrusted);
+    if (!isTrusted) {
+      Get.offAllNamed('/sim_binding', arguments: {'returnRoute': '/login_singupview'});
+    } else {
+      Get.offAllNamed('/login_singupview');
+    }
   }
 }

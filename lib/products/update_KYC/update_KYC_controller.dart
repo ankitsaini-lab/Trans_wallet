@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/custombutton.dart';
@@ -27,6 +29,7 @@ class UpdateKycController extends GetxController {
       if (Get.isRegistered<ApiService>()) {
         final res = await ApiService.to.upgradeVkyc();
         if (res != null) {
+          log("check VKYC respo : $res");
           vkycApplicationId.value = res['applicationId']?.toString() ?? "";
           vkycLink.value = res['link']?.toString() ?? "";
           vkycStatus.value = res['status']?.toString() ?? "in_progress";
@@ -93,6 +96,14 @@ class UpdateKycController extends GetxController {
   }
 
   void showKycSuccessPopup() {
+    // Write KYC status after the current frame to avoid reactive rebuild
+    // colliding with an ongoing Navigator transition (navigator_debugLocked).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final box = GetStorage();
+      box.write('is_kyc_completed', true);
+      box.write('kyc_status', 'verified');
+    });
+
     Get.dialog(
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -153,7 +164,9 @@ class UpdateKycController extends GetxController {
                     text: "Go to Dashboard",
                     btncolor: Colors.black,
                     onPressed: () {
-                      Get.back();
+                      // Use offAllNamed only — calling Get.back() first
+                      // while the dialog is still mounted causes the
+                      // '!_debugLocked' Navigator assertion.
                       Get.offAllNamed("/dashboard");
                     },
                   ),

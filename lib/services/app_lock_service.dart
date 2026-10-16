@@ -15,6 +15,8 @@ enum ExternalFlowType {
   vkyc,          // VKYC WebView, camera/video, redirect/callback
   mediaPicker,   // Camera / Gallery picker
   customWebview, // Approved secure WebView
+  simBinding,    // DeepID SIM binding native sheet/SMS flow
+  externalBrowser, // External browser URL flow
 }
 
 /// Service that monitors application lifecycle and locks the app
@@ -297,6 +299,14 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     _backgroundTimer?.cancel();
 
     if (!canAppLock) {
+      if (activeExternalFlows.contains(ExternalFlowType.externalBrowser)) {
+        developer.log(
+          '[AppLockService] Resumed from externalBrowser. Re-enabling lock protection shortly.',
+        );
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          finishExternalFlow(ExternalFlowType.externalBrowser);
+        });
+      }
       developer.log('[AppLockService] Resumed, but canAppLock is false.');
       return;
     }

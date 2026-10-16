@@ -1,4 +1,18 @@
 import 'dart:async';
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
+import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/utilities/getStorage.dart';
+import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:developer' as developer;
@@ -6,9 +20,11 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:payu_checkoutpro_flutter/payu_checkoutpro_flutter.dart';
 import 'package:payu_checkoutpro_flutter/PayUConstantKeys.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/services/biometric_service.dart';
@@ -644,14 +660,29 @@ class PaymentReceiptView extends StatefulWidget {
   State<PaymentReceiptView> createState() => _PaymentReceiptViewState();
 }
 
-class _PaymentReceiptViewState extends State<PaymentReceiptView> {
+class _PaymentReceiptViewState extends State<PaymentReceiptView>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   Map<String, dynamic>? _loadDetails;
+  bool _detailsExpanded = false;
+
+  late final AnimationController _animController;
 
   @override
   void initState() {
     super.initState();
     _fetchLoadDetails();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchLoadDetails() async {
@@ -738,14 +769,11 @@ Thank you for using Transwallet!
         ? (_loadDetails!['amount'] as num).toDouble()
         : widget.amount;
     final String currency = _loadDetails?['currency']?.toString() ?? 'INR';
-    final String productId =
-        _loadDetails?['productId']?.toString() ??
-        payuMap?['productinfo']?.toString() ??
-        '';
-    final String customerName = payuMap?['firstname']?.toString() ?? '';
+    final String formattedAmountStr = currency == 'INR'
+        ? "₹${displayAmount.toStringAsFixed(0)}"
+        : "$currency ${displayAmount.toStringAsFixed(0)}";
     final String paymentModeStr =
         payuMap?['mode']?.toString() ?? widget.paymentMode;
-
     final String timestampRaw =
         _loadDetails?['timestamp']?.toString() ??
         _loadDetails?['createdAt']?.toString() ??
@@ -766,194 +794,527 @@ Thank you for using Transwallet!
     final bool isFailed =
         rawStatus.toLowerCase() == 'failed' ||
         rawStatus.toLowerCase() == 'failure';
-    log("isSuccess nathu payment>> ${isSuccess}");
-    log("isPending nathu payment>> ${isPending}");
-    log("isFailed nathu payment>> ${isFailed}");
 
     final Color statusColor = isSuccess
         ? Colors.green
         : (isPending ? Colors.orange : Colors.red);
-
     final IconData statusIcon = isSuccess
         ? Icons.check
         : (isPending ? Icons.access_time_rounded : Icons.close_rounded);
-
     final String titleText = isSuccess
         ? "Payment Successful"
         : (isPending ? "Payment Pending" : "Payment Failed");
-
     final String displayStatusStr = isSuccess
         ? "Success"
         : (isPending ? "Pending" : "Failed");
 
-    final String formattedAmountStr = currency == 'INR'
-        ? "₹${displayAmount.toStringAsFixed(0)}"
-        : "$currency ${displayAmount.toStringAsFixed(0)}";
+    // Status-dependent subtitle
+    final String subtitleText = isSuccess
+        ? 'Your payment was completed successfully.'
+        : (isPending
+              ? 'Your payment is currently under process.\nPlease wait or try again later.'
+              : 'Your payment could not be processed.\nPlease try again.');
+
+    const Color orange = Color(0xFFFF7A00);
+    final Color pillColor = isSuccess
+        ? const Color(0xFF4CAF50)
+        : (isPending ? orange : const Color(0xFFE53935));
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12.0),
-                    child: SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double screenW = constraints.maxWidth;
+          final double blobSize = screenW * 0.55;
+          return Stack(
+            children: [
+              SafeArea(
+                child: AnimatedBuilder(
+                  animation: _animController,
+                  builder: (context, child) => FadeTransition(
+                    opacity: _animController,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.08),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _animController,
+                              curve: Curves.easeOut,
+                            ),
+                          ),
+                      child: child,
                     ),
                   ),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(statusIcon, color: Colors.white, size: 40),
-                ),
-
-                const SizedBox(height: 20),
-
-                Text(
-                  titleText,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                if (widget.message != null &&
-                    widget.message!.isNotEmpty &&
-                    !isSuccess) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.message!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isFailed
-                          ? Colors.red.shade700
-                          : Colors.orange.shade800,
-                      fontWeight: FontWeight.w500,
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenW * 0.06,
+                      vertical: 32,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        height30,
+                        height30,
+                        if (_isLoading)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFFF7A00),
+                              ),
+                            ),
+                          ),
 
-                const SizedBox(height: 10),
-
-                Text(
-                  formattedAmountStr,
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F6FA),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Column(
-                    children: [
-                      row("Status", displayStatusStr),
-                      if (activeTxnRef.isNotEmpty)
-                        row("Txn Reference", activeTxnRef),
-                      if (payuTxnId.isNotEmpty && payuTxnId != activeTxnRef)
-                        row("PayU Txn ID", payuTxnId),
-                      if (productId.isNotEmpty) row("Product", productId),
-                      if (customerName.isNotEmpty)
-                        row("Customer", customerName),
-                      if (widget.bankRefNo != null &&
-                          widget.bankRefNo!.isNotEmpty)
-                        row("Bank Ref No", widget.bankRefNo!),
-                      row("Date & Time", formattedDate),
-                      if (paymentModeStr.isNotEmpty)
-                        row("Payment Mode", paymentModeStr),
-                      if (isSuccess && widget.balance > 0)
-                        row(
-                          "Updated Balance",
-                          "₹${widget.balance.toStringAsFixed(0)}",
+                        // ── Status icon circle with gradient ──
+                        Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              center: const Alignment(-0.3, -0.4),
+                              radius: 0.7,
+                              colors: [
+                                statusColor.withValues(alpha: 0.95),
+                                statusColor,
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: statusColor.withValues(alpha: 0.10),
+                                blurRadius: 24,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            statusIcon,
+                            color: Colors.white,
+                            size: 32,
+                          ),
                         ),
-                    ],
-                  ),
-                ),
+                        height14,
 
-                const SizedBox(height: 30),
+                        // ── Title ──
+                        Text(
+                          titleText,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1A1A2E),
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        height6,
 
-                // Share Receipt Button
-                OutlinedButton.icon(
-                  onPressed: () {
-                    _shareReceipt(
-                      status: displayStatusStr,
-                      txnRef: activeTxnRef.isNotEmpty ? activeTxnRef : 'N/A',
-                      amountStr: formattedAmountStr,
-                      dateStr: formattedDate,
-                      modeStr: paymentModeStr.isNotEmpty
-                          ? paymentModeStr
-                          : 'Online Payment',
-                      payuTxnId: payuTxnId,
-                    );
-                  },
-                  icon: const Icon(Icons.share_outlined, color: Colors.black),
-                  label: const Text(
-                    "Share Receipt",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                        // ── Subtitle ──
+                        Text(
+                          subtitleText,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFF888888),
+                            height: 1.5,
+                          ),
+                        ),
+                        height14,
+
+                        // ── Amount card with gradient ──
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: const LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Color.fromARGB(187, 253, 236, 217),
+                                Color.fromARGB(154, 253, 253, 253),
+                                Color.fromARGB(187, 253, 236, 217),
+                              ],
+                              stops: [0.0, 0.55, 1.0],
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Amount',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: const Color(0xFFAA7755),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              height6,
+                              Text(
+                                formattedAmountStr,
+                                style: GoogleFonts.inter(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1A1A2E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+
+                        // ── Receipt Details accordion ──
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: _detailsExpanded
+                                ? null
+                                : Border.all(color: Colors.grey.shade100),
+                            boxShadow: _detailsExpanded
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.06,
+                                      ),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              dividerColor: Colors.transparent,
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                            ),
+                            child: ExpansionTile(
+                              initiallyExpanded: _detailsExpanded,
+                              onExpansionChanged: (v) =>
+                                  setState(() => _detailsExpanded = v),
+                              tilePadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 2,
+                              ),
+                              childrenPadding: const EdgeInsets.only(
+                                left: 16,
+                                right: 16,
+                                bottom: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              collapsedShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              leading: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFEEDE),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.receipt_long_rounded,
+                                  color: Color(0xFFFF7A00),
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(
+                                'Summary',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1A1A2E),
+                                ),
+                              ),
+                              trailing: AnimatedRotation(
+                                turns: _detailsExpanded ? 0.5 : 0.0,
+                                duration: const Duration(milliseconds: 300),
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFFFF7A00,
+                                    ).withValues(alpha: 0.10),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: Color(0xFFFF7A00),
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                              children: [
+                                _divider(),
+                                const SizedBox(height: 4),
+                                _receiptRow(
+                                  icon: Icons.account_balance_rounded,
+                                  iconColor: const Color(0xFF2196F3),
+                                  iconBg: const Color(0xFFE3F2FD),
+                                  label: 'Transaction Ref',
+                                  value: activeTxnRef.isNotEmpty
+                                      ? activeTxnRef
+                                      : 'N/A',
+                                ),
+                                _divider(),
+                                _receiptRow(
+                                  icon: Icons.credit_card_rounded,
+                                  iconColor: const Color(0xFF7B61FF),
+                                  iconBg: const Color(0xFFEDE7FF),
+                                  label: 'PayU Txn ID',
+                                  value: payuTxnId.isNotEmpty
+                                      ? payuTxnId
+                                      : 'N/A',
+                                ),
+                                _divider(),
+                                _receiptRow(
+                                  icon: Icons.calendar_month_rounded,
+                                  iconColor: const Color(0xFF43A047),
+                                  iconBg: const Color(0xFFE8F5E9),
+                                  label: 'Date',
+                                  value: formattedDate,
+                                ),
+                                _divider(),
+                                _receiptRow(
+                                  icon: Icons.payment_rounded,
+                                  iconColor: const Color(0xFFFF7A00),
+                                  iconBg: const Color(0xFFFFEEDE),
+                                  label: 'Payment Mode',
+                                  value: paymentModeStr.isNotEmpty
+                                      ? paymentModeStr
+                                      : 'Online',
+                                ),
+                                _divider(),
+                                _receiptRowStatus(
+                                  label: 'Status',
+                                  value: displayStatusStr,
+                                  pillColor: pillColor,
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+
+                        Container(
+                          width: double.infinity,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(32),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF7A00), Color(0xFFFF9E40)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: orange.withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(32),
+                              onTap: () {
+                                _shareReceipt(
+                                  status: displayStatusStr,
+                                  txnRef: activeTxnRef.isNotEmpty
+                                      ? activeTxnRef
+                                      : 'N/A',
+                                  amountStr: formattedAmountStr,
+                                  dateStr: formattedDate,
+                                  modeStr: paymentModeStr.isNotEmpty
+                                      ? paymentModeStr
+                                      : 'Online Payment',
+                                  payuTxnId: payuTxnId,
+                                );
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.share_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Share Receipt',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // ── Continue button ──
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: OutlinedButton(
+                            onPressed: () => Get.offAllNamed('/dashboard'),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: Color(0xFFDDDDDD),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                              backgroundColor: Colors.white,
+                            ),
+                            child: Text(
+                              'Go to Dashboard',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1A1A2E),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    side: const BorderSide(color: Colors.black, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
                 ),
-
-                const SizedBox(height: 16),
-
-                CustomButton(
-                  text: "Continue",
-                  btncolor: Colors.black,
-                  onPressed: () {
-                    Get.offAllNamed('/dashboard');
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget row(String title, String value) {
+  // ── Helper: detail row with icon ──
+  Widget _receiptRow({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String label,
+    required String value,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(color: Colors.black54)),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                color: const Color(0xFF888888),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            textAlign: TextAlign.right,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1A2E),
+            ),
+          ),
         ],
       ),
     );
   }
+
+  // ── Helper: status row with pill badge ──
+  Widget _receiptRowStatus({
+    required String label,
+    required String value,
+    required Color pillColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEEEF5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xFF6B6B9A),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: const Color(0xFF888888),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+            decoration: BoxDecoration(
+              color: pillColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: pillColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() => const Divider(height: 1, color: Color(0xFFF0F0F0));
 }
 
 class MpinVerifySheetForPayment extends StatefulWidget {

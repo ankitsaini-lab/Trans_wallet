@@ -28,7 +28,10 @@ class ProfilescreenController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    isKycVerified.value = box.read('is_kyc_completed') ?? false;
+    isKycVerified.value = box.read('is_kyc_completed') == true ||
+        box.read('kyc_status')?.toString().toLowerCase() == 'verified' ||
+        box.read('kyc_status')?.toString().toLowerCase() == 'completed' ||
+        box.read('kyc_status')?.toString().toLowerCase() == 'approved';
     profilePictureUrl.value = box.read('profilePictureUrl')?.toString() ?? '';
     if (Get.isRegistered<BiometricService>()) {
       biometricEnabled.value = BiometricService.to.isBiometricEnabled.value;
@@ -47,6 +50,10 @@ class ProfilescreenController extends GetxController {
   }
 
   void loadUserData() {
+    isKycVerified.value = box.read('is_kyc_completed') == true ||
+        box.read('kyc_status')?.toString().toLowerCase() == 'verified' ||
+        box.read('kyc_status')?.toString().toLowerCase() == 'completed' ||
+        box.read('kyc_status')?.toString().toLowerCase() == 'approved';
     userName.value = box.read('name')?.toString() ?? "User";
     final rawPhone = box.read('phone')?.toString() ??
         box.read('mobileNumber')?.toString() ??
@@ -69,6 +76,13 @@ class ProfilescreenController extends GetxController {
     if (Get.isRegistered<ApiService>()) {
       final profile = await ApiService.to.fetchUserProfile();
       if (profile != null) {
+        if (profile['isKycCompleted'] != null) {
+          isKycVerified.value = profile['isKycCompleted'] == true;
+        } else if (profile['kycStatus'] != null) {
+          final st = profile['kycStatus'].toString().toLowerCase();
+          isKycVerified.value =
+              (st == 'verified' || st == 'completed' || st == 'approved');
+        }
         loadUserData();
         profilePictureUrl.value = box.read('profilePictureUrl')?.toString() ?? '';
       }
@@ -265,7 +279,12 @@ class ProfilescreenController extends GetxController {
         colorText: Colors.white,
       );
     } else {
-      Get.toNamed('/updateKyc');
+      Get.toNamed('/updateKyc')?.then((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          loadUserData();
+          fetchFromApi();
+        });
+      });
     }
   }
 
@@ -316,7 +335,7 @@ class ProfilescreenController extends GetxController {
         },
         onCancel: () => Get.back(),
       ),
-      barrierColor: Colors.black.withOpacity(0.25),
+      barrierColor: Colors.black.withValues(alpha: 0.25),
       barrierDismissible: false,
     );
   }

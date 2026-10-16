@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/services/deepid_service.dart';
 
 class AuthService extends GetxService {
   static AuthService get to => Get.find<AuthService>();
@@ -157,5 +158,9 @@ class AuthService extends GetxService {
     await _storage.remove('balance');
     await _storage.remove('entityId');
     await _storage.remove('registrationToken');
+
+    if (Get.isRegistered<DeepIdService>()) {
+      await DeepIdService.to.logout();
+    }
   }
 }

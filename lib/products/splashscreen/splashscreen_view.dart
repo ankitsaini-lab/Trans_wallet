@@ -4,24 +4,16 @@ import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 import 'package:transwallet/products/splashscreen/splashscreen_Controller.dart';
 
-class SplashscreenView extends StatefulWidget {
+class SplashscreenView extends StatelessWidget {
   const SplashscreenView({super.key});
 
   @override
-  State<SplashscreenView> createState() => _SplashscreenViewState();
-}
-
-class _SplashscreenViewState extends State<SplashscreenView> {
-  @override
-  void initState() {
-    super.initState();
-    if (!Get.isRegistered<SplashscreenController>()) {
-      Get.put(SplashscreenController());
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // Ensure controller is registered
+    final controller = Get.isRegistered<SplashscreenController>()
+        ? Get.find<SplashscreenController>()
+        : Get.put(SplashscreenController());
+
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
@@ -35,79 +27,47 @@ class _SplashscreenViewState extends State<SplashscreenView> {
           statusBarBrightness: Brightness.dark,
         ),
       ),
-      body: const SplashVideoPlayer(),
-    );
-  }
-}
-
-class SplashVideoPlayer extends StatefulWidget {
-  const SplashVideoPlayer({super.key});
-
-  @override
-  State<SplashVideoPlayer> createState() => _SplashVideoPlayerState();
-}
-
-class _SplashVideoPlayerState extends State<SplashVideoPlayer> {
-  VideoPlayerController? _controller;
-  bool _isInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initVideo();
-  }
-
-  Future<void> _initVideo() async {
-    try {
-      final controller = VideoPlayerController.asset('assets/videomp_.mp4');
-      _controller = controller;
-      await controller.initialize();
-      controller.setVolume(0.0);
-      controller.setLooping(true);
-      await controller.play();
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-      }
-    } catch (e) {
-      debugPrint('[SplashVideoPlayer] Error initializing video: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = _controller;
-    if (_isInitialized && controller != null && controller.value.isInitialized) {
-      return SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: controller.value.size.width,
-            height: controller.value.size.height,
-            child: VideoPlayer(controller),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Static Brand Splash (Rendered immediately on Frame 1, zero wait/spinner)
+          Container(
+            color: Colors.black,
+            alignment: Alignment.center,
+            child: Image.asset(
+              'assets/WHITE TRANSCORP .png',
+              width: 220,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+            ),
           ),
-        ),
-      );
-    }
 
-    return Container(
-      color: Colors.black,
-      child: const Center(
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
-          ),
-        ),
+          // 2. Video Player Layer (Smoothly fades in once decoded and playing)
+          Obx(() {
+            final isReady = controller.isVideoInitialized.value;
+            final player = controller.videoController;
+
+            if (!isReady || player == null || !player.value.isInitialized) {
+              return const SizedBox.shrink();
+            }
+
+            return AnimatedOpacity(
+              opacity: isReady ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeIn,
+              child: SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: player.value.size.width,
+                    height: player.value.size.height,
+                    child: VideoPlayer(player),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

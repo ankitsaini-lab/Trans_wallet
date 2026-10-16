@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -9,6 +10,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:transwallet/firebase_options.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/services/network_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -24,6 +26,10 @@ class FirebaseService extends GetxService {
 
   final RxString fcmToken = ''.obs;
   final GetStorage _storage = GetStorage();
+
+  bool _isFetchingToken = false;
+  Timer? _retryTimer;
+  Worker? _networkWorker;
 
   FlutterLocalNotificationsPlugin? _localNotifications;
   bool _isLocalNotificationsInitialized = false;
@@ -44,6 +50,13 @@ class FirebaseService extends GetxService {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       debugPrint("✅ [Firebase] Firebase Core initialized successfully.");
+
+      // Restore cached token immediately so app has it available offline
+      final cachedToken = _storage.read<String>('fcm_token');
+      if (cachedToken != null && cachedToken.isNotEmpty) {
+        fcmToken.value = cachedToken;
+        debugPrint("💾 [Firebase] Restored cached FCM token: $cachedToken");
+      }
 
       // Request system notifications permission (Android 13+ & iOS)
       await _requestPermission();
@@ -68,11 +81,13 @@ class FirebaseService extends GetxService {
         _firebaseMessagingBackgroundHandler,
       );
 
-      // Get FCM token & log status
-      await _getToken();
-
-      // Setup notification listeners
+      // Setup listeners
+      _setupTokenRefreshListener();
       _setupForegroundListeners();
+      _setupNetworkReconnectionListener();
+
+      // Fetch initial FCM token in background
+      unawaited(_getToken());
     } catch (e, stackTrace) {
       debugPrint("❌ [Firebase] Initialization failed: $e");
       developer.log(
@@ -288,52 +303,108 @@ class FirebaseService extends GetxService {
     }
   }
 
-  Future<void> _getToken() async {
+  void _setupTokenRefreshListener() {
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      fcmToken.value = newToken;
+      await _storage.write('fcm_token', newToken);
+
+      debugPrint("==================================================");
+      debugPrint("🔄 [Firebase] FCM Token refreshed!");
+      debugPrint("NEW FCM TOKEN: $newToken");
+      debugPrint("==================================================");
+
+      developer.log("FCM Token refreshed: $newToken", name: 'FirebaseService');
+
+      await _registerTokenWithBackend(newToken);
+    });
+  }
+
+  void _setupNetworkReconnectionListener() {
+    if (Get.isRegistered<NetworkService>()) {
+      _networkWorker = ever<bool>(NetworkService.to.isConnected, (connected) {
+        if (connected && fcmToken.value.isEmpty && !_isFetchingToken) {
+          debugPrint("🌐 [Firebase] Network connection active -> Fetching FCM token...");
+          fetchFcmToken();
+        }
+      });
+    }
+  }
+
+  /// Fetches the FCM token with automatic retry and graceful offline handling.
+  /// Does not crash or spam unhandled error logs on Google Play Services delays.
+  Future<String?> fetchFcmToken({int maxRetries = 3}) async {
+    if (_isFetchingToken) return fcmToken.value.isNotEmpty ? fcmToken.value : null;
+    _isFetchingToken = true;
+
     try {
-      debugPrint("⏳ [Firebase] Fetching FCM Registration Token...");
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token != null && token.isNotEmpty) {
-        fcmToken.value = token;
-        await _storage.write('fcm_token', token);
+      int attempt = 0;
+      while (attempt < maxRetries) {
+        attempt++;
+        try {
+          debugPrint(
+            "⏳ [Firebase] Requesting FCM Token (Attempt $attempt/$maxRetries)...",
+          );
+          final token = await FirebaseMessaging.instance.getToken();
+          if (token != null && token.isNotEmpty) {
+            fcmToken.value = token;
+            await _storage.write('fcm_token', token);
 
-        debugPrint("==================================================");
-        debugPrint("🔥 [Firebase] FCM Token generated successfully!");
-        debugPrint("FCM TOKEN: $token");
-        debugPrint("==================================================");
+            debugPrint("==================================================");
+            debugPrint("🔥 [Firebase] FCM Token generated successfully!");
+            debugPrint("FCM TOKEN: $token");
+            debugPrint("==================================================");
 
-        developer.log("FCM Token generated: $token", name: 'FirebaseService');
+            developer.log("FCM Token generated: $token", name: 'FirebaseService');
 
-        // Automatically send token to backend API
-        await _registerTokenWithBackend(token);
-      } else {
-        debugPrint("⚠️ [Firebase] FCM Token generated is NULL or EMPTY.");
+            _retryTimer?.cancel();
+            await _registerTokenWithBackend(token);
+            return token;
+          } else {
+            debugPrint("⚠️ [Firebase] FCM Token returned was null/empty.");
+          }
+        } catch (e) {
+          final isRegistrationFailed = e.toString().contains("FCM Registration failed");
+          if (isRegistrationFailed) {
+            debugPrint(
+              "ℹ️ [Firebase] Google Play Services FCM registration busy or awaiting network (Attempt $attempt/$maxRetries).",
+            );
+          } else {
+            debugPrint("⚠️ [Firebase] Token attempt $attempt encountered: $e");
+          }
+
+          if (attempt < maxRetries) {
+            final delayMs = 2000 * attempt;
+            await Future.delayed(Duration(milliseconds: delayMs));
+          }
+        }
       }
 
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-        fcmToken.value = newToken;
-        await _storage.write('fcm_token', newToken);
-
-        debugPrint("==================================================");
-        debugPrint("🔄 [Firebase] FCM Token refreshed!");
-        debugPrint("NEW FCM TOKEN: $newToken");
-        debugPrint("==================================================");
-
-        developer.log(
-          "FCM Token refreshed: $newToken",
-          name: 'FirebaseService',
-        );
-
-        await _registerTokenWithBackend(newToken);
-      });
-    } catch (e, stackTrace) {
-      debugPrint("❌ [Firebase] Failed to generate FCM token: $e");
-      developer.log(
-        "Error fetching FCM Token",
-        error: e,
-        stackTrace: stackTrace,
-        name: 'FirebaseService',
+      // If initial attempts could not complete (e.g. device network delayed or GMS warming up),
+      // schedule an automatic background retry in 30 seconds rather than failing permanently
+      debugPrint(
+        "ℹ️ [Firebase] Initial token attempts deferred. Will auto-retry in 30s or on network reconnect.",
       );
+      _retryTimer?.cancel();
+      _retryTimer = Timer(const Duration(seconds: 30), () {
+        if (fcmToken.value.isEmpty) {
+          fetchFcmToken(maxRetries: 2);
+        }
+      });
+    } finally {
+      _isFetchingToken = false;
     }
+    return fcmToken.value.isNotEmpty ? fcmToken.value : null;
+  }
+
+  @override
+  void onClose() {
+    _retryTimer?.cancel();
+    _networkWorker?.dispose();
+    super.onClose();
+  }
+
+  Future<void> _getToken() async {
+    await fetchFcmToken();
   }
 
   void _setupForegroundListeners() {

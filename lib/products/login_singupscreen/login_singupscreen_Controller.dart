@@ -6,14 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
-import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/models/send_otp_model.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/services/biometric_service.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/services/deepid_service.dart';
 
 class LoginSingupscreenController extends GetxController {
+  GetStorage get box => GetStorage();
   final phoneFocusNode = FocusNode();
   var isPhoneFocused = false.obs;
 
@@ -44,12 +46,54 @@ class LoginSingupscreenController extends GetxController {
       isPhoneFocused.value = phoneFocusNode.hasFocus;
     });
 
+    _syncSimBindingState();
+
     if (Get.isRegistered<BiometricService>()) {
       BiometricService.to.checkBiometricSupport().then((_) {
         updateBiometricState();
       });
     }
     updateBiometricState();
+  }
+
+  final RxBool isSimBound = false.obs;
+  final RxString boundMobileNumber = ''.obs;
+
+  void _syncSimBindingState() {
+    final isSkipped = box.read('sim_binding_skipped') == true;
+    final isTrusted = (Get.isRegistered<DeepIdService>() &&
+        DeepIdService.to.isDeviceTrusted) || isSkipped;
+    isSimBound.value = isTrusted;
+
+    if (!isTrusted) {
+      log("[Login] Device SIM is not bound. Redirecting to mandatory SIM binding.");
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.offAllNamed(
+          '/sim_binding',
+          arguments: {'returnRoute': '/login_singupview'},
+        );
+      });
+      return;
+    }
+
+    final bound = box.read('deepid_bound_mobile')?.toString() ??
+        box.read('bound_mobile')?.toString() ??
+        box.read('phone')?.toString() ??
+        '';
+
+    if (bound.isNotEmpty) {
+      boundMobileNumber.value = bound;
+      phoneController.text = bound;
+      phone.value = bound;
+    }
+  }
+
+  void rebindSim() {
+    box.remove('sim_binding_skipped');
+    Get.toNamed(
+      '/sim_binding',
+      arguments: {'returnRoute': '/login_singupview'},
+    );
   }
 
   var isBiometricLoading = false.obs;
@@ -169,6 +213,16 @@ class LoginSingupscreenController extends GetxController {
   }
 
   Future<void> loginWithMpin() async {
+    final isSkipped = box.read('sim_binding_skipped') == true;
+    if (!isSkipped && Get.isRegistered<DeepIdService>() && !DeepIdService.to.isDeviceTrusted) {
+      AppSnackbar.error("SIM binding is mandatory to log in.");
+      Get.offAllNamed(
+        '/sim_binding',
+        arguments: {'returnRoute': '/login_singupview'},
+      );
+      return;
+    }
+
     final enteredPhone = phoneController.text.trim();
     final enteredMpin = mpinController.text.trim();
 
@@ -300,10 +354,14 @@ class LoginSingupscreenController extends GetxController {
           box.write('biometric_enabled', true);
           box.write('is_logged_in', true);
 
-          AppSnackbar.success(
-            body['message']?.toString() ?? "Login successful",
+          final Map<String, dynamic>? responseData =
+              data is Map ? Map<String, dynamic>.from(data) : null;
+          _navigateAfterSuccessfulAuth(
+            phone: enteredPhone,
+            data: responseData,
+            fallbackSuccessMessage:
+                body['message']?.toString() ?? "Login successful",
           );
-          Get.offAllNamed('/dashboard');
         } else {
           final errorMsg =
               body['message']?.toString() ??
@@ -367,6 +425,16 @@ class LoginSingupscreenController extends GetxController {
   }
 
   Future<void> _sendOtp() async {
+    final isSkipped = box.read('sim_binding_skipped') == true;
+    if (!isSkipped && Get.isRegistered<DeepIdService>() && !DeepIdService.to.isDeviceTrusted) {
+      AppSnackbar.error("SIM binding is mandatory to request OTP.");
+      Get.offAllNamed(
+        '/sim_binding',
+        arguments: {'returnRoute': '/login_singupview'},
+      );
+      return;
+    }
+
     final phone = phoneController.text.trim();
 
     if (phone.isEmpty) {
@@ -619,8 +687,14 @@ class LoginSingupscreenController extends GetxController {
               );
             }
 
-            AppSnackbar.success(verifyResponse.message ?? "Login successful");
-            Get.offAllNamed('/dashboard');
+            final Map<String, dynamic>? responseData =
+                data != null ? Map<String, dynamic>.from(data) : null;
+            _navigateAfterSuccessfulAuth(
+              phone: enteredPhone,
+              data: responseData,
+              fallbackSuccessMessage:
+                  verifyResponse.message ?? "Login successful",
+            );
           } else {
             log(
               "[OTP Verify] Flow is REGISTER -> Saving registrationToken and redirecting to /createaccountview",
@@ -668,6 +742,43 @@ class LoginSingupscreenController extends GetxController {
       const errorMsg = "Server error. Please try again after some time.";
       otpError.value = errorMsg;
       AppSnackbar.error(errorMsg);
+    }
+  }
+
+  void _navigateAfterSuccessfulAuth({
+    required String phone,
+    required Map<String, dynamic>? data,
+    required String fallbackSuccessMessage,
+  }) {
+    AppSnackbar.success(fallbackSuccessMessage);
+
+    final bool isSkipped = box.read('sim_binding_skipped') == true;
+
+    // Determine if backend requires SIM binding or if device needs verification
+    final bool backendRequiresBinding = !isSkipped &&
+        (data?['simBindingRequired'] == true ||
+            data?['isSimBindingRequired'] == true ||
+            data?['deviceTrusted'] == false ||
+            data?['simBindingStatus'] == 'required');
+
+    final bool isTrusted = isSkipped ||
+        (Get.isRegistered<DeepIdService>() &&
+            DeepIdService.to.isDeviceTrusted &&
+            !backendRequiresBinding);
+
+    if (backendRequiresBinding || !isTrusted) {
+      log(
+        "[Auth Navigation] SIM binding required for $phone -> Navigating to /sim_binding",
+      );
+      Get.offAllNamed(
+        '/sim_binding',
+        arguments: {'phone': phone, 'returnRoute': '/dashboard'},
+      );
+    } else {
+      log(
+        "[Auth Navigation] Device is trusted / skipped -> Navigating to /dashboard",
+      );
+      Get.offAllNamed('/dashboard');
     }
   }
 

@@ -10,6 +10,7 @@ import 'package:transwallet/products/login_singupscreen/create%20Account/createa
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/services/deepid_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
@@ -1484,7 +1485,8 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
 
     try {
       final box = GetStorage();
-      final token = box.read<String>('accessToken') ??
+      final token =
+          box.read<String>('accessToken') ??
           box.read<String>('auth_token') ??
           box.read<String>('token') ??
           box.read<String>('registrationToken') ??
@@ -1494,9 +1496,7 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
           ? {'Authorization': 'Bearer ${token.trim()}'}
           : null;
 
-      final requestBody = {
-        "mpin": _confirmMpin,
-      };
+      final requestBody = {"mpin": _confirmMpin};
 
       developer.log(
         "[Set MPIN] Calling /api/v1/auth/mpin/set with body:\n${const JsonEncoder.withIndent('  ').convert(requestBody)}",
@@ -1541,19 +1541,18 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                 await biometricService.promptBiometricPermission(
                   context,
                   onComplete: () {
-                    Get.offAllNamed('/dashboard');
+                    _navigateToPostRegistration();
                   },
                 );
               } else {
-                Get.offAllNamed('/dashboard');
+                _navigateToPostRegistration();
               }
             } else {
-              Get.offAllNamed('/dashboard');
+              _navigateToPostRegistration();
             }
           });
         } else {
-          final errorMsg =
-              body['message']?.toString() ?? "Failed to set MPIN";
+          final errorMsg = body['message']?.toString() ?? "Failed to set MPIN";
           setState(() {
             _isLoading = false;
             _hasError = true;
@@ -1593,6 +1592,27 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
     }
   }
 
+  void _navigateToPostRegistration() {
+    final box = GetStorage();
+    final phone =
+        box.read('phone')?.toString() ??
+        box.read('remembered_phone')?.toString() ??
+        '';
+    final bool isSkipped = box.read('sim_binding_skipped') == true;
+    final isTrusted =
+        isSkipped ||
+        (Get.isRegistered<DeepIdService>() && DeepIdService.to.isDeviceTrusted);
+
+    if (!isTrusted && phone.isNotEmpty) {
+      Get.offAllNamed(
+        '/sim_binding',
+        arguments: {'phone': phone, 'returnRoute': '/dashboard'},
+      );
+    } else {
+      Get.offAllNamed('/dashboard');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1603,9 +1623,7 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -1620,7 +1638,9 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                                   key: const ValueKey('success'),
                                   padding: const EdgeInsets.all(18),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF22C55E).withOpacity(0.1),
+                                    color: const Color(
+                                      0xFF22C55E,
+                                    ).withOpacity(0.1),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -1720,7 +1740,9 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                             final filled = i < _currentPin.length;
                             return AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              margin: const EdgeInsets.symmetric(horizontal: 10),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
                               width: 18,
                               height: 18,
                               decoration: BoxDecoration(
@@ -1764,7 +1786,9 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                             width: 28,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(primaryRed),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                primaryRed,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),

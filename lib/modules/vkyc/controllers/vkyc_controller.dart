@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/modules/vkyc/services/vkyc_test_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
@@ -42,6 +43,9 @@ class VkycController extends GetxController {
 
     try {
       await _vkycService.handleVkycSuccess();
+      final box = GetStorage();
+      box.write('is_kyc_completed', true);
+      box.write('kyc_status', 'verified');
       AppSnackbar.success("VKYC Completed Successfully!", title: "Approved");
 
       // Navigate to existing Dashboard route

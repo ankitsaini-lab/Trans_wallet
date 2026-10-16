@@ -50,7 +50,9 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
         setState(() {
           _isLoadingSession = false;
           if (res != null) {
-            _widgetUrl = res['widgetUrl']?.toString();
+            _widgetUrl =
+                "https://transcorpint.com/assets/app/M2P-VIEW-WIDGET-2.html";
+            // res['widgetUrl']?.toString();
           }
         });
       }
@@ -299,11 +301,11 @@ class _CardDetailsPopupState extends State<CardDetailsPopup>
     if (_widgetUrl != null && _widgetUrl!.isNotEmpty && !_hasWebViewError) {
       return Container(
         width: double.infinity,
-        height: 240,
+        height: 210,
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          // color: const Color(0xFF111111),
+          // borderRadius: BorderRadius.circular(24),
+          // border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.4),
