@@ -456,7 +456,6 @@ class SendmoneyprocessView extends GetView<SendmoneyprocessController> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (value == '.') return;
         controller.setAmount(value);
       },
       child: Container(

@@ -522,4 +522,63 @@ void main() {
     expect(controllerOverMax.isError.value, isTrue);
     expect(transferCalled, isFalse);
   });
+
+  test('SendmoneyprocessController supports decimal points: 1.1 is valid, 0.1 is invalid', () async {
+    final controller = Get.put(SendmoneyprocessController(), tag: 'decimal_test');
+
+    // 1. Enter 1.1 -> valid
+    controller.enteredAmount.value = '';
+    controller.setAmount('1');
+    controller.setAmount('.');
+    expect(controller.enteredAmount.value, '1.');
+    expect(controller.amount, 1.0);
+    // Trailing dot is incomplete, so canProceed should be false until decimal digit entered
+    expect(controller.canProceed, isFalse);
+
+    controller.setAmount('1');
+    expect(controller.enteredAmount.value, '1.1');
+    expect(controller.amount, 1.1);
+    expect(controller.canProceed, isTrue); // 1.1 is correct!
+
+    // 2. Enter 0.1 -> invalid (below min 1.0)
+    controller.enteredAmount.value = '';
+    controller.setAmount('0');
+    controller.setAmount('.');
+    expect(controller.enteredAmount.value, '0.');
+    controller.setAmount('1');
+    expect(controller.enteredAmount.value, '0.1');
+    expect(controller.amount, 0.1);
+    expect(controller.canProceed, isFalse); // 0.1 is not correct!
+
+    // 3. Starting directly with dot -> produces '0.'
+    controller.enteredAmount.value = '';
+    controller.setAmount('.');
+    expect(controller.enteredAmount.value, '0.');
+    controller.setAmount('5');
+    expect(controller.enteredAmount.value, '0.5');
+    expect(controller.canProceed, isFalse); // 0.5 < 1.0
+
+    // 4. Max 2 decimal digits allowed
+    controller.enteredAmount.value = '';
+    controller.setAmount('2');
+    controller.setAmount('.');
+    controller.setAmount('5');
+    controller.setAmount('0');
+    expect(controller.enteredAmount.value, '2.50');
+    expect(controller.amount, 2.5);
+    expect(controller.canProceed, isTrue);
+
+    // Attempting a 3rd decimal digit is ignored
+    controller.setAmount('9');
+    expect(controller.enteredAmount.value, '2.50');
+
+    // 5. Cannot enter a second dot
+    controller.setAmount('.');
+    expect(controller.enteredAmount.value, '2.50');
+
+    // 6. Backspace removes last digit
+    controller.setAmount('back');
+    expect(controller.enteredAmount.value, '2.5');
+    expect(controller.canProceed, isTrue);
+  });
 }

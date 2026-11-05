@@ -19,7 +19,9 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
 
     // Fallback recipient if arguments not passed
     final recipientName = controller.recipient?['name'] ?? 'Ankit Saini';
-    final amountStr = controller.amount.toStringAsFixed(0);
+    final amountStr = controller.amount % 1 == 0
+        ? controller.amount.toInt().toString()
+        : controller.amount.toStringAsFixed(2);
     final formattedDate = DateFormat(
       'dd MMM yyyy, hh:mm a',
     ).format(DateTime.now());

@@ -89,7 +89,8 @@ class SendMoneyPasswordController extends GetxController {
     try {
       final bioService = BiometricService.to;
       final result = await bioService.authenticate(
-        localizedReason: "Authenticate to send ₹${amount.toStringAsFixed(0)} to ${recipient?['name'] ?? 'recipient'}",
+        localizedReason:
+            "Authenticate to send ₹${amount % 1 == 0 ? amount.toInt() : amount.toStringAsFixed(2)} to ${recipient?['name'] ?? 'recipient'}",
       );
 
       if (result.success) {

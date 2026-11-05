@@ -46,7 +46,9 @@ class SendmoneyprocessController extends GetxController {
   }
 
   bool get canProceed =>
-      amount >= minTransferAmount && amount <= maxTransferAmount;
+      amount >= minTransferAmount &&
+      amount <= maxTransferAmount &&
+      !enteredAmount.value.endsWith('.');
 
   void setAmount(String value) {
     selectedPreset.value = 0; // Clear preset selection when typing manually
@@ -59,12 +61,28 @@ class SendmoneyprocessController extends GetxController {
       return;
     }
 
-    if (value == "," && current.contains(",")) return;
+    // Support decimal point (.) and comma (,)
+    if (value == "." || value == ",") {
+      if (current.contains(".")) return;
+      if (current.isEmpty || current == "0") {
+        enteredAmount.value = "0.";
+      } else {
+        enteredAmount.value = "$current.";
+      }
+      return;
+    }
+
+    // Limit decimal precision to 2 decimal places (Paise)
+    if (current.contains(".")) {
+      final parts = current.split(".");
+      if (parts.length > 1 && parts[1].length >= 2) {
+        return;
+      }
+    }
+
     if (current == "0" && value == "0") return;
 
-    String candidate = (current == "0" && value != ",")
-        ? value
-        : current + value;
+    String candidate = (current == "0") ? value : current + value;
     String candidateClean = candidate.replaceAll(',', '');
     double? candidateVal = double.tryParse(candidateClean);
 
@@ -88,6 +106,10 @@ class SendmoneyprocessController extends GetxController {
   }
 
   void proceedToPassword() {
+    if (enteredAmount.value.endsWith('.')) {
+      enteredAmount.value =
+          enteredAmount.value.substring(0, enteredAmount.value.length - 1);
+    }
     if (amount < minTransferAmount) {
       AppSnackbar.error("Minimum transfer amount is ₹1");
       return;
