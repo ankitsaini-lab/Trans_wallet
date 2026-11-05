@@ -230,8 +230,9 @@ class _PayBillScreenState extends State<PayBillScreen> {
           ],
         ),
       ),
-      body: Container(
-        color: Colors.white,
+      body: SafeArea(
+        child: Container(
+          color: Colors.white,
         child: Column(
           children: [
             // Search Bar
@@ -336,8 +337,9 @@ class _PayBillScreenState extends State<PayBillScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class CategoryItem extends StatelessWidget {

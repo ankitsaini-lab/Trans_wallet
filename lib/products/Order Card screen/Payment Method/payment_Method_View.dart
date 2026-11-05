@@ -14,7 +14,9 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => PaymentMethodController());
+    if (!Get.isRegistered<PaymentMethodController>()) {
+      Get.put(PaymentMethodController());
+    }
 
     const Color primaryRed = Color(0xFFE53935);
 
@@ -73,7 +75,7 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
                 ),
               ),
             ),
-            _buildBottomPaymentBar(primaryRed),
+            _buildBottomPaymentBar(primaryRed, context),
           ],
         ),
       ),
@@ -459,7 +461,7 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
     );
   }
 
-  Widget _buildBottomPaymentBar(Color primaryRed) {
+  Widget _buildBottomPaymentBar(Color primaryRed, BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
@@ -502,6 +504,7 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
           CustomButton(
             text: "Pay ₹897",
             btncolor: primaryRed,
+            textsize: context.responsive(14),
             textColor: Colors.white,
             onPressed: () {
               controller.processPayment();

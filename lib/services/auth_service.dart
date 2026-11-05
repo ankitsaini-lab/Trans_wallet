@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:transwallet/services/deepid_service.dart';
+import 'package:transwallet/products/login_singupscreen/login_singupscreen_Controller.dart';
+import 'package:transwallet/services/api_service.dart';
 
 class AuthService extends GetxService {
   static AuthService get to => Get.find<AuthService>();
@@ -135,6 +136,20 @@ class AuthService extends GetxService {
         _storage.read<String>('remembered_phone');
     if (phone != null && phone.isNotEmpty) {
       await _storage.write('remembered_phone', phone);
+      await _storage.write('phone', phone);
+    }
+
+    // Disable App Lock upon logout and flag to prompt on next login
+    await _storage.write('app_lock_enabled', false);
+    await _storage.write('pending_app_lock_prompt', true);
+
+    // Close only the OTP popup overlay and clear OTP without clearing the phone number
+    if (Get.isRegistered<LoginSingupscreenController>()) {
+      Get.find<LoginSingupscreenController>().closeOtpPopupOnly();
+    }
+
+    if (Get.isRegistered<ApiService>()) {
+      ApiService.to.clearUserProfileCache();
     }
 
     await _storage.remove(_keyToken);
@@ -150,17 +165,35 @@ class AuthService extends GetxService {
     await _storage.write(_keyIsLoggedIn, false);
     await _storage.remove(_keyUserData);
     await _storage.remove('name');
+    await _storage.remove('title');
+    await _storage.remove('firstName');
+    await _storage.remove('middleName');
+    await _storage.remove('lastName');
+    await _storage.remove('dob');
+    await _storage.remove('gender');
+    await _storage.remove('reg_title');
+    await _storage.remove('reg_firstName');
+    await _storage.remove('reg_middleName');
+    await _storage.remove('reg_lastName');
+    await _storage.remove('reg_gender');
+    await _storage.remove('reg_email');
+    await _storage.remove('reg_dob');
+    await _storage.remove('reg_hasActivationCode');
+    await _storage.remove('reg_kitNumber');
+    await _storage.remove('reg_cardNumber');
+    await _storage.remove('reg_addressLine1');
+    await _storage.remove('reg_addressLine2');
+    await _storage.remove('reg_pincode');
+    await _storage.remove('reg_country');
+    await _storage.remove('reg_state');
+    await _storage.remove('reg_city');
     await _storage.remove('email');
-    await _storage.remove('phone');
+    // Keep 'phone' and 'remembered_phone' so user's mobile number is not cleared
     await _storage.remove('profilePictureUrl');
     await _storage.remove('address');
     await _storage.remove('pan');
     await _storage.remove('balance');
     await _storage.remove('entityId');
     await _storage.remove('registrationToken');
-
-    if (Get.isRegistered<DeepIdService>()) {
-      await DeepIdService.to.logout();
-    }
   }
 }

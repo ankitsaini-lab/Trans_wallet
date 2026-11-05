@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:transwallet/widgets/constsize.dart';
-import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Send%20money%20screen/send%20money%20process/sendMoney_Receipt_Controller.dart';
@@ -14,8 +13,9 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => SendMoneyReceiptController());
-    const Color primaryYellow = Color(0xFFFFEA66);
+    if (!Get.isRegistered<SendMoneyReceiptController>()) {
+      Get.put(SendMoneyReceiptController());
+    }
 
     // Fallback recipient if arguments not passed
     final recipientName = controller.recipient?['name'] ?? 'Ankit Saini';
@@ -26,16 +26,7 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // appBar: AppBar(
-      //   flexibleSpace: Container(
-      //     decoration: const BoxDecoration(gradient: appBarGradient),
-      //   ),
-      //   backgroundColor: Colors.transparent,
-      //   elevation: 0,
-      //   surfaceTintColor: Colors.transparent,
-      //   leadingWidth: context.responsive(60),
-      //   leading: const AppBarBackButton(),
-      // ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -154,7 +145,9 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
                       _buildReferenceRow(
                         context,
                         "Reference ID",
-                        "asd65585-fd11-4f8d-9d9dfgd5ed55ed",
+                        controller.providerRef ??
+                            controller.externalTransactionId ??
+                            "C2C${DateTime.now().millisecondsSinceEpoch}",
                         imageAsset: "assets/referenceid.png",
                       ),
                       Padding(
@@ -221,7 +214,7 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
                       btncolor: Colors.black,
                       textColor: Colors.white,
                       height: context.responsive(54),
-                      textsize: context.responsive(16),
+                      textsize: context.responsive(14),
                       prefixIcon: Icon(
                         Icons.ios_share_outlined,
                         color: Colors.white,
@@ -277,10 +270,7 @@ Thank you for using Transwallet!
                           borderRadius: BorderRadius.circular(
                             context.responsive(50),
                           ),
-                          border: Border.all(
-                            color: Colors.grey.shade300,
-                            width: 1.5,
-                          ),
+                          border: Border.all(color: Colors.black, width: 1.5),
                         ),
                         alignment: Alignment.center,
                         child: Text(

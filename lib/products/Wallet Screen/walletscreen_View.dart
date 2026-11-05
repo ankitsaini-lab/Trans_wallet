@@ -22,7 +22,7 @@ class WalletscreenView extends GetView<WalletscreenController> {
   @override
   Widget build(BuildContext context) {
     if (!Get.isRegistered<WalletscreenController>()) {
-      Get.lazyPut(() => WalletscreenController());
+      Get.put(WalletscreenController());
     }
 
     final box = GetStorage();
@@ -98,11 +98,11 @@ class WalletscreenView extends GetView<WalletscreenController> {
       bottomNavigationBar: GlobalbottombarView(seletedIndex: 1.obs),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.only(
+        padding: EdgeInsets.only(
           left: 20,
           right: 20,
           top: 20,
-          bottom: 20,
+          bottom: context.responsive(140),
         ),
         child: Column(
           children: [
@@ -598,50 +598,31 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
     }
   }
 
+  String _errorMessage = "Invalid MPIN. Try again.";
+
   Future<void> _verifyMpin() async {
     setState(() {
       _isVerifying = true;
       _hasError = false;
+      _errorMessage = "";
     });
 
-    final box = GetStorage();
-    final String? savedMpin =
-        box.read<String>('saved_mpin') ??
-        box.read('mpin')?.toString() ??
-        box.read('tx_pin')?.toString();
-
-    bool isCorrect = false;
-
-    if (savedMpin != null && savedMpin.isNotEmpty) {
-      isCorrect = (_mpin == savedMpin);
+    MpinVerifyResponse res;
+    if (Get.isRegistered<ApiService>()) {
+      res = await ApiService.to.verifyMpin(_mpin);
     } else {
-      isCorrect = (_mpin == "1234" || _mpin == "0000");
+      final box = GetStorage();
+      final savedMpin =
+          box.read<String>('saved_mpin') ?? box.read('mpin')?.toString();
+      final ok = savedMpin != null && savedMpin == _mpin;
+      res = MpinVerifyResponse(
+        isSuccess: ok,
+        message: ok ? 'MPIN verified' : 'Invalid MPIN. Try again.',
+      );
     }
-
-    if (!isCorrect && Get.isRegistered<ApiService>()) {
-      try {
-        final phone = box.read<String>('phone');
-        if (phone != null && phone.isNotEmpty) {
-          final response = await ApiService.to
-              .postRequest<Map<String, dynamic>>('/api/v1/auth/mpin/login', {
-                "mobileNumber": phone,
-                "mpin": _mpin,
-              });
-          if (response.status.isOk && response.body != null) {
-            final body = response.body!;
-            if (body['success'] == true || body['code'] == 'OK') {
-              isCorrect = true;
-              box.write('saved_mpin', _mpin);
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    await Future.delayed(const Duration(milliseconds: 300));
 
     if (mounted) {
-      if (isCorrect) {
+      if (res.isSuccess) {
         Get.back();
         widget.onSuccess();
       } else {
@@ -649,6 +630,9 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
           _mpin = "";
           _isVerifying = false;
           _hasError = true;
+          _errorMessage = res.message.isNotEmpty
+              ? res.message
+              : "Invalid MPIN. Try again.";
         });
       }
     }
@@ -672,8 +656,10 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+      child: SafeArea(
+        top: false,
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
@@ -747,9 +733,10 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
             ),
             const SizedBox(height: 16),
           ] else if (_hasError) ...[
-            const Text(
-              "Invalid MPIN. Try again.",
-              style: TextStyle(
+            Text(
+              _errorMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
                 color: Colors.red,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
@@ -818,8 +805,9 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildKeypadNum(String number) {
     return _PressableScale(

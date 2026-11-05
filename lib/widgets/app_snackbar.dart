@@ -3,15 +3,32 @@ import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 
 class AppSnackbar {
+  static DateTime? _lastShownTime;
+  static String? _lastShownMessage;
+
   static void show({
     required String title,
     required String message,
     bool isSuccess = true,
     SnackPosition snackPosition = SnackPosition.TOP,
+    Duration debounceDuration = const Duration(milliseconds: 1500),
   }) {
     if (Get.testMode || Get.context == null) {
       debugPrint('[AppSnackbar] $title: $message');
       return;
+    }
+
+    final now = DateTime.now();
+    if (_lastShownTime != null &&
+        now.difference(_lastShownTime!) < debounceDuration &&
+        (_lastShownMessage == message || Get.isSnackbarOpen)) {
+      return;
+    }
+    _lastShownTime = now;
+    _lastShownMessage = message;
+
+    if (Get.isSnackbarOpen) {
+      Get.closeCurrentSnackbar();
     }
 
     final accentColor = isSuccess ? const Color(0xFF4ADE80) : primaryRed;
@@ -72,7 +89,6 @@ class AppSnackbar {
     );
   }
 
-  /// Helper for success message
   static void success(
     String message, {
     String title = "Success",
@@ -86,7 +102,6 @@ class AppSnackbar {
     );
   }
 
-  /// Named helper for success message
   static void showSuccess({
     required String title,
     required String message,
@@ -100,7 +115,6 @@ class AppSnackbar {
     );
   }
 
-  /// Helper for error message
   static void error(
     String message, {
     String title = "Error",
@@ -114,7 +128,6 @@ class AppSnackbar {
     );
   }
 
-  /// Named helper for error message
   static void showError({
     required String title,
     required String message,
@@ -128,7 +141,6 @@ class AppSnackbar {
     );
   }
 
-  /// Helper for info message
   static void info(
     String message, {
     String title = "Notice",
@@ -142,7 +154,6 @@ class AppSnackbar {
     );
   }
 
-  /// Helper for warning message
   static void warning(
     String message, {
     String title = "Warning",
@@ -151,6 +162,25 @@ class AppSnackbar {
     show(
       title: title,
       message: message,
+      isSuccess: false,
+      snackPosition: position,
+    );
+  }
+
+  static void serverError({
+    String? message,
+    int? statusCode,
+    String title = "Server Error",
+    SnackPosition position = SnackPosition.TOP,
+  }) {
+    final codeBadge = (statusCode != null && statusCode > 0)
+        ? " ($statusCode)"
+        : "";
+    show(
+      title: "$title$codeBadge",
+      message:
+          message ??
+          "The server is currently unavailable. Please try again shortly.",
       isSuccess: false,
       snackPosition: position,
     );

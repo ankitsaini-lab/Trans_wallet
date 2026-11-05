@@ -1,160 +1,185 @@
 package com.trans.wallet
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
-import android.telephony.SubscriptionInfo
-import android.telephony.SubscriptionManager
-import android.telephony.TelephonyManager
-import com.google.android.gms.auth.api.identity.GetPhoneNumberHintIntentRequest
-import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.phone.SmsRetriever
+import com.google.android.gms.common.api.CommonStatusCodes
+import com.google.android.gms.common.api.Status
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
-    private val SIM_CHANNEL = "com.trans.wallet/sim_service"
-    private val REQ_PHONE_HINT = 10091
-    private var pendingHintResult: MethodChannel.Result? = null
+    private val channelName = "com.trans.wallet/sms_user_consent"
+    private val smsConsentRequestCode = 1002
+
+    private var smsReceiver: BroadcastReceiver? = null
+    private var pendingResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SIM_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "getAvailableSimCards" -> {
-                    try {
-                        val simList = getActiveSimCards()
-                        result.success(simList)
-                    } catch (e: Exception) {
-                        result.error("SIM_ERROR", e.message, null)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "startListening" -> {
+                        val senderPhoneNumber = call.argument<String>("senderPhoneNumber")
+                        startSmsUserConsent(senderPhoneNumber, result)
+                    }
+                    "stopListening" -> {
+                        stopListening(result)
+                    }
+                    else -> {
+                        result.notImplemented()
                     }
                 }
-                "requestPhoneNumberHint" -> {
-                    requestPhoneNumberHint(result)
+            }
+    }
+
+    private fun startSmsUserConsent(senderPhoneNumber: String?, result: MethodChannel.Result) {
+        unregisterReceiverSafely()
+
+        // Safely notify any prior pending result that a new request took over
+        pendingResult?.success(mapOf("status" to "superseded"))
+        pendingResult = result
+
+        val client = SmsRetriever.getClient(this)
+        val task = client.startSmsUserConsent(senderPhoneNumber)
+
+        task.addOnSuccessListener {
+            registerSmsReceiver()
+        }
+
+        task.addOnFailureListener { e ->
+            unregisterReceiverSafely()
+            pendingResult?.error("START_FAILED", e.localizedMessage, null)
+            pendingResult = null
+        }
+    }
+
+    private fun registerSmsReceiver() {
+        val intentFilter = IntentFilter(SmsRetriever.SMS_RETRIEVED_ACTION)
+
+        smsReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == SmsRetriever.SMS_RETRIEVED_ACTION) {
+                    val extras = intent.extras ?: return
+                    val status = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        extras.getParcelable(SmsRetriever.EXTRA_STATUS, Status::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        extras.getParcelable(SmsRetriever.EXTRA_STATUS)
+                    } ?: return
+
+                    when (status.statusCode) {
+                        CommonStatusCodes.SUCCESS -> {
+                            val consentIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                extras.getParcelable(SmsRetriever.EXTRA_CONSENT_INTENT, Intent::class.java)
+                            } else {
+                                @Suppress("DEPRECATION")
+                                extras.getParcelable(SmsRetriever.EXTRA_CONSENT_INTENT)
+                            }
+
+                            if (consentIntent != null) {
+                                try {
+                                    startActivityForResult(consentIntent, smsConsentRequestCode)
+                                } catch (e: ActivityNotFoundException) {
+                                    unregisterReceiverSafely()
+                                    pendingResult?.error("ACTIVITY_NOT_FOUND", e.localizedMessage, null)
+                                    pendingResult = null
+                                }
+                            } else {
+                                unregisterReceiverSafely()
+                                pendingResult?.error("NO_CONSENT_INTENT", "Consent intent was null", null)
+                                pendingResult = null
+                            }
+                        }
+                        CommonStatusCodes.TIMEOUT -> {
+                            unregisterReceiverSafely()
+                            pendingResult?.success(mapOf("status" to "timeout"))
+                            pendingResult = null
+                        }
+                    }
                 }
-                else -> result.notImplemented()
             }
         }
-    }
 
-    private fun requestPhoneNumberHint(result: MethodChannel.Result) {
-        try {
-            val request = GetPhoneNumberHintIntentRequest.builder().build()
-            Identity.getSignInClient(this)
-                .getPhoneNumberHintIntent(request)
-                .addOnSuccessListener { pendingIntent ->
-                    try {
-                        pendingHintResult = result
-                        startIntentSenderForResult(
-                            pendingIntent.intentSender,
-                            REQ_PHONE_HINT,
-                            null, 0, 0, 0, null
-                        )
-                    } catch (e: Exception) {
-                        pendingHintResult = null
-                        result.error("HINT_ERROR", e.message, null)
-                    }
-                }
-                .addOnFailureListener { e ->
-                    result.error("HINT_FAILED", e.message, null)
-                }
-        } catch (e: Exception) {
-            result.error("HINT_EXCEPTION", e.message, null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            registerReceiver(
+                smsReceiver,
+                intentFilter,
+                SmsRetriever.SEND_PERMISSION,
+                null,
+                RECEIVER_EXPORTED
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            registerReceiver(
+                smsReceiver,
+                intentFilter,
+                SmsRetriever.SEND_PERMISSION,
+                null
+            )
+        } else {
+            registerReceiver(smsReceiver, intentFilter)
         }
     }
 
-    @Deprecated("Deprecated in Java")
+    private fun stopListening(result: MethodChannel.Result?) {
+        unregisterReceiverSafely()
+        pendingResult?.success(mapOf("status" to "stopped"))
+        pendingResult = null
+        result?.success(true)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_PHONE_HINT) {
-            val res = pendingHintResult
-            pendingHintResult = null
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                try {
-                    val rawNumber = Identity.getSignInClient(this).getPhoneNumberFromIntent(data)
-                    var cleaned = rawNumber.replace(Regex("[^0-9]"), "")
-                    if (cleaned.startsWith("91") && cleaned.length == 12) {
-                        cleaned = cleaned.substring(2)
-                    } else if (cleaned.length > 10) {
-                        cleaned = cleaned.takeLast(10)
-                    }
-                    res?.success(cleaned)
-                } catch (e: Exception) {
-                    res?.error("PARSE_ERROR", e.message, null)
+
+        if (requestCode == smsConsentRequestCode) {
+            unregisterReceiverSafely()
+
+            when (resultCode) {
+                Activity.RESULT_OK -> {
+                    val message = data?.getStringExtra(SmsRetriever.EXTRA_SMS_MESSAGE)
+                    val regex = Regex("\\b\\d{6}\\b")
+                    val code = message?.let { regex.find(it)?.value }
+
+                    pendingResult?.success(
+                        mapOf(
+                            "status" to "success",
+                            "sms" to message,
+                            "code" to code
+                        )
+                    )
                 }
-            } else {
-                res?.success("")
+                Activity.RESULT_CANCELED -> {
+                    pendingResult?.success(mapOf("status" to "denied"))
+                }
+                else -> {
+                    pendingResult?.success(mapOf("status" to "cancelled"))
+                }
             }
+            pendingResult = null
         }
     }
 
-    private fun getActiveSimCards(): List<Map<String, Any?>> {
-        val list = mutableListOf<Map<String, Any?>>()
-        val subscriptionManager = getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
-            ?: return list
-
-        try {
-            val activeList: List<SubscriptionInfo>? = subscriptionManager.activeSubscriptionInfoList
-            if (activeList != null) {
-                val tm = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-
-                for (info in activeList) {
-                    var number: String? = null
-
-                    // 1. Try Android 13+ SubscriptionManager.getPhoneNumber
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            number = subscriptionManager.getPhoneNumber(info.subscriptionId)
-                        }
-                    } catch (_: Exception) {}
-
-                    // 2. Try legacy SubscriptionInfo.number
-                    if (number.isNullOrEmpty()) {
-                        try {
-                            @Suppress("DEPRECATION")
-                            number = info.number
-                        } catch (_: Exception) {}
-                    }
-
-                    // 3. Try TelephonyManager line1Number for specific subscription
-                    if (number.isNullOrEmpty() && tm != null) {
-                        try {
-                            val subTm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                tm.createForSubscriptionId(info.subscriptionId)
-                            } else {
-                                tm
-                            }
-                            @Suppress("DEPRECATION")
-                            number = subTm.line1Number
-                        } catch (_: Exception) {}
-                    }
-
-                    // Clean formatted phone number (e.g. +91 98765 43210 -> 9876543210)
-                    var cleanedNumber = ""
-                    if (!number.isNullOrEmpty()) {
-                        val digits = number.replace(Regex("[^0-9]"), "")
-                        cleanedNumber = when {
-                            digits.startsWith("91") && digits.length == 12 -> digits.substring(2)
-                            digits.length > 10 -> digits.takeLast(10)
-                            else -> digits
-                        }
-                    }
-
-                    list.add(mapOf(
-                        "slotIndex" to info.simSlotIndex,
-                        "subscriptionId" to info.subscriptionId,
-                        "carrierName" to (info.carrierName?.toString() ?: "SIM ${info.simSlotIndex + 1}"),
-                        "displayName" to (info.displayName?.toString() ?: "SIM ${info.simSlotIndex + 1}"),
-                        "countryIso" to (info.countryIso ?: "in"),
-                        "number" to cleanedNumber
-                    ))
-                }
+    private fun unregisterReceiverSafely() {
+        if (smsReceiver != null) {
+            try {
+                unregisterReceiver(smsReceiver)
+            } catch (_: Exception) {
             }
-        } catch (e: SecurityException) {
-            // Permission not yet granted
+            smsReceiver = null
         }
-        return list
+    }
+
+    override fun onDestroy() {
+        unregisterReceiverSafely()
+        pendingResult = null
+        super.onDestroy()
     }
 }

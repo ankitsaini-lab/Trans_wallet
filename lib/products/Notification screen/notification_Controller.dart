@@ -20,7 +20,7 @@ class NotificationController extends GetxController {
     if (isRefresh) {
       currentPage.value = 1;
     }
-    
+
     isLoading.value = true;
     try {
       final res = await ApiService.to.fetchNotifications(
@@ -35,7 +35,8 @@ class NotificationController extends GetxController {
           return <String, String>{
             "id": map['id']?.toString() ?? '',
             "title": map['title']?.toString() ?? 'Notification',
-            "message": map['body']?.toString() ?? map['message']?.toString() ?? '',
+            "message":
+                map['body']?.toString() ?? map['message']?.toString() ?? '',
             "category": map['category']?.toString() ?? 'general',
             "eventType": map['eventType']?.toString() ?? '',
             "referenceType": map['referenceType']?.toString() ?? '',
@@ -139,7 +140,7 @@ class NotificationController extends GetxController {
             ),
           ),
           SizedBox(width: context.responsive(16)),
-          // Content
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,6 +160,25 @@ class NotificationController extends GetxController {
                         ),
                       ),
                     ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: context.responsive(14),
+                          color: Colors.grey.shade400,
+                        ),
+                        SizedBox(width: context.responsive(4)),
+                        Text(
+                          item["time"] ?? "",
+                          style: TextStyle(
+                            fontSize: context.responsive(12),
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    width10,
                     if (!isRead)
                       Container(
                         width: context.responsive(8),
@@ -169,8 +189,8 @@ class NotificationController extends GetxController {
                         ),
                       ),
                   ],
-                ), 
-                SizedBox(height: context.responsive(6)),
+                ),
+                SizedBox(height: context.responsive(4)),
                 Text(
                   item["message"] ?? "",
                   style: TextStyle(
@@ -179,25 +199,7 @@ class NotificationController extends GetxController {
                     color: isRead ? Colors.grey.shade500 : Colors.black54,
                   ),
                 ),
-                SizedBox(height: context.responsive(12)),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time_rounded,
-                      size: context.responsive(14),
-                      color: Colors.grey.shade400,
-                    ),
-                    SizedBox(width: context.responsive(4)),
-                    Text(
-                      item["time"] ?? "",
-                      style: TextStyle(
-                        fontSize: context.responsive(12),
-                        color: Colors.grey.shade500,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                SizedBox(height: context.responsive(4)),
               ],
             ),
           ),

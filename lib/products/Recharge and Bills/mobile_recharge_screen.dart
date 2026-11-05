@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/products/Recharge and Bills/theme.dart';
 import 'package:transwallet/products/Recharge and Bills/pay_summary_sheet.dart';
@@ -136,8 +137,9 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen> {
         ),
         centerTitle: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -309,11 +311,13 @@ class _MobileRechargeScreenState extends State<MobileRechargeScreen> {
             CustomButton(
               text: "Proceed to Recharge",
               btncolor: Colors.black,
+              textsize: context.responsive(14),
               onPressed: _onPay,
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

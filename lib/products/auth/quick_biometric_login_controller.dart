@@ -144,59 +144,31 @@ class QuickBiometricLoginController extends GetxController {
 
   Future<void> verifyMpin(String pinToVerify) async {
     isVerifyingMpin.value = true;
-    pinError.value = '';
-
     try {
+      if (Get.isRegistered<ApiService>()) {
+        final res = await ApiService.to.verifyMpin(
+          pinToVerify,
+          mobileNumber: userPhone.value,
+        );
+        if (res.isSuccess) {
+          await _onMpinLoginSuccess();
+          return;
+        } else {
+          HapticFeedback.heavyImpact();
+          pinError.value = res.message.isNotEmpty
+              ? res.message
+              : 'Incorrect MPIN. Please try again.';
+          enteredPin.value = '';
+          return;
+        }
+      }
+
+      // Offline fallback: check locally saved MPIN
       final savedMpin = _storage.read<String>('saved_mpin') ??
           _storage.read('mpin')?.toString();
-
       if (savedMpin != null && savedMpin == pinToVerify) {
         await _onMpinLoginSuccess();
         return;
-      }
-
-      if (pinToVerify == "1234" || pinToVerify == "0000") {
-        await _onMpinLoginSuccess();
-        return;
-      }
-
-      // Backend API MPIN login
-      if (userPhone.value.isNotEmpty && Get.isRegistered<ApiService>()) {
-        final response = await ApiService.to.postRequest<Map<String, dynamic>>(
-          '/api/v1/auth/mpin/login',
-          {"mobileNumber": userPhone.value, "mpin": pinToVerify},
-        );
-
-        if (response.status.isOk && response.body != null) {
-          final body = response.body!;
-          final bool isSuccess =
-              (body['success'] == true ||
-               body['status'] == true ||
-               body['status'] == 'success' ||
-               body['code'] == 'OK' ||
-               body['code'] == 200) &&
-              body['status'] != false &&
-              body['success'] != false;
-
-          if (isSuccess) {
-            final data = body['data'];
-            if (data is Map) {
-              final token =
-                  data['accessToken']?.toString() ?? data['token']?.toString();
-              final refreshToken = data['refreshToken']?.toString();
-              if (token != null && token.isNotEmpty) {
-                await AuthService.to.saveSession(
-                  token: token,
-                  refreshToken: refreshToken,
-                  userId: userPhone.value,
-                );
-              }
-            }
-            _storage.write('saved_mpin', pinToVerify);
-            await _onMpinLoginSuccess();
-            return;
-          }
-        }
       }
 
       HapticFeedback.heavyImpact();
@@ -214,6 +186,10 @@ class QuickBiometricLoginController extends GetxController {
   Future<void> _onMpinLoginSuccess() async {
     HapticFeedback.mediumImpact();
     _storage.write('is_logged_in', true);
+    _storage.write('pending_app_lock_prompt', true);
+    if (Get.isRegistered<ApiService>()) {
+      ApiService.to.registerDeviceToken();
+    }
     AppSnackbar.success('Logged in successfully');
     Get.offAllNamed('/dashboard');
   }

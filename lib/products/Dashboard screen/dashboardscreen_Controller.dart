@@ -1,6 +1,5 @@
 import 'dart:developer';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,8 +11,11 @@ import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
+import 'package:transwallet/modules/vkyc/widgets/vkyc_success_dialog.dart';
+import 'package:transwallet/products/Dashboard screen/widgets/card_popups.dart';
 
 class DashboardscreenController extends GetxController {
   RxBool isFlipped = false.obs;
@@ -27,21 +29,28 @@ class DashboardscreenController extends GetxController {
   }
 
   final RxNum totalBalance = RxNum(0);
+  bool _isWalletBalanceLoading = false;
 
-  Future<void> loadWalletBalance() async {
+  Future<void> loadWalletBalance({bool force = false}) async {
     if (GetStorage().hasData('balance')) {
       final stored = GetStorage().read('balance');
       if (stored is num) {
         totalBalance.value = stored;
       }
     }
-    if (Get.isRegistered<ApiService>()) {
-      final res = await ApiService.to.fetchWalletBalance();
-      if (res != null && res['balance'] != null) {
-        totalBalance.value = res['balance'] is num
-            ? res['balance']
-            : num.tryParse(res['balance'].toString()) ?? 0;
+    if (_isWalletBalanceLoading && !force) return;
+    _isWalletBalanceLoading = true;
+    try {
+      if (Get.isRegistered<ApiService>()) {
+        final res = await ApiService.to.fetchWalletBalance(force: force);
+        if (res != null && res['balance'] != null) {
+          totalBalance.value = res['balance'] is num
+              ? res['balance']
+              : num.tryParse(res['balance'].toString()) ?? 0;
+        }
       }
+    } finally {
+      _isWalletBalanceLoading = false;
     }
   }
 
@@ -52,6 +61,8 @@ class DashboardscreenController extends GetxController {
 
   final RxString userName = ''.obs;
   final RxString profilePictureUrl = ''.obs;
+  final RxBool isFullKycCompleted = false.obs;
+  final RxBool isKycUnderReview = false.obs;
 
   void loadUserData() {
     final box = GetStorage();
@@ -61,18 +72,32 @@ class DashboardscreenController extends GetxController {
 
     final pic = box.read('profilePictureUrl')?.toString() ?? '';
     profilePictureUrl.value = pic;
+
+    final rawStatus = box.read('kyc_status')?.toString().toLowerCase() ?? '';
+    final currentLevel =
+        box.read('kyc_current_level')?.toString().toUpperCase() ?? '';
+
+    final bool completed =
+        box.read('full_kyc_completed') == true ||
+        box.read('is_kyc_completed') == true ||
+        currentLevel == 'FULL' ||
+        rawStatus == 'verified' ||
+        rawStatus == 'completed' ||
+        rawStatus == 'approved';
+    isFullKycCompleted.value = completed;
+    isKycUnderReview.value = false;
   }
 
-  Future<void> refreshDashboardData() async {
+  Future<void> refreshDashboardData({bool force = false}) async {
+    if (isDashboardLoading.value && !force) return;
     isDashboardLoading.value = true;
     loadUserData();
     try {
       final List<Future> futures = [];
       if (Get.isRegistered<ApiService>()) {
-        futures.add(ApiService.to.fetchUserProfile());
-        futures.add(ApiService.to.fetchWalletBalance());
+        futures.add(ApiService.to.fetchUserProfile(force: force));
       }
-      futures.add(loadWalletBalance());
+      futures.add(loadWalletBalance(force: force));
       futures.add(fetchRecentTransactions());
       futures.add(
         fetchTransactionAnalytics(
@@ -101,6 +126,8 @@ class DashboardscreenController extends GetxController {
   final RxList<Map<String, dynamic>> weeklyAnalytics =
       <Map<String, dynamic>>[].obs;
   final RxBool isAnalyticsLoading = false.obs;
+
+  final RxString selectedAnalyticsMetric = 'Expenses'.obs;
 
   // Selected week index on the Spending Analytics chart (0: W1, 1: W2, 2: W3, 3: W4, -1: none)
   final RxInt selectedAnalyticsWeek = (-1).obs;
@@ -383,6 +410,7 @@ class DashboardscreenController extends GetxController {
     selectedAnalyticsWeek.value = -1;
     try {
       final res = await ApiService.to.fetchTransactionAnalytics(month: month);
+
       if (res != null) {
         if (res['month'] != null) {
           selectedAnalyticsMonth.value = res['month'].toString();
@@ -402,6 +430,13 @@ class DashboardscreenController extends GetxController {
           totalIncome.value = inc.toDouble();
           totalExpenses.value = exp.toDouble();
           totalSavings.value = sav.toDouble();
+
+          // Auto-select the metric that has data so user never sees a flat line when income exists
+          if (totalExpenses.value == 0 && totalIncome.value > 0) {
+            selectedAnalyticsMetric.value = 'Income';
+          } else if (totalExpenses.value > 0) {
+            selectedAnalyticsMetric.value = 'Expenses';
+          }
         }
 
         if (res['weekly'] is List && (res['weekly'] as List).isNotEmpty) {
@@ -414,10 +449,12 @@ class DashboardscreenController extends GetxController {
         }
       } else {
         weeklyAnalytics.clear();
-      }
-
-      if (weeklyAnalytics.isEmpty && recentTransactions.isNotEmpty) {
-        _calculateFallbackAnalyticsFromTransactions(recentTransactions);
+        totalIncome.value = 0.0;
+        totalExpenses.value = 0.0;
+        totalSavings.value = 0.0;
+        if (recentTransactions.isNotEmpty) {
+          _calculateFallbackAnalyticsFromTransactions(recentTransactions);
+        }
       }
     } catch (e) {
       log('Error fetching transaction analytics: $e');
@@ -580,9 +617,9 @@ class DashboardscreenController extends GetxController {
             final String subtitle = _formatShortDate(rawDate);
 
             parsedList.add({
-              "title": title,
-              "subtitle": subtitle,
-              "amount": formattedAmount,
+              "title": title.safeUtf16(),
+              "subtitle": subtitle.safeUtf16(),
+              "amount": formattedAmount.safeUtf16(),
               "rawAmount": amt.toDouble(),
               "rawDate": rawDate,
               "isCredit": isCredit,
@@ -636,27 +673,106 @@ class DashboardscreenController extends GetxController {
   void onInit() {
     super.onInit();
     loadUserData();
-    scrollController.addListener(() {
-      if (scrollController.hasClients) {
-        final offset = scrollController.offset;
-        if (offset > 10) {
-          if (!isScrolled.value) {
-            isScrolled.value = true;
-          }
-        } else {
-          if (isScrolled.value) {
-            isScrolled.value = false;
-          }
-        }
-      }
-    });
-
     refreshDashboardData();
   }
 
   @override
+  void onReady() {
+    super.onReady();
+    _checkAppLockPrompt();
+    _checkVkycSuccessPrompt();
+  }
+
+  void _checkVkycSuccessPrompt() {
+    final box = GetStorage();
+    final bool isVkycPending = box.read('pending_vkyc_success_dialog') == true;
+    final bool isVkycArg =
+        Get.arguments is Map && Get.arguments['showVkycSuccess'] == true;
+
+    if (isVkycPending || isVkycArg) {
+      box.remove('pending_vkyc_success_dialog');
+
+      // 1. Immediately update local observable data so KYC verified badge & status show right away
+      loadUserData();
+
+      // 2. Fetch updated live user profile data and balance from backend
+      if (Get.isRegistered<ApiService>()) {
+        ApiService.to.fetchUserProfile(force: true).then((_) {
+          loadUserData();
+          refreshDashboardData(force: true);
+        });
+      } else {
+        refreshDashboardData(force: true);
+      }
+
+      // 3. Show the VKYC success dialog popup on Dashboard after route settles
+      Future.delayed(const Duration(milliseconds: 500), () {
+        showVkycSuccessPopup();
+      });
+    }
+  }
+
+  void checkPendingVkycOnView() {
+    _checkVkycSuccessPrompt();
+  }
+
+  void showVkycSuccessPopup() {
+    if (Get.isDialogOpen ?? false) {
+      Get.back(closeOverlays: true);
+    }
+    Get.dialog(
+      const VkycSuccessDialog(),
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+    );
+  }
+
+  Future<void> onVkycSuccessReturned() async {
+    final box = GetStorage();
+    box.remove('pending_vkyc_success_dialog');
+    if (Get.isRegistered<ApiService>()) {
+      await ApiService.to.fetchUserProfile(force: true);
+    }
+    loadUserData();
+    refreshDashboardData(force: true);
+    showVkycSuccessPopup();
+  }
+
+  void _checkAppLockPrompt() {
+    final box = GetStorage();
+    final bool shouldPrompt = box.read('pending_app_lock_prompt') ?? false;
+    final bool isAppLockActive = box.read('app_lock_enabled') ?? false;
+
+    if (shouldPrompt && !isAppLockActive) {
+      // If VKYC success dialog is pending, let VKYC dialog take precedence
+      final bool isVkycPending =
+          box.read('pending_vkyc_success_dialog') == true ||
+          (Get.arguments is Map && Get.arguments['showVkycSuccess'] == true);
+      if (isVkycPending) return;
+
+      // Add a 1.4s delay so login success message and dashboard transition settle cleanly
+      Future.delayed(const Duration(milliseconds: 1400), () {
+        if (!Get.isRegistered<AppLockService>()) return;
+        final stillShouldPrompt = box.read('pending_app_lock_prompt') ?? false;
+        final stillActive = box.read('app_lock_enabled') ?? false;
+        if (!stillShouldPrompt || stillActive) return;
+
+        // Ensure no other dialog is currently open
+        if (Get.isDialogOpen ?? false) return;
+
+        if (Get.context != null) {
+          box.write('pending_app_lock_prompt', false);
+          AppLockService.to.showEnableAppLockDialog(Get.context!);
+        }
+      });
+    }
+  }
+
+  @override
   void onClose() {
-    scrollController.dispose();
+    try {
+      scrollController.dispose();
+    } catch (_) {}
     super.onClose();
   }
 
@@ -753,13 +869,68 @@ class DashboardscreenController extends GetxController {
 
   Widget buildFront({Key? key}) {
     final box = GetStorage();
+    final storedCards = box.read('user_cards');
+    String? cardBrand;
+    String? cardBg;
+    String cardExpiry = "--/--";
+    String cardNumberFull = "";
+    String cardNumberMasked = "•••• •••• •••• ••••";
+    String cardCvv = "•••";
+    bool isPermBlocked = false;
+    bool isCardFrozen = false;
+    if (storedCards is List && storedCards.isNotEmpty) {
+      final first = storedCards.first;
+      if (first is Map) {
+        final rawStatus = first['status']?.toString().toUpperCase() ?? '';
+        isPermBlocked = rawStatus == 'BLOCKED' ||
+            rawStatus == 'PERMANENT_BLOCK' ||
+            rawStatus == 'PERMANENTLY_BLOCKED' ||
+            first['isPermanentlyBlocked'] == true;
+        isCardFrozen = !isPermBlocked &&
+            (rawStatus == 'LOCKED' || rawStatus == 'FROZEN' || first['isBlocked'] == true);
+        cardBrand = first['network']?.toString() ?? first['brand']?.toString();
+        cardBg = first['bgImage']?.toString();
+        final rawExp =
+            first['expiryMmYy']?.toString() ??
+            first['expiry']?.toString() ??
+            '';
+        final digits = rawExp.replaceAll(RegExp(r'[^0-9]'), '');
+        if (digits.length == 4) {
+          cardExpiry = '${digits.substring(0, 2)}/${digits.substring(2, 4)}';
+        } else if (rawExp.contains('/')) {
+          cardExpiry = rawExp;
+        } else if (rawExp.isNotEmpty) {
+          cardExpiry = rawExp;
+        }
+
+        final full = first['fullNumber']?.toString() ?? first['cardNumber']?.toString() ?? '';
+        final masked = first['maskedNumber']?.toString() ?? '';
+        final last4 = first['last4']?.toString() ?? '';
+        cardNumberFull = full.isNotEmpty ? full : (masked.isNotEmpty ? masked : (last4.isNotEmpty ? '•••• •••• •••• $last4' : '•••• •••• •••• ••••'));
+        cardNumberMasked = masked.isNotEmpty ? masked : (last4.isNotEmpty ? '•••• •••• •••• $last4' : '•••• •••• •••• ••••');
+        if (first['cvv'] != null && first['cvv'].toString().isNotEmpty) {
+          cardCvv = first['cvv'].toString();
+        }
+      }
+    }
+    final rawName = (box.read('name') ?? box.read('userName') ?? '').toString().trim();
+    final String cardHolder = rawName.isNotEmpty ? rawName.toUpperCase() : "CARDHOLDER";
+    final resolvedBg = PremiumVisaCard.resolveCardBgImage(
+      brand: cardBrand,
+      bgImage: cardBg,
+    );
+
     return Obx(
       () => PremiumVisaCard(
         key: key,
-        cardNumber: isVisible.value ? "1234567890123456" : "••••••••••••3456",
-        cardHolder: box.read('name') ?? "Vince Tallent",
-        expiryDate: "12/28",
-        cvv: isVisible.value ? "123" : "•••",
+        cardNumber: isVisible.value ? (cardNumberFull.isNotEmpty ? cardNumberFull : cardNumberMasked) : cardNumberMasked,
+        cardHolder: cardHolder,
+        expiryDate: cardExpiry,
+        cvv: isVisible.value ? cardCvv : "•••",
+        bgImage: resolvedBg,
+        brand: cardBrand,
+        isBlocked: isCardFrozen,
+        isPermanentlyBlocked: isPermBlocked,
         onTap: flipCard,
         topRightAction: Row(
           mainAxisSize: MainAxisSize.min,
@@ -785,6 +956,16 @@ class DashboardscreenController extends GetxController {
   }
 
   Widget buildBack({Key? key}) {
+    final box = GetStorage();
+    final storedCards = box.read('user_cards');
+    String cardCvv = "•••";
+    if (storedCards is List && storedCards.isNotEmpty) {
+      final first = storedCards.first;
+      if (first is Map && first['cvv'] != null && first['cvv'].toString().isNotEmpty) {
+        cardCvv = first['cvv'].toString();
+      }
+    }
+
     return cardBase(
       key: key,
       child: Column(
@@ -825,14 +1006,16 @@ class DashboardscreenController extends GetxController {
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: blurWrapper(
-                    true,
-                    const Text(
-                      "123",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        color: Colors.black,
+                  child: Obx(
+                    () => blurWrapper(
+                      isVisible.value,
+                      Text(
+                        cardCvv,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
                   ),
@@ -864,28 +1047,35 @@ class DashboardscreenController extends GetxController {
           ),
 
           const Spacer(),
-
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Image.asset(
-              'assets/VisaFree.png',
-              height: 20,
-              fit: BoxFit.contain,
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget cardBase({required Widget child, Key? key}) {
+    final box = GetStorage();
+    final storedCards = box.read('user_cards');
+    String? cardBrand;
+    String? cardBg;
+    if (storedCards is List && storedCards.isNotEmpty) {
+      final first = storedCards.first;
+      if (first is Map) {
+        cardBrand = first['network']?.toString() ?? first['brand']?.toString();
+        cardBg = first['bgImage']?.toString();
+      }
+    }
+    final resolvedBg = PremiumVisaCard.resolveCardBgImage(
+      brand: cardBrand,
+      bgImage: cardBg,
+    );
+
     return Container(
       key: key,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        image: const DecorationImage(
-          image: AssetImage('assets/unioncardblack.webp'),
+        image: DecorationImage(
+          image: AssetImage(resolvedBg),
           fit: BoxFit.cover,
         ),
         boxShadow: [
@@ -906,47 +1096,52 @@ class DashboardscreenController extends GetxController {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Image.asset('assets/WU.png', height: 22, fit: BoxFit.contain),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/WHITE TRANSCORP .png',
-              height: 14,
-              fit: BoxFit.contain,
+        Obx(
+          () => GestureDetector(
+            onTap: toggleVisibility,
+            child: Icon(
+              isVisible.value ? Icons.visibility : Icons.visibility_off,
+              color: Colors.white,
+              size: 20,
             ),
-            const SizedBox(width: 12),
-            Obx(
-              () => GestureDetector(
-                onTap: toggleVisibility,
-                child: Icon(
-                  isVisible.value ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
   }
 
   Widget blurWrapper(bool isVisible, Widget child) {
-    print("ert>> isVisible: $isVisible");
     return isVisible
         ? child
-        : Text(
-            "**** **** **** 3456",
+        : const Text(
+            "•••",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
+              fontWeight: FontWeight.bold,
               letterSpacing: 2,
+              color: Colors.black,
             ),
           );
   }
 
-  Widget walletCard({required showhide}) {
+  Widget walletCard({required showhide, BuildContext? context}) {
+    final double buttonTextSize =
+        (context ?? Get.context)?.responsive(14) ?? 14;
+    final box = GetStorage();
+    final storedCards = box.read('user_cards');
+    String cardNumberText = "•••• •••• •••• ••••";
+    if (storedCards is List && storedCards.isNotEmpty && storedCards.first is Map) {
+      final first = storedCards.first;
+      final masked = first['maskedNumber']?.toString() ?? '';
+      final last4 = first['last4']?.toString() ?? '';
+      if (masked.isNotEmpty) {
+        cardNumberText = masked;
+      } else if (last4.isNotEmpty) {
+        cardNumberText = "•••• •••• •••• $last4";
+      }
+    }
+    final rawName = (box.read('name') ?? box.read('userName') ?? '').toString().trim();
+    final String holderName = rawName.isNotEmpty ? rawName.toUpperCase() : "CARDHOLDER";
+
     return Container(
       margin: const EdgeInsets.all(16),
       height: 200,
@@ -987,8 +1182,8 @@ class DashboardscreenController extends GetxController {
                 Row(
                   children: [
                     Text(
-                      showhide == true ? "**** **** **** 1234" : " ",
-                      style: TextStyle(
+                      showhide == true ? cardNumberText : " ",
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         letterSpacing: 2,
@@ -1003,7 +1198,7 @@ class DashboardscreenController extends GetxController {
           Positioned(
             bottom: 15,
             left: 20,
-            child: Text("CARD HOLDER", style: TextStyle(color: Colors.white54)),
+            child: Text(holderName, style: const TextStyle(color: Colors.white54)),
           ),
 
           Positioned(
@@ -1043,6 +1238,7 @@ class DashboardscreenController extends GetxController {
                       prefixIcon: Icon(Icons.send, color: Colors.black),
                       text: "Transfer",
                       height: 40,
+                      textsize: buttonTextSize,
                       btncolor: Colors.white,
                       textColor: Colors.black,
                       onPressed: () {
@@ -1056,6 +1252,7 @@ class DashboardscreenController extends GetxController {
                       prefixIcon: const Icon(Icons.add, color: Colors.black),
                       text: "Top-up",
                       height: 40,
+                      textsize: buttonTextSize,
                       btncolor: Colors.white,
                       textColor: Colors.black,
                       onPressed: () {
@@ -1080,137 +1277,15 @@ class DashboardscreenController extends GetxController {
   }
 
   void openCardDetails() {
+    final box = GetStorage();
+    final storedCards = box.read('user_cards');
+    Map<String, dynamic> cardData = <String, dynamic>{};
+    if (storedCards is List && storedCards.isNotEmpty && storedCards.first is Map) {
+      cardData = Map<String, dynamic>.from(storedCards.first as Map);
+    }
     Get.dialog(
-      Material(
-        color: Colors.transparent,
-        child: Stack(
-          children: [
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(color: Colors.black.withOpacity(0.4)),
-            ),
-
-            Center(
-              child: Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: Container(
-                      height: 240,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1C1C1E), Colors.black],
-                        ),
-                      ),
-
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          height30,
-                          Container(
-                            width: 45,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: Colors.grey,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          height16,
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "1234 5678 9012 3456",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  letterSpacing: 2,
-                                ),
-                              ),
-                              copyIcon("1234 5678 9012 3456"),
-                            ],
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    "Expiry",
-                                    style: TextStyle(color: Colors.white54),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    "12/28",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    "CARD HOLDER",
-                                    style: TextStyle(color: Colors.white54),
-                                  ),
-                                ],
-                              ),
-
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  const Text(
-                                    "CVV",
-                                    style: TextStyle(color: Colors.white54),
-                                  ),
-                                  const SizedBox(height: 2),
-
-                                  Row(
-                                    children: [
-                                      const Text(
-                                        "123",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      copyIcon("123"),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  Positioned(
-                    top: 8,
-                    right: 20,
-                    child: GestureDetector(
-                      onTap: () => Get.back(),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      CardDetailsPopup(card: cardData),
+      barrierDismissible: true,
     );
   }
 

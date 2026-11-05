@@ -81,7 +81,8 @@ class BiometricService extends GetxService {
 
   /// Returns true if biometric quick login is enabled by user
   bool get isBiometricQuickLoginEnabled {
-    final enabled = _storage.read<bool>(_keyBiometricQuickLogin) ??
+    final enabled =
+        _storage.read<bool>(_keyBiometricQuickLogin) ??
         _storage.read<bool>(_keyBiometricEnabled) ??
         false;
     return enabled;
@@ -89,7 +90,8 @@ class BiometricService extends GetxService {
 
   /// Returns true if user has remembered phone or user identifier
   bool get hasRememberedUser {
-    final phone = _storage.read<String>('remembered_phone') ??
+    final phone =
+        _storage.read<String>('remembered_phone') ??
         _storage.read<String>('phone') ??
         _storage.read<String>('mobileNumber') ??
         _storage.read<String>('user_id');
@@ -98,15 +100,17 @@ class BiometricService extends GetxService {
 
   /// Returns true if biometric quick login can be performed on launch
   bool get canQuickLogin =>
-      isBiometricAvailable && isBiometricSetup && isBiometricQuickLoginEnabled && hasRememberedUser;
+      isBiometricAvailable &&
+      isBiometricSetup &&
+      isBiometricQuickLoginEnabled &&
+      hasRememberedUser;
 
   /// Checks if hardware exists and at least one biometric is enrolled
   bool get isBiometricAvailable =>
       isHardwareSupported.value && canCheckBiometrics.value;
 
   /// Checks if biometrics can be used for login (available + enabled by user)
-  bool get canLoginWithBiometrics =>
-      isBiometricAvailable && isBiometricSetup;
+  bool get canLoginWithBiometrics => isBiometricAvailable && isBiometricSetup;
 
   /// Checks if Face ID / Face recognition is available
   bool get hasFaceId =>
@@ -328,17 +332,18 @@ class BiometricService extends GetxService {
       barrierDismissible: false,
       builder: (ctx) {
         return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),
           backgroundColor: Colors.white,
           elevation: 12,
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+
               children: [
-                // Glowing Icon Header Container
                 Container(
                   width: 72,
                   height: 72,
@@ -357,11 +362,7 @@ class BiometricService extends GetxService {
                       ),
                     ],
                   ),
-                  child: Icon(
-                    icon,
-                    size: 36,
-                    color: primaryRedColor,
-                  ),
+                  child: Icon(icon, size: 36, color: primaryRedColor),
                 ),
                 const SizedBox(height: 20),
 
@@ -669,6 +670,9 @@ class BiometricService extends GetxService {
                 );
               }
             }
+            if (Get.isRegistered<ApiService>()) {
+              ApiService.to.registerDeviceToken();
+            }
             AppSnackbar.success('Biometric login successful');
             Get.offAllNamed('/dashboard');
             return true;
@@ -684,7 +688,8 @@ class BiometricService extends GetxService {
     }
 
     // 3. Authenticate returning user session using saved MPIN & stored mobile number
-    final rawPhone = mobileNumber ??
+    final rawPhone =
+        mobileNumber ??
         _storage.read<String>('remembered_phone') ??
         _storage.read<String>('phone') ??
         _storage.read<String>('mobileNumber') ??
@@ -702,7 +707,8 @@ class BiometricService extends GetxService {
     }
 
     final savedPhone = cleanPhone.isNotEmpty ? cleanPhone : rawPhone;
-    final savedMpin = _storage.read<String>('saved_mpin') ??
+    final savedMpin =
+        _storage.read<String>('saved_mpin') ??
         _storage.read<String>('remembered_mpin') ??
         _storage.read<String>('mpin');
 
@@ -783,6 +789,9 @@ class BiometricService extends GetxService {
             _storage.write('saved_mpin', savedMpin);
             _storage.write('remembered_mpin', savedMpin);
             _storage.write('is_logged_in', true);
+            if (Get.isRegistered<ApiService>()) {
+              ApiService.to.registerDeviceToken();
+            }
             AppSnackbar.success('Biometric login successful');
             Get.offAllNamed('/dashboard');
             return true;

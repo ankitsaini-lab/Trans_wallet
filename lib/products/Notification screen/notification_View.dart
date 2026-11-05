@@ -10,7 +10,9 @@ class NotificationView extends GetView<NotificationController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.put(NotificationController());
+    if (!Get.isRegistered<NotificationController>()) {
+      Get.put(NotificationController());
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -34,7 +36,8 @@ class NotificationView extends GetView<NotificationController> {
         ),
         centerTitle: true,
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           height16,
           Expanded(
@@ -161,6 +164,7 @@ class NotificationView extends GetView<NotificationController> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

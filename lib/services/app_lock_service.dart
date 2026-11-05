@@ -4,18 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/products/login_singupscreen/login_singupscreen_Controller.dart';
+import 'package:transwallet/products/Profile screen/profilescreen_Controller.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/custombutton.dart';
 
 enum ExternalFlowType {
   none,
-  payment,       // PayU Checkout / Payment Gateway
-  vkyc,          // VKYC WebView, camera/video, redirect/callback
-  mediaPicker,   // Camera / Gallery picker
+  payment, // PayU Checkout / Payment Gateway
+  vkyc, // VKYC WebView, camera/video, redirect/callback
+  mediaPicker, // Camera / Gallery picker
   customWebview, // Approved secure WebView
-  simBinding,    // DeepID SIM binding native sheet/SMS flow
   externalBrowser, // External browser URL flow
 }
 
@@ -47,11 +51,11 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
   /// Maximum allowed biometric attempts before switching exclusively to MPIN
   static const int maxBiometricAttempts = 3;
 
-  /// Returns configured App Lock timeout in seconds (Default: 30 seconds)
+  /// Returns configured App Lock timeout in seconds (Default: 5 seconds)
   int get appLockTimeoutSeconds =>
-      _storage.read<int>('app_lock_timeout_seconds') ?? 30;
+      _storage.read<int>('app_lock_timeout_seconds') ?? 5;
 
-  /// Background duration threshold before locking (Default: 30 seconds)
+  /// Background duration threshold before locking (Default: 5 seconds)
   Duration get backgroundLockDuration =>
       Duration(seconds: appLockTimeoutSeconds);
 
@@ -61,9 +65,20 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     developer.log('[AppLockService] Set app lock timeout to $seconds seconds');
   }
 
+  /// Returns whether App Lock is enabled (Defaults to false)
+  bool get isAppLockEnabled => _storage.read<bool>('app_lock_enabled') ?? false;
+
   /// Toggles App Lock setting
   void setAppLockEnabled(bool enabled) {
     _storage.write('app_lock_enabled', enabled);
+    if (!enabled) {
+      isLocked.value = false;
+      _backgroundTimer?.cancel();
+      _pausedTimestamp = null;
+      _isBackgrounded = false;
+      enteredPin.value = '';
+      pinError.value = '';
+    }
     developer.log('[AppLockService] Set app lock enabled to $enabled');
   }
 
@@ -108,6 +123,11 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
   void finishExternalFlow(ExternalFlowType flow) {
     if (flow == ExternalFlowType.none) return;
     activeExternalFlows.remove(flow);
+    // CRITICAL: Any background time that occurred during the external secure flow
+    // was authorized and must NOT trigger an immediate app lock upon returning.
+    _pausedTimestamp = null;
+    _backgroundTimer?.cancel();
+    _isBackgrounded = false;
     developer.log(
       '[AppLockService] External secure flow FINISHED: $flow (Remaining active flows: ${activeExternalFlows.toList()})',
     );
@@ -116,11 +136,17 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
   /// Clear all active external secure flows
   void clearAllExternalFlows() {
     activeExternalFlows.clear();
+    _pausedTimestamp = null;
+    _backgroundTimer?.cancel();
+    _isBackgrounded = false;
     developer.log('[AppLockService] Cleared all active external secure flows.');
   }
 
   /// Checks whether an external secure flow is currently active
   bool isExternalFlowActive([ExternalFlowType? flow]) {
+    if (_storage.read<bool>('is_picking_media') == true) {
+      if (flow == null || flow == ExternalFlowType.mediaPicker) return true;
+    }
     if (flow != null) return activeExternalFlows.contains(flow);
     return activeExternalFlows.isNotEmpty;
   }
@@ -178,6 +204,7 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
 
   void setPickingMedia(bool active) {
     isPickingMedia.value = active;
+    _storage.write('is_picking_media', active);
     if (active) {
       startExternalFlow(ExternalFlowType.mediaPicker);
     } else {
@@ -212,15 +239,17 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
   /// Checks whether app lock should trigger when backgrounded:
   /// Only activates when the user is logged in and no external secure flow is active.
   bool get canAppLock {
-    // Media picker, payment flow, VKYC flow, or external secure flow active override
-    if (isExternalFlowActive()) return false;
+    // Developer test mode: bypass all guards so lock triggers on any screen
+    if (_storage.read<bool>('app_lock_test_mode') == true) {
+      return true;
+    }
 
-    // Developer test mode override
-    if (_storage.read<bool>('app_lock_test_mode') == true) return true;
-
-    // Disabled explicitly by setting
-    final enabled = _storage.read<bool>('app_lock_enabled') ?? true;
+    // Disabled explicitly by setting (Defaults to false)
+    final enabled = isAppLockEnabled;
     if (!enabled) return false;
+
+    // Media picker, payment flow, VKYC flow, or any other external secure flow active
+    if (isExternalFlowActive()) return false;
 
     // Only work when user is logged in
     return isUserLoggedIn;
@@ -244,10 +273,20 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
         break;
 
       case AppLifecycleState.inactive:
-        // On iOS/Android, native biometric dialogs trigger 'inactive'.
-        // Only treat as backgrounded if biometric prompt is NOT active.
-        if (!isBiometricActive) {
-          _handleBackgrounded();
+        // On iOS, 'inactive' fires for transient interruptions (notification center
+        // pull-down, Control Center swipe, incoming calls) that never reach 'paused'.
+        // Starting the lock timer here would cause false-locks during those gestures.
+        // We only record the timestamp without starting the timer; the 'paused' /
+        // 'hidden' cases below start the actual timer when the app is truly backgrounded.
+        // Native biometric dialogs also trigger 'inactive' — skip entirely when active.
+        if (!isBiometricActive && canAppLock) {
+          if (!_isBackgrounded || _pausedTimestamp == null) {
+            _isBackgrounded = true;
+            _pausedTimestamp = DateTime.now();
+            developer.log(
+              '[AppLockService] App inactive at: $_pausedTimestamp. Timestamp recorded (no timer yet).',
+            );
+          }
         }
         break;
 
@@ -463,7 +502,24 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     pinError.value = '';
 
     try {
-      // Check 1: Match against locally stored MPIN
+      // Prioritize live backend API verification
+      if (Get.isRegistered<ApiService>()) {
+        final result = await ApiService.to.verifyMpin(pinToVerify);
+        if (result.isSuccess) {
+          HapticFeedback.mediumImpact();
+          unlock();
+          return true;
+        } else if (result.message.isNotEmpty &&
+            !result.message.toLowerCase().contains('connection') &&
+            !result.message.toLowerCase().contains('network')) {
+          HapticFeedback.heavyImpact();
+          pinError.value = result.message;
+          enteredPin.value = '';
+          return false;
+        }
+      }
+
+      // Offline fallback: Match against locally stored MPIN
       final savedMpin =
           _storage.read<String>('saved_mpin') ??
           _storage.read('mpin')?.toString();
@@ -471,34 +527,6 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
         HapticFeedback.mediumImpact();
         unlock();
         return true;
-      }
-
-      // Check 2: Universal demo / fallback MPINs
-      if (pinToVerify == "1234" || pinToVerify == "0000") {
-        HapticFeedback.mediumImpact();
-        unlock();
-        return true;
-      }
-
-      // Check 3: Verify with live backend API /api/v1/auth/mpin/login
-      final phone = _storage.read<String>('phone');
-      if (phone != null && phone.isNotEmpty && Get.isRegistered<ApiService>()) {
-        final response = await ApiService.to.postRequest<Map<String, dynamic>>(
-          '/api/v1/auth/mpin/login',
-          {"mobileNumber": phone, "mpin": pinToVerify},
-        );
-
-        if (response.status.isOk && response.body != null) {
-          final body = response.body!;
-          final bool isSuccess =
-              body['success'] == true || body['code'] == 'OK';
-          if (isSuccess) {
-            _storage.write('saved_mpin', pinToVerify);
-            HapticFeedback.mediumImpact();
-            unlock();
-            return true;
-          }
-        }
       }
 
       // If all checks fail -> invalid MPIN
@@ -525,6 +553,11 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     biometricFailedAttempts.value = 0;
     _resetPinInput();
 
+    // Disable App Lock upon logout and flag to prompt on next login
+    setAppLockEnabled(false);
+    await _storage.write('app_lock_enabled', false);
+    await _storage.write('pending_app_lock_prompt', true);
+
     // Clear user session
     if (Get.isRegistered<AuthService>()) {
       await AuthService.to.logout();
@@ -534,7 +567,210 @@ class AppLockService extends GetxService with WidgetsBindingObserver {
     await _storage.remove('refreshToken');
     await _storage.remove('is_logged_in');
 
+    if (Get.isRegistered<LoginSingupscreenController>()) {
+      Get.find<LoginSingupscreenController>().closeOtpPopupOnly();
+    }
+
     AppSnackbar.info("Logged out successfully");
     Get.offAllNamed('/login_singupview');
+  }
+
+  /// Displays a dialog prompting the user to enable App Lock after logging in
+  void showEnableAppLockDialog(BuildContext context) {
+    if (isAppLockEnabled) return;
+    if (Get.isDialogOpen ?? false) return;
+
+    Get.dialog(
+      Builder(
+        builder: (dialogCtx) {
+          void dismissDialog() {
+            try {
+              if (Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+                Navigator.of(dialogCtx, rootNavigator: true).pop();
+              } else if (Get.isDialogOpen ?? false) {
+                Get.until((route) => !Get.isDialogOpen!);
+              }
+            } catch (e) {
+              developer.log('[AppLockService] Error dismissing dialog: $e');
+              if (Get.isDialogOpen ?? false) {
+                Get.back(closeOverlays: true);
+              }
+            }
+          }
+
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            backgroundColor: Colors.white,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 24,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: primaryRed.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.lock_outline_rounded,
+                            color: primaryRed,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Enable App Lock?",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Keep your Transcorp Wallet secure. When enabled, your app locks automatically when minimized, protecting your balances and transactions.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.grey.shade600,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _buildFeatureHighlight(
+                        icon: Icons.shield_outlined,
+                        text: "Auto-lock when the app is minimized",
+                      ),
+                      const SizedBox(height: 8),
+                      _buildFeatureHighlight(
+                        icon: Icons.fingerprint_rounded,
+                        text: "Fast unlock with Biometrics or MPIN",
+                      ),
+                      const SizedBox(height: 8),
+                      _buildFeatureHighlight(
+                        icon: Icons.visibility_off_outlined,
+                        text: "Protects sensitive cards and payment data",
+                      ),
+                      const SizedBox(height: 22),
+                      CustomButton(
+                        text: "Enable App Lock",
+                        btncolor: primaryRed,
+                        borderRadius: 14,
+                          textsize: context.responsive(14),
+                        onPressed: () {
+                          setAppLockEnabled(true);
+                          clearAllExternalFlows();
+                          _storage.write('app_lock_enabled', true);
+                          _storage.write('pending_app_lock_prompt', false);
+                          if (Get.isRegistered<ProfilescreenController>()) {
+                            Get.find<ProfilescreenController>()
+                                    .appLockEnabled
+                                    .value =
+                                true;
+                          }
+                          dismissDialog();
+                          Future.delayed(
+                            const Duration(milliseconds: 350),
+                            () => AppSnackbar.success(
+                              "App Lock has been enabled.",
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () {
+                          setAppLockEnabled(false);
+                          _storage.write('app_lock_enabled', false);
+                          _storage.write('pending_app_lock_prompt', false);
+                          if (Get.isRegistered<ProfilescreenController>()) {
+                            Get.find<ProfilescreenController>()
+                                    .appLockEnabled
+                                    .value =
+                                false;
+                          }
+                          dismissDialog();
+                        },
+                        child: Text(
+                          "Not Now",
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.black54,
+                      size: 22,
+                    ),
+                    onPressed: () {
+                      _storage.write('pending_app_lock_prompt', false);
+                      dismissDialog();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  Widget _buildFeatureHighlight({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFECECEC)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: primaryRed),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

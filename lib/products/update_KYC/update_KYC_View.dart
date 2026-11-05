@@ -12,7 +12,9 @@ class UpdateKycView extends GetView<UpdateKycController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => UpdateKycController());
+    if (!Get.isRegistered<UpdateKycController>()) {
+      Get.put(UpdateKycController());
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF111111),
       extendBodyBehindAppBar: true,
@@ -162,56 +164,126 @@ class UpdateKycView extends GetView<UpdateKycController> {
                             top: Radius.circular(context.responsive(30)),
                           ),
                         ),
-                        child: Column(
-                          children: [
-                            Text(
-                              "Required Steps for Verification",
-                              style: TextStyle(
-                                fontSize: context.responsive(18),
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
+                        child: SafeArea(
+                          top: false,
+                          child: Column(
+                            children: [
+                              Text(
+                                "Required Steps for Verification",
+                                style: TextStyle(
+                                  fontSize: context.responsive(18),
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: context.responsive(12)),
-                            Expanded(
-                              child: ListView(
-                                padding: EdgeInsets.zero,
-                                physics: const BouncingScrollPhysics(),
-                                children: [
-                                  _buildStepCard(
-                                    context,
-                                    "1",
-                                    "Upload PAN card",
-                                    "Scan your PAN card clearly for identity verification.",
-                                  ),
-                                  _buildStepCard(
-                                    context,
-                                    "2",
-                                    "Validate Aadhaar OTP",
-                                    "Verify the OTP sent to your Aadhaar-linked mobile number.",
-                                  ),
-                                  _buildStepCard(
-                                    context,
-                                    "3",
-                                    "Video verification",
-                                    "Complete a quick video call with a compliance officer.",
-                                  ),
-                                ],
+                              SizedBox(height: context.responsive(12)),
+                              Expanded(
+                                child: ListView(
+                                  padding: EdgeInsets.zero,
+                                  physics: const BouncingScrollPhysics(),
+                                  children: [
+                                    _buildStepCard(
+                                      context,
+                                      "1",
+                                      "Upload PAN card",
+                                      "Scan your PAN card clearly for identity verification.",
+                                    ),
+                                    _buildStepCard(
+                                      context,
+                                      "2",
+                                      "Validate Aadhaar OTP",
+                                      "Verify the OTP sent to your Aadhaar-linked mobile number.",
+                                    ),
+                                    _buildStepCard(
+                                      context,
+                                      "3",
+                                      "Video verification",
+                                      "Complete a quick video call with a compliance officer.",
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            SizedBox(height: context.responsive(12)),
-                            Obx(() => CustomButton(
-                              text: controller.isLoading.value ? "Initiating..." : "Get Started",
-                              btncolor: primaryRed,
-                              borderRadius: context.responsive(30),
-                              onPressed: () {
-                                if (!controller.isLoading.value) {
-                                  controller.initiateVkycUpgrade();
+                              Obx(() {
+                                if (controller.isKycUnderReview.value) {
+                                  return Container(
+                                    margin: EdgeInsets.only(
+                                      bottom: context.responsive(12),
+                                    ),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: context.responsive(14),
+                                      vertical: context.responsive(10),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF9C3),
+                                      borderRadius: BorderRadius.circular(
+                                        context.responsive(12),
+                                      ),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE047),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.pending_actions_rounded,
+                                          color: Color(0xFFCA8A04),
+                                          size: 22,
+                                        ),
+                                        SizedBox(width: context.responsive(10)),
+                                        Expanded(
+                                          child: Text(
+                                            "Your Video KYC is currently under review by compliance. Verification completes within 24–48 hours.",
+                                            style: TextStyle(
+                                              color: const Color(0xFF854D0E),
+                                              fontSize: context.responsive(12),
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
                                 }
-                              },
-                            )),
-                            SizedBox(height: context.responsive(10)),
-                          ],
+                                return const SizedBox.shrink();
+                              }),
+                              SizedBox(height: context.responsive(12)),
+                              Obx(() {
+                                final bool isReview =
+                                    controller.isKycUnderReview.value;
+                                final bool isFull =
+                                    controller.isKycCompleted.value;
+                                final String text;
+                                final Color btnColor;
+                                if (controller.isLoading.value) {
+                                  text = "Initiating...";
+                                  btnColor = primaryRed;
+                                } else if (isFull) {
+                                  text = "KYC Already Verified";
+                                  btnColor = const Color(0xFF16A34A);
+                                } else if (isReview) {
+                                  text = "Under Review • Check Status";
+                                  btnColor = const Color(0xFFD97706);
+                                } else {
+                                  text = "Get Started";
+                                  btnColor = primaryRed;
+                                }
+
+                                return CustomButton(
+                                  text: text,
+                                  btncolor: btnColor,
+                                    textsize: context.responsive(14),
+                                  borderRadius: context.responsive(30),
+                                  onPressed: () {
+                                    if (!controller.isLoading.value) {
+                                      controller.onGetStartedPressed();
+                                    }
+                                  },
+                                );
+                              }),
+                              SizedBox(height: context.responsive(10)),
+                            ],
+                          ),
                         ),
                       ),
                     ),

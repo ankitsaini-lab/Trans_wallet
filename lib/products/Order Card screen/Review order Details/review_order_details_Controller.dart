@@ -28,7 +28,7 @@ class ReviewOrderDetailsController extends GetxController {
   var cardLabel = "Obsidian Limited".obs;
   var cardTextColor = Colors.white.obs;
   var cardSubColor = Colors.white70.obs;
-  var cardBgImage = 'assets/unioncardblack.webp'.obs;
+  var cardBgImage = 'assets/visacard.png'.obs;
   var useBlackLogos = false.obs;
 
   @override
@@ -38,13 +38,15 @@ class ReviewOrderDetailsController extends GetxController {
     if (Get.isRegistered<OrdercardController>()) {
       final orderCtrl = Get.find<OrdercardController>();
       final activeStyle = orderCtrl.cardStyles[orderCtrl.activeCardIndex.value];
-      cardGradient.assignAll(activeStyle["colors"] ?? [const Color(0xFF111111), const Color(0xFF2C2C2C)]);
+      cardGradient.assignAll(
+        activeStyle["colors"] ??
+            [const Color(0xFF111111), const Color(0xFF2C2C2C)],
+      );
       cardGlowColor.value = activeStyle["glowColor"];
       cardLabel.value = activeStyle["label"];
       cardTextColor.value = activeStyle["textColor"] ?? Colors.white;
       cardSubColor.value = activeStyle["subColor"] ?? Colors.white70;
-      cardBgImage.value =
-          activeStyle["bgImage"] ?? 'assets/unioncardblack.webp';
+      cardBgImage.value = activeStyle["bgImage"] ?? 'assets/visacard.png';
       useBlackLogos.value = activeStyle["useBlackLogos"] ?? false;
       amount.value = orderCtrl.amount.value;
     }

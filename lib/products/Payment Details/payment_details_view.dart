@@ -8,7 +8,9 @@ class PaymentDetailsView extends GetView<PaymentDetailsController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => PaymentDetailsController(),);
+    if (!Get.isRegistered<PaymentDetailsController>()) {
+      Get.put(PaymentDetailsController());
+    }
     return Scaffold(
       body: Center(
           child: Column(

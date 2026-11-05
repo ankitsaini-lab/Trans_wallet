@@ -42,7 +42,8 @@ class ProfileDetailsView extends StatelessWidget {
         child: RefreshIndicator(
           color: primaryRed,
           backgroundColor: Colors.white,
-          onRefresh: () => controller.refreshProfile(showSnackbar: false),
+          onRefresh: () =>
+              controller.refreshProfile(force: true, showSnackbar: false),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
@@ -95,39 +96,50 @@ class ProfileDetailsView extends StatelessWidget {
                               () => UserAvatar(
                                 size: context.responsive(84),
                                 name: controller.name.value,
+                                imageFile: controller.localImageFile.value,
                                 imageUrl:
-                                    controller.profilePictureUrl.value.isNotEmpty
-                                        ? controller.profilePictureUrl.value
-                                        : null,
+                                    controller
+                                        .profilePictureUrl
+                                        .value
+                                        .isNotEmpty
+                                    ? controller.profilePictureUrl.value
+                                    : null,
+                                isLoading: controller.isUploadingImage.value,
                               ),
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              controller.uploadProfilePicture();
-                            },
-                            child: Container(
-                              padding: EdgeInsets.all(context.responsive(6)),
-                              decoration: BoxDecoration(
-                                color: primaryRed,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: primaryRed.withValues(alpha: 0.35),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
+                          Obx(
+                            () => GestureDetector(
+                              onTap: controller.isUploadingImage.value
+                                  ? null
+                                  : () {
+                                      HapticFeedback.lightImpact();
+                                      controller.uploadProfilePicture();
+                                    },
+                              child: Container(
+                                padding: EdgeInsets.all(context.responsive(6)),
+                                decoration: BoxDecoration(
+                                  color: controller.isUploadingImage.value
+                                      ? Colors.grey
+                                      : primaryRed,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
                                   ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.camera_alt_rounded,
-                                color: Colors.white,
-                                size: context.responsive(13),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: primaryRed.withValues(alpha: 0.35),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.camera_alt_rounded,
+                                  color: Colors.white,
+                                  size: context.responsive(13),
+                                ),
                               ),
                             ),
                           ),
@@ -156,8 +168,8 @@ class ProfileDetailsView extends StatelessWidget {
                           controller.phone.value.isNotEmpty
                               ? controller.phone.value
                               : (controller.email.value.isNotEmpty
-                                  ? controller.email.value
-                                  : "TransWallet Customer"),
+                                    ? controller.email.value
+                                    : "TransWallet Customer"),
                           style: TextStyle(
                             color: const Color(0xFF64748B),
                             fontSize: context.responsive(13),
@@ -170,69 +182,88 @@ class ProfileDetailsView extends StatelessWidget {
                       // Verification Status Badge
                       Obx(() {
                         final bool isFull = controller.isKycCompleted.value;
+                        final bool isUnderReview =
+                            controller.isKycUnderReview.value;
                         final bool isMin = controller.isMinKycCompleted.value;
 
+                        final Color accentColor;
                         final Color bgColor;
                         final Color borderColor;
-                        final Color textColor;
                         final IconData icon;
                         final String label;
 
                         if (isFull) {
-                          bgColor = const Color(0xFFDCFCE7);
+                          accentColor = const Color(0xFF16A34A);
+                          bgColor = const Color(0xFFF0FDF4);
                           borderColor = const Color(0xFFBBF7D0);
-                          textColor = const Color(0xFF16A34A);
                           icon = Icons.verified_rounded;
-                          label = "Full KYC Verified";
-                        } else if (isMin) {
-                          bgColor = const Color(0xFFE0F2FE);
-                          borderColor = const Color(0xFFBAE6FD);
-                          textColor = const Color(0xFF0284C7);
-                          icon = Icons.shield_outlined;
-                          label = "Min KYC Verified • Upgrade";
-                        } else {
-                          // KYC Pending
-                          bgColor = const Color(0xFFFEF3C7);
+                          label = "Verified";
+                        } else if (isUnderReview) {
+                          accentColor = const Color(0xFFD97706);
+                          bgColor = const Color(0xFFFFFBEB);
                           borderColor = const Color(0xFFFDE68A);
-                          textColor = const Color(0xFFD97706);
-                          icon = Icons.access_time_filled_rounded;
-                          label = "KYC Pending • Tap to Verify";
+                          icon = Icons.schedule_rounded;
+                          label = "Under Review";
+                        } else if (isMin) {
+                          accentColor = const Color(0xFF0284C7);
+                          bgColor = const Color(0xFFF0F9FF);
+                          borderColor = const Color(0xFFBAE6FD);
+                          icon = Icons.shield_outlined;
+                          label = "Min KYC";
+                        } else {
+                          accentColor = const Color(0xFFE11D48);
+                          bgColor = const Color(0xFFFFF1F2);
+                          borderColor = const Color(0xFFFECDD3);
+                          icon = Icons.error_outline_rounded;
+                          label = "Pending";
                         }
 
                         return InkWell(
                           onTap: isFull ? null : controller.handleKycAction,
                           borderRadius: BorderRadius.circular(
-                            context.responsive(20),
+                            context.responsive(16),
                           ),
                           child: Container(
                             padding: EdgeInsets.symmetric(
-                              horizontal: context.responsive(12),
-                              vertical: context.responsive(5),
+                              horizontal: context.responsive(10),
+                              vertical: context.responsive(4),
                             ),
                             decoration: BoxDecoration(
                               color: bgColor,
                               borderRadius: BorderRadius.circular(
-                                context.responsive(20),
+                                context.responsive(16),
                               ),
-                              border: Border.all(color: borderColor),
+                              border: Border.all(
+                                color: borderColor,
+                                width: 0.8,
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   icon,
-                                  size: context.responsive(14),
-                                  color: textColor,
+                                  size: context.responsive(13),
+                                  color: accentColor,
                                 ),
                                 SizedBox(width: context.responsive(5)),
                                 Text(
                                   label,
                                   style: TextStyle(
-                                    color: textColor,
+                                    color: accentColor,
                                     fontSize: context.responsive(11.5),
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
+                                if (!isFull) ...[
+                                  SizedBox(width: context.responsive(3)),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: context.responsive(14),
+                                    color: accentColor.withValues(alpha: 0.7),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -282,7 +313,7 @@ class ProfileDetailsView extends StatelessWidget {
                           iconBgColor: const Color(0xFFE0F2FE),
                           label: "Full Name",
                           value: formatUserName(controller.name.value),
-                          copyValue: controller.name.value,
+                          // copyValue: controller.name.value,
                         ),
                       ),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -298,7 +329,7 @@ class ProfileDetailsView extends StatelessWidget {
                           value: controller.phone.value.isNotEmpty
                               ? controller.phone.value
                               : "Not provided",
-                          copyValue: controller.phone.value,
+                          // copyValue: controller.phone.value,
                         ),
                       ),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -314,9 +345,9 @@ class ProfileDetailsView extends StatelessWidget {
                           value: controller.email.value.isNotEmpty
                               ? controller.email.value
                               : "Not provided",
-                          copyValue: controller.email.value.isNotEmpty
-                              ? controller.email.value
-                              : null,
+                          // copyValue: controller.email.value.isNotEmpty
+                          //     ? controller.email.value
+                          //     : null,
                         ),
                       ),
 
@@ -355,7 +386,7 @@ class ProfileDetailsView extends StatelessWidget {
                               iconBgColor: lightprimaryred,
                               label: "Address",
                               value: controller.address.value,
-                              copyValue: controller.address.value,
+                              // copyValue: controller.address.value,
                             ),
                           ],
                         );
@@ -516,11 +547,7 @@ class ProfileDetailsView extends StatelessWidget {
               borderRadius: BorderRadius.circular(context.responsive(12)),
             ),
             alignment: Alignment.center,
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: context.responsive(19),
-            ),
+            child: Icon(icon, color: iconColor, size: context.responsive(19)),
           ),
           SizedBox(width: context.responsive(14)),
           Expanded(
@@ -557,7 +584,9 @@ class ProfileDetailsView extends StatelessWidget {
               splashRadius: 18,
               tooltip: "Copy",
               onPressed: () {
-                final controller = Get.find<ProfileDetailsController>();
+                final controller = Get.isRegistered<ProfileDetailsController>()
+                    ? Get.find<ProfileDetailsController>()
+                    : Get.put(ProfileDetailsController());
                 controller.copyText(context, copyValue, label);
               },
             ),

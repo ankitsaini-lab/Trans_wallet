@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Profile%20screen/profilescreen_Controller.dart';
@@ -10,8 +11,7 @@ import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
 import 'package:transwallet/services/biometric_service.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
+import 'package:transwallet/products/Profile%20screen/change_pin/change_pin_view.dart';
 import 'package:transwallet/products/Profile%20screen/widgets/profile_info_sheets.dart';
 
 class ProfilescreenView extends GetView<ProfilescreenController> {
@@ -19,7 +19,9 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.put(ProfilescreenController());
+    if (!Get.isRegistered<ProfilescreenController>()) {
+      Get.put(ProfilescreenController());
+    }
 
     final Color backgroundColor = const Color(0xFFF9FAFB);
 
@@ -31,78 +33,106 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.topCenter,
-              children: [
-                ClipPath(
-                  clipper: _HeaderClipper(),
-                  child: Container(
-                    height: context.responsive(200),
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage("assets/dashboardbg.png"),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    padding: EdgeInsets.only(top: context.responsive(60)),
-                    alignment: Alignment.topCenter,
-                    child: Text(
-                      "My Profile",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: context.responsive(18),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-
-                Positioned(
-                  bottom: context.responsive(-40),
-                  child: Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      Obx(
-                        () => GestureDetector(
-                          onTap: () => controller.uploadProfilePicture(),
-                          child: UserAvatar(
-                            size: context.responsive(100),
-
-                            imageUrl:
-                                controller.profilePictureUrl.value.isNotEmpty
-                                ? controller.profilePictureUrl.value
-                                : null,
-                            // border: Border.all(color: Colors.white, width: 3),
+            SizedBox(
+              height: context.responsive(248),
+              width: double.infinity,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.topCenter,
+                children: [
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: ClipPath(
+                      clipper: _HeaderClipper(),
+                      child: Container(
+                        height: context.responsive(200),
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage("assets/dashboardbg.png"),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        padding: EdgeInsets.only(top: context.responsive(60)),
+                        alignment: Alignment.topCenter,
+                        child: Text(
+                          "My Profile",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: context.responsive(18),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () => controller.uploadProfilePicture(),
-                        child: Container(
-                          padding: EdgeInsets.all(context.responsive(4)),
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Icon(
-                              Icons.camera_alt_outlined,
-                              color: Colors.white,
-                              size: context.responsive(14),
+                    ),
+                  ),
+
+                  Positioned(
+                    top: context.responsive(140),
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      clipBehavior: Clip.none,
+                      children: [
+                        Obx(
+                          () => GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            // onTap: controller.isUploadingImage.value
+                            //     ? null
+                            //     : () => controller.uploadProfilePicture(),
+                            child: UserAvatar(
+                              size: context.responsive(100),
+                              name: controller.userName.value,
+                              imageFile: controller.localImageFile.value,
+                              imageUrl:
+                                  controller.profilePictureUrl.value.isNotEmpty
+                                  ? controller.profilePictureUrl.value
+                                  : null,
+                              isLoading: controller.isUploadingImage.value,
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        // Obx(
+                        //   () => GestureDetector(
+                        //     behavior: HitTestBehavior.opaque,
+                        //     onTap: controller.isUploadingImage.value
+                        //         ? null
+                        //         : () {
+                        //             HapticFeedback.lightImpact();
+                        //             controller.uploadProfilePicture();
+                        //           },
+                        //     child: Container(
+                        //       padding: EdgeInsets.all(context.responsive(6)),
+                        //       decoration: BoxDecoration(
+                        //         color: controller.isUploadingImage.value
+                        //             ? Colors.grey
+                        //             : primaryRed,
+                        //         shape: BoxShape.circle,
+                        //         border: Border.all(color: Colors.white, width: 2),
+                        //         boxShadow: [
+                        //           BoxShadow(
+                        //             color: primaryRed.withValues(alpha: 0.35),
+                        //             blurRadius: 6,
+                        //             offset: const Offset(0, 2),
+                        //           ),
+                        //         ],
+                        //       ),
+                        //       child: Icon(
+                        //         Icons.camera_alt_rounded,
+                        //         color: Colors.white,
+                        //         size: context.responsive(13),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            SizedBox(height: context.responsive(50)),
+            SizedBox(height: context.responsive(12)),
             Obx(
               () => Text(
                 formatUserName(
@@ -157,63 +187,81 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                   onTap: () => Get.toNamed('/profiledetails'),
                 ),
                 _buildDivider(context),
-                Obx(
-                  () => _buildRow(
+                Obx(() {
+                  final bool isVerified = controller.isKycVerified.value;
+                  final bool isReview = controller.isKycUnderReview.value;
+
+                  final String subtitle;
+                  final Color accentColor;
+                  final Color bgColor;
+                  final Color borderColor;
+                  final IconData statusIcon;
+                  final String label;
+
+                  if (isVerified) {
+                    subtitle = "Account fully verified";
+                    accentColor = const Color(0xFF16A34A);
+                    bgColor = const Color(0xFFF0FDF4);
+                    borderColor = const Color(0xFFBBF7D0);
+                    statusIcon = Icons.verified_rounded;
+                    label = "Verified";
+                  } else if (isReview) {
+                    subtitle = "Verification in progress • Allow 24–48h";
+                    accentColor = const Color(0xFFD97706);
+                    bgColor = const Color(0xFFFFFBEB);
+                    borderColor = const Color(0xFFFDE68A);
+                    statusIcon = Icons.schedule_rounded;
+                    label = "Under Review";
+                  } else {
+                    subtitle = "Action required • Tap to complete";
+                    accentColor = const Color(0xFFE11D48);
+                    bgColor = const Color(0xFFFFF1F2);
+                    borderColor = const Color(0xFFFECDD3);
+                    statusIcon = Icons.error_outline_rounded;
+                    label = "Pending";
+                  }
+
+                  return _buildRow(
                     context,
                     iconAsset: "assets/kyc.svg",
                     title: "KYC & Verification",
-                    subtitle: controller.isKycVerified.value
-                        ? "Account fully verified"
-                        : "Action required • Tap to complete",
+                    subtitle: subtitle,
                     trailingWidget: Container(
                       padding: EdgeInsets.symmetric(
-                        horizontal: context.responsive(10),
-                        vertical: context.responsive(4),
+                        horizontal: context.responsive(8),
+                        vertical: context.responsive(3.5),
                       ),
                       decoration: BoxDecoration(
-                        color: controller.isKycVerified.value
-                            ? const Color(0xFFDCFCE7)
-                            : const Color(0xFFFEF3C7),
+                        color: bgColor,
                         borderRadius: BorderRadius.circular(
-                          context.responsive(12),
+                          context.responsive(14),
                         ),
-                        border: Border.all(
-                          color: controller.isKycVerified.value
-                              ? const Color(0xFFBBF7D0)
-                              : const Color(0xFFFDE68A),
-                        ),
+                        border: Border.all(color: borderColor, width: 0.8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            controller.isKycVerified.value
-                                ? Icons.verified_rounded
-                                : Icons.pending_actions_rounded,
-                            color: controller.isKycVerified.value
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFFD97706),
-                            size: context.responsive(13),
+                            statusIcon,
+                            size: context.responsive(12),
+                            color: accentColor,
                           ),
                           SizedBox(width: context.responsive(4)),
                           Text(
-                            controller.isKycVerified.value
-                                ? "Verified"
-                                : "Pending",
+                            label,
                             style: TextStyle(
-                              color: controller.isKycVerified.value
-                                  ? const Color(0xFF16A34A)
-                                  : const Color(0xFFD97706),
-                              fontSize: context.responsive(11.5),
-                              fontWeight: FontWeight.w700,
+                              color: accentColor,
+                              fontSize: context.responsive(11),
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ],
                       ),
                     ),
                     onTap: controller.handleKycTap,
-                  ),
-                ),
+                  );
+                }),
               ],
             ),
 
@@ -227,31 +275,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                   iconAsset: "assets/changepin.svg",
                   title: "Change PIN",
                   onTap: () {
-                    final box = GetStorage();
-                    final String? savedMpin =
-                        box.read<String>('saved_mpin') ??
-                        box.read('mpin')?.toString() ??
-                        box.read('tx_pin')?.toString();
-                    final bool hasMpin =
-                        box.read('has_mpin') == true ||
-                        (savedMpin != null && savedMpin.isNotEmpty);
-
-                    if (hasMpin) {
-                      Get.bottomSheet(
-                        MpinVerifySheet(
-                          title: "Enter Existing PIN",
-                          subtitle:
-                              "Please enter your current 4-digit PIN to change it",
-                          onSuccess: () {
-                            Get.toNamed('/create_mpin');
-                          },
-                        ),
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                      );
-                    } else {
-                      Get.toNamed('/create_mpin');
-                    }
+                    Get.to(() => const ChangePinView());
                   },
                 ),
                 _buildDivider(context),
@@ -511,18 +535,15 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                 ],
               ),
             ),
-            if (trailingWidget != null) ...[trailingWidget],
+            if (trailingWidget != null) ...[
+              trailingWidget,
+              if (showChevron) SizedBox(width: context.responsive(8)),
+            ],
             if (showChevron)
-              SizedBox(
-                width: 51,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    color: const Color(0xFF9CA3AF),
-                    size: context.responsive(20),
-                  ),
-                ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: const Color(0xFF9CA3AF),
+                size: context.responsive(20),
               ),
           ],
         ),

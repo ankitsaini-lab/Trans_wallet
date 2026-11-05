@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 
 class CustomButton extends StatefulWidget {
   final String text;
@@ -36,7 +35,7 @@ class CustomButton extends StatefulWidget {
 }
 
 class _CustomButtonState extends State<CustomButton> {
-  final isPressed = false.obs;
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -56,76 +55,81 @@ class _CustomButtonState extends State<CustomButton> {
         ? (widget.textColor ?? Colors.grey.shade600)
         : Colors.white;
 
-    return Obx(
-      () => GestureDetector(
-        onTapDown: (_) => isPressed.value = true,
-        onTapUp: (_) => isPressed.value = false,
-        onTapCancel: () => isPressed.value = false,
-        onTap: widget.isLoading ? null : widget.onPressed,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) {
+        if (mounted) setState(() => _isPressed = true);
+      },
+      onTapUp: (_) {
+        if (mounted) setState(() => _isPressed = false);
+      },
+      onTapCancel: () {
+        if (mounted) setState(() => _isPressed = false);
+      },
+      onTap: widget.isLoading ? null : widget.onPressed,
 
-        child: AnimatedScale(
-          scale: isPressed.value ? 0.96 : 1,
-          duration: const Duration(milliseconds: 120),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.96 : 1,
+        duration: const Duration(milliseconds: 120),
 
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: widget.width ?? double.infinity,
-            height: widget.height,
-            decoration: BoxDecoration(
-              color: buttonColor,
-              borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: widget.width ?? double.infinity,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: buttonColor,
+            borderRadius: BorderRadius.circular(widget.borderRadius),
 
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: isGrey
-                      ? Colors.transparent
-                      : Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: isGrey
+                    ? Colors.transparent
+                    : Colors.black.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
 
-            child: Center(
-              child: widget.isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.prefixIcon != null) ...[
-                          widget.prefixIcon!,
-                          const SizedBox(width: 6),
-                        ],
-
-                        Text(
-                          widget.text,
-                          style: TextStyle(
-                            color: textColorVal,
-                            fontSize: widget.textsize,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        if (widget.suffixIcon != null) ...[
-                          const SizedBox(width: 6),
-                          widget.suffixIcon!,
-                        ],
-                      ],
+          child: Center(
+            child: widget.isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
                     ),
-            ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.prefixIcon != null) ...[
+                        widget.prefixIcon!,
+                        const SizedBox(width: 6),
+                      ],
+
+                      Text(
+                        widget.text,
+                        style: TextStyle(
+                          color: textColorVal,
+                          fontSize: widget.textsize,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+
+                      if (widget.suffixIcon != null) ...[
+                        const SizedBox(width: 6),
+                        widget.suffixIcon!,
+                      ],
+                    ],
+                  ),
           ),
         ),
       ),

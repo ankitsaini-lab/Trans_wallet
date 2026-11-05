@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/products/Recharge and Bills/theme.dart';
 import 'package:transwallet/products/Recharge and Bills/pay_summary_sheet.dart';
@@ -120,8 +121,9 @@ class _WaterBillScreenState extends State<WaterBillScreen> {
         ),
         centerTitle: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -184,6 +186,7 @@ class _WaterBillScreenState extends State<WaterBillScreen> {
             if (_fetchedAmount == null)
               CustomButton(
                 text: "Fetch Water Bill",
+                  textsize: context.responsive(14),
                 btncolor: Colors.black,
                 onPressed: _fetchBill,
                 prefixIcon: _isFetching
@@ -244,6 +247,7 @@ class _WaterBillScreenState extends State<WaterBillScreen> {
               const SizedBox(height: 32),
               CustomButton(
                 text: "Pay Bill",
+                  textsize: context.responsive(14),
                 btncolor: Colors.black,
                 onPressed: _onPay,
               ),
@@ -251,6 +255,7 @@ class _WaterBillScreenState extends State<WaterBillScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

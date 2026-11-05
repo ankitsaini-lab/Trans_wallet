@@ -256,50 +256,10 @@ class FirebaseService extends GetxService {
     );
   }
 
-  Future<void> _registerTokenWithBackend(String token) async {
-    if (!Get.isRegistered<ApiService>()) {
-      debugPrint(
-        "⚠️ [Firebase ➔ Backend] ApiService is not registered yet. Skipping token sync.",
-      );
-      return;
-    }
-
-    try {
-      final platform = GetPlatform.isIOS ? 'ios' : 'android';
-      debugPrint("==================================================");
-      debugPrint("🚀 [Firebase ➔ Backend] Registering FCM Device Token...");
-      debugPrint("POST /api/v1/devices");
-      debugPrint(
-        "Payload: {\"platform\": \"$platform\", \"fcmToken\": \"$token\"}",
-      );
-      debugPrint("==================================================");
-
-      final result = await ApiService.to.registerDeviceToken(token);
-
-      debugPrint("==================================================");
-      if (result != null &&
-          (result['success'] == true || result['code'] == 'OK')) {
-        debugPrint("✅ [Firebase ➔ Backend] FCM Token registered successfully!");
-        debugPrint("Response Body: $result");
-      } else {
-        debugPrint(
-          "⚠️ [Firebase ➔ Backend] Device token registration response: $result",
-        );
-      }
-      debugPrint("==================================================");
-
-      developer.log(
-        "Backend /api/v1/devices response: $result",
-        name: 'FirebaseService',
-      );
-    } catch (e, stackTrace) {
-      debugPrint("❌ [Firebase ➔ Backend] Exception registering token: $e");
-      developer.log(
-        "Error registering device token with backend",
-        error: e,
-        stackTrace: stackTrace,
-        name: 'FirebaseService',
-      );
+  Future<void> registerTokenWithBackend([String? token]) async {
+    final targetToken = token ?? fcmToken.value;
+    if (targetToken.isNotEmpty && Get.isRegistered<ApiService>()) {
+      await ApiService.to.registerDeviceToken(targetToken);
     }
   }
 
@@ -314,8 +274,6 @@ class FirebaseService extends GetxService {
       debugPrint("==================================================");
 
       developer.log("FCM Token refreshed: $newToken", name: 'FirebaseService');
-
-      await _registerTokenWithBackend(newToken);
     });
   }
 
@@ -323,7 +281,9 @@ class FirebaseService extends GetxService {
     if (Get.isRegistered<NetworkService>()) {
       _networkWorker = ever<bool>(NetworkService.to.isConnected, (connected) {
         if (connected && fcmToken.value.isEmpty && !_isFetchingToken) {
-          debugPrint("🌐 [Firebase] Network connection active -> Fetching FCM token...");
+          debugPrint(
+            "🌐 [Firebase] Network connection active -> Fetching FCM token...",
+          );
           fetchFcmToken();
         }
       });
@@ -333,7 +293,8 @@ class FirebaseService extends GetxService {
   /// Fetches the FCM token with automatic retry and graceful offline handling.
   /// Does not crash or spam unhandled error logs on Google Play Services delays.
   Future<String?> fetchFcmToken({int maxRetries = 3}) async {
-    if (_isFetchingToken) return fcmToken.value.isNotEmpty ? fcmToken.value : null;
+    if (_isFetchingToken)
+      return fcmToken.value.isNotEmpty ? fcmToken.value : null;
     _isFetchingToken = true;
 
     try {
@@ -354,16 +315,20 @@ class FirebaseService extends GetxService {
             debugPrint("FCM TOKEN: $token");
             debugPrint("==================================================");
 
-            developer.log("FCM Token generated: $token", name: 'FirebaseService');
+            developer.log(
+              "FCM Token generated: $token",
+              name: 'FirebaseService',
+            );
 
             _retryTimer?.cancel();
-            await _registerTokenWithBackend(token);
             return token;
           } else {
             debugPrint("⚠️ [Firebase] FCM Token returned was null/empty.");
           }
         } catch (e) {
-          final isRegistrationFailed = e.toString().contains("FCM Registration failed");
+          final isRegistrationFailed = e.toString().contains(
+            "FCM Registration failed",
+          );
           if (isRegistrationFailed) {
             debugPrint(
               "ℹ️ [Firebase] Google Play Services FCM registration busy or awaiting network (Attempt $attempt/$maxRetries).",

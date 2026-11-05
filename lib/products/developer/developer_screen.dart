@@ -1184,7 +1184,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
           ),
           const SizedBox(height: 6),
           const Text(
-            "Monitor background lock lifecycle, test 2-second timeout, and inspect biometric/MPIN fallback.",
+            "Monitor background lock lifecycle, test configurable timeout, and inspect biometric/MPIN fallback.",
             style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -1279,9 +1279,9 @@ class _DeveloperScreenState extends State<DeveloperScreen>
                   if (elapsed > 0) ...[
                     const SizedBox(height: 8),
                     Text(
-                      "Last background elapsed: ${elapsed}ms (Threshold: 2000ms)",
+                      "Last background elapsed: ${elapsed}ms  |  Lock threshold: ${lockService.appLockTimeoutSeconds * 1000}ms",
                       style: TextStyle(
-                        color: elapsed >= 2000
+                        color: elapsed >= lockService.appLockTimeoutSeconds * 1000
                             ? Colors.greenAccent
                             : Colors.orangeAccent,
                         fontSize: 12,
@@ -1304,9 +1304,9 @@ class _DeveloperScreenState extends State<DeveloperScreen>
               "App Lock Active",
               style: TextStyle(color: Colors.white, fontSize: 14),
             ),
-            subtitle: const Text(
-              "Monitors app lifecycle and locks after 2s in background.",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+            subtitle: Text(
+              "Locks after ${AppLockService.to.appLockTimeoutSeconds}s in background (default: 5s).",
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             value: appLockEnabled,
             onChanged: (val) async {

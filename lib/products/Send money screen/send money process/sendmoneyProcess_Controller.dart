@@ -1,13 +1,16 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/Send%20money%20screen/sendMoney_Controller.dart';
+import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
-import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_Controller.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 
 class SendmoneyprocessController extends GetxController {
+  static const double minTransferAmount = 1.0;
+  static const double maxTransferAmount = 10000.0;
+
   var balance = 0.0.obs;
   var enteredAmount = ''.obs;
   var isLoading = false.obs;
@@ -16,12 +19,24 @@ class SendmoneyprocessController extends GetxController {
 
   Map<String, String>? recipient;
 
+  final List<int> presets = const [500, 1000, 2000, 5000];
+
   @override
   void onInit() {
     super.onInit();
-    balance.value = (box.read('balance') ?? 1600).toDouble();
-    if (Get.arguments != null) {
-      recipient = Get.arguments as Map<String, String>;
+    final rawBalance = box.read('balance');
+    if (rawBalance is num) {
+      balance.value = rawBalance.toDouble();
+    } else if (rawBalance is String) {
+      balance.value = double.tryParse(rawBalance) ?? 0.0;
+    } else {
+      balance.value = 0.0;
+    }
+
+    if (Get.arguments != null && Get.arguments is Map) {
+      recipient = (Get.arguments as Map).map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      );
     }
   }
 
@@ -29,6 +44,9 @@ class SendmoneyprocessController extends GetxController {
     String cleaned = enteredAmount.value.replaceAll(',', '');
     return double.tryParse(cleaned.isEmpty ? "0" : cleaned) ?? 0.0;
   }
+
+  bool get canProceed =>
+      amount >= minTransferAmount && amount <= maxTransferAmount;
 
   void setAmount(String value) {
     selectedPreset.value = 0; // Clear preset selection when typing manually
@@ -44,43 +62,55 @@ class SendmoneyprocessController extends GetxController {
     if (value == "," && current.contains(",")) return;
     if (current == "0" && value == "0") return;
 
-    if (current == "0" && value != ",") {
-      enteredAmount.value = value;
+    String candidate = (current == "0" && value != ",")
+        ? value
+        : current + value;
+    String candidateClean = candidate.replaceAll(',', '');
+    double? candidateVal = double.tryParse(candidateClean);
+
+    if (candidateVal != null && candidateVal > maxTransferAmount) {
+      AppSnackbar.warning("Maximum transfer limit is ₹10,000 per transaction");
       return;
     }
 
-    if (enteredAmount.value.length < 8) {
-      // basic limit
-      enteredAmount.value += value;
+    if (candidate.length <= 8) {
+      enteredAmount.value = candidate;
     }
   }
 
   void setPreset(int value) {
+    if (value < minTransferAmount || value > maxTransferAmount) {
+      AppSnackbar.warning("Amount must be between ₹1 and ₹10,000");
+      return;
+    }
     selectedPreset.value = value;
     enteredAmount.value = value.toString();
   }
 
   void proceedToPassword() {
-    if (amount > 0) {
-      // The design has a password screen instead of a bottom sheet
-      Get.toNamed(
-        '/SendMoneyPasswordView',
-        arguments: {
-          'amount': amount,
-          'recipient': recipient,
-          'note': noteController.text,
-        },
-      );
+    if (amount < minTransferAmount) {
+      AppSnackbar.error("Minimum transfer amount is ₹1");
+      return;
     }
+    if (amount > maxTransferAmount) {
+      AppSnackbar.error("Maximum transfer limit is ₹10,000 per transaction");
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    // The design has a password screen instead of a bottom sheet
+    Get.toNamed(
+      '/SendMoneyPasswordView',
+      arguments: {
+        'amount': amount,
+        'recipient': recipient,
+        'note': noteController.text,
+      },
+    );
   }
 
   // We will keep these existing methods so it doesn't break anything calling them
   Future<void> addMoney() async {
     proceedToPassword();
-  }
-
-  Future<void> _executeSendMoney() async {
-    // Moved logic to password screen
   }
 
   @override
@@ -533,6 +563,7 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                 opacity: _btnFadeAnim,
                 child: CustomButton(
                   text: "Go to Dashboard",
+                  textsize: context.responsive(14),
                   btncolor: primaryRed,
                   onPressed: () {
                     Get.offAllNamed("/dashboard");

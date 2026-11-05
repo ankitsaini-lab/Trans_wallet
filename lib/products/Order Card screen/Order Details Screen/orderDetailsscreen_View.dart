@@ -11,7 +11,9 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => OrderdetailsscreenController());
+    if (!Get.isRegistered<OrderdetailsscreenController>()) {
+      Get.put(OrderdetailsscreenController());
+    }
 
     const Color textColor = Color(0xFF111111);
     const Color secondaryText = Color(0xFF6B7280);
@@ -99,6 +101,7 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
                     text: "Back to Home",
                     btncolor: primaryRed,
                     textColor: Colors.white,
+                    textsize: context.responsive(14),
                     onPressed: () {
                       Get.offAllNamed('/dashboard');
                     },
@@ -462,6 +465,7 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
             const SizedBox(height: 12),
             CustomButton(
               text: "Close Status Drawer",
+              textsize: context.responsive(14),
               btncolor: Colors.black,
               onPressed: () => Get.back(),
             ),

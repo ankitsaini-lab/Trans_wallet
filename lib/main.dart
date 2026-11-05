@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_view.dart';
+import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_binding.dart';
 import 'package:transwallet/products/History%20screen/historyscreen_View.dart';
 import 'package:transwallet/products/History%20screen/transactiondetails_View.dart';
 import 'package:transwallet/products/Manage%20Card/managecard_View.dart';
@@ -17,6 +18,8 @@ import 'package:transwallet/products/Order%20Card%20screen/Payment%20Method/paym
 import 'package:transwallet/products/Order%20Card%20screen/Review%20order%20Details/review_order_details_View.dart';
 import 'package:transwallet/products/Order%20Card%20screen/order%20card%20screen/ordercard_View.dart';
 import 'package:transwallet/products/Profile%20screen/Profilescreen_View.dart';
+import 'package:transwallet/products/Profile%20screen/change_pin/change_pin_view.dart';
+import 'package:transwallet/products/Profile%20screen/change_pin/forgot_pin_view.dart';
 import 'package:transwallet/products/Profile%20screen/profile%20details/profile_details_view.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
 import 'package:transwallet/products/Send%20money%20screen/send%20money%20process/sendmoneyProcess_View.dart';
@@ -52,12 +55,12 @@ import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/services/firebase_service.dart';
 import 'package:transwallet/services/deep_link_service.dart';
-import 'package:transwallet/services/deepid_service.dart';
-import 'package:transwallet/products/auth/sim_binding/sim_binding_view.dart';
 import 'package:transwallet/modules/vkyc/bindings/vkyc_binding.dart';
 import 'package:transwallet/modules/vkyc/views/vkyc_test_view.dart';
 import 'package:transwallet/modules/vkyc/views/vkyc_webview_view.dart';
 import 'package:transwallet/widgets/app_lock_overlay.dart';
+import 'package:transwallet/widgets/no_internet_overlay.dart';
+import 'package:transwallet/widgets/server_error_widgets.dart';
 import 'package:transwallet/products/developer/developer_screen.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -82,13 +85,20 @@ Future<void> main() async {
   final deepLinkService = Get.put(DeepLinkService());
   final biometricService = Get.put(BiometricService());
   final appLockService = Get.put(AppLockService());
-  final deepIdService = Get.put(DeepIdService());
+
+  // AppLockService MUST register its WidgetsBindingObserver synchronously before
+  // runApp(), otherwise it misses lifecycle events if the user backgrounds the app
+  // during the async initialization window. All other services are safe to init lazily.
+  await appLockService.init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.white,
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarDividerColor: Colors.transparent,
     ),
   );
   HttpOverrides.global = MyHttpOverrides();
@@ -100,8 +110,6 @@ Future<void> main() async {
     firebaseService: firebaseService,
     deepLinkService: deepLinkService,
     biometricService: biometricService,
-    appLockService: appLockService,
-    deepIdService: deepIdService,
   );
 
   debugPrint(
@@ -115,8 +123,6 @@ void _initAsyncServices({
   required FirebaseService firebaseService,
   required DeepLinkService deepLinkService,
   required BiometricService biometricService,
-  required AppLockService appLockService,
-  required DeepIdService deepIdService,
 }) {
   unawaited(
     Future.wait([
@@ -124,8 +130,6 @@ void _initAsyncServices({
       firebaseService.init(),
       deepLinkService.init(),
       biometricService.init(),
-      appLockService.init(),
-      deepIdService.init(),
     ]).then((_) {
       debugPrint('✅ [Startup] All background services initialized successfully.');
     }).catchError((e, stack) {
@@ -223,7 +227,11 @@ class MyApp extends StatelessWidget {
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.noScaling),
-          child: AppLockOverlay(child: child!),
+          child: AppLockOverlay(
+            child: NoInternetOverlay(
+              child: ServerStatusBanner(child: child!),
+            ),
+          ),
         );
       },
       initialRoute: '/',
@@ -251,12 +259,9 @@ class MyApp extends StatelessWidget {
           page: () => const CreateaccountView(),
         ),
         GetPage(
-          name: '/sim_binding',
-          page: () => const SimBindingView(),
-        ),
-        GetPage(
           name: '/dashboard',
           page: () => DashboardscreenView(),
+          binding: DashboardscreenBinding(),
           transition: Transition.noTransition,
         ),
         GetPage(
@@ -324,6 +329,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
         GetPage(name: '/create_mpin', page: () => const CreateMpinScreen()),
+        GetPage(name: '/change_pin', page: () => const ChangePinView()),
+        GetPage(name: '/forgot_pin', page: () => const ForgotPinView()),
         GetPage(
           name: '/payment_processing',
           page: () => const PaymentProcessingScreen(),
@@ -343,17 +350,21 @@ class MyApp extends StatelessWidget {
         ),
         GetPage(
           name: '/payment_receipt',
-          page: () => PaymentReceiptView(
-            amount: Get.arguments['amount'] ?? 0.0,
-            balance: Get.arguments['balance'] ?? 0.0,
-            paymentMode: Get.arguments['paymentMode'] ?? 'PayU PG',
-            status: Get.arguments['status'] ?? 'Success',
-            txnId: Get.arguments['txnId'],
-            transactionReference:
-                Get.arguments['transactionReference'] ?? Get.arguments['txnId'],
-            bankRefNo: Get.arguments['bankRefNo'],
-            message: Get.arguments['message'],
-          ),
+          page: () {
+            final args = Get.arguments is Map ? (Get.arguments as Map) : const {};
+            return PaymentReceiptView(
+              amount: (args['amount'] as num?)?.toDouble() ?? 0.0,
+              balance: (args['balance'] as num?)?.toDouble() ?? 0.0,
+              paymentMode: args['paymentMode']?.toString() ?? 'PayU PG',
+              status: args['status']?.toString() ?? 'Success',
+              txnId: args['txnId']?.toString(),
+              transactionReference:
+                  args['transactionReference']?.toString() ??
+                  args['txnId']?.toString(),
+              bankRefNo: args['bankRefNo']?.toString(),
+              message: args['message']?.toString(),
+            );
+          },
         ),
         GetPage(name: '/pay_bill', page: () => const PayBillScreen()),
         GetPage(

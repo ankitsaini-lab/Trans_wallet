@@ -11,7 +11,9 @@ class WalletCardModel {
   final Color secondaryColor;
   final String bgImage;
   final bool useBlackLogos;
-  final bool isBlocked;
+  final bool isBlocked; // Temporarily locked/frozen
+  final bool isPermanentlyBlocked; // Permanently blocked
+  final String status;
 
   WalletCardModel({
     required this.id,
@@ -22,9 +24,11 @@ class WalletCardModel {
     this.brand = 'Visa',
     this.primaryColor = const Color(0xFFFFCC00),
     this.secondaryColor = const Color(0xFF111111),
-    this.bgImage = 'assets/unioncardblack.webp',
+    this.bgImage = 'assets/visacard.png',
     this.useBlackLogos = false,
     this.isBlocked = false,
+    this.isPermanentlyBlocked = false,
+    this.status = 'ALLOCATED',
   });
 
   WalletCardModel copyWith({
@@ -39,6 +43,8 @@ class WalletCardModel {
     String? bgImage,
     bool? useBlackLogos,
     bool? isBlocked,
+    bool? isPermanentlyBlocked,
+    String? status,
   }) {
     return WalletCardModel(
       id: id ?? this.id,
@@ -52,6 +58,8 @@ class WalletCardModel {
       bgImage: bgImage ?? this.bgImage,
       useBlackLogos: useBlackLogos ?? this.useBlackLogos,
       isBlocked: isBlocked ?? this.isBlocked,
+      isPermanentlyBlocked: isPermanentlyBlocked ?? this.isPermanentlyBlocked,
+      status: status ?? this.status,
     );
   }
 }

@@ -6,18 +6,24 @@ class BezierChartPainter extends CustomPainter {
   final List<double> values;
   final int? selectedIndex;
   final String? tooltipText;
+  final Color lineColor;
+  final String noDataMessage;
 
   BezierChartPainter({
     this.values = const [],
     this.selectedIndex,
     this.tooltipText,
+    this.lineColor = primaryRed,
+    this.noDataMessage = "No spending data for this period",
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final bool hasNoData = values.isEmpty || values.every((v) => v == 0);
+
     final paint = Paint()
-      ..color = primaryRed
-      ..strokeWidth = 3
+      ..color = hasNoData ? const Color(0xFFE2E8F0) : lineColor
+      ..strokeWidth = hasNoData ? 2 : 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
@@ -26,15 +32,14 @@ class BezierChartPainter extends CustomPainter {
 
     List<Offset> points = [];
 
-    if (values.isEmpty || values.every((v) => v == 0)) {
-      // Default placeholder smooth curve if values list is empty or all 0s
-      points = [
-        Offset(0, size.height * 0.7),
-        Offset(size.width * 0.25, size.height * 0.55),
-        Offset(size.width * 0.5, size.height * 0.65),
-        Offset(size.width * 0.75, size.height * 0.35),
-        Offset(size.width, size.height * 0.45),
-      ];
+    if (hasNoData) {
+      // Clean flat baseline at y = 0.85 * height (₹0) when no data from API
+      final int count = values.isNotEmpty ? values.length : 4;
+      final stepX = count > 1 ? size.width / (count - 1) : size.width;
+      for (int i = 0; i < count; i++) {
+        final x = count > 1 ? i * stepX : size.width / 2;
+        points.add(Offset(x, size.height * 0.85));
+      }
     } else {
       double maxVal = values.reduce(math.max);
       if (maxVal <= 0) maxVal = 1.0;
@@ -86,10 +91,10 @@ class BezierChartPainter extends CustomPainter {
     fillPath.lineTo(points.last.dx, size.height);
     fillPath.close();
 
-    const gradient = LinearGradient(
+    final gradient = LinearGradient(
       colors: [
-        Color.fromRGBO(237, 41, 42, 0.28),
-        Color.fromRGBO(237, 41, 42, 0),
+        lineColor.withValues(alpha: 0.28),
+        lineColor.withValues(alpha: 0.0),
       ],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -99,12 +104,39 @@ class BezierChartPainter extends CustomPainter {
       Rect.fromLTWH(0, 0, size.width, size.height),
     );
 
-    canvas.drawPath(fillPath, fillPaint);
+    if (!hasNoData) {
+      canvas.drawPath(fillPath, fillPaint);
+    }
     canvas.drawPath(path, paint);
+
+    // If there is no data, render a clean, subtle message in the chart area
+    if (hasNoData) {
+      final textSpan = TextSpan(
+        text: noDataMessage,
+        style: TextStyle(
+          color: Colors.grey.shade400,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          (size.width - textPainter.width) / 2,
+          size.height * 0.35,
+        ),
+      );
+    }
 
     // Draw subtle dots on all curve points
     final allDotsPaint = Paint()
-      ..color = primaryRed.withValues(alpha: 0.35)
+      ..color = hasNoData
+          ? const Color(0xFFCBD5E1)
+          : lineColor.withValues(alpha: 0.35)
       ..style = PaintingStyle.fill;
     for (int i = 0; i < points.length; i++) {
       if (selectedIndex == null || i != selectedIndex) {
@@ -113,10 +145,10 @@ class BezierChartPainter extends CustomPainter {
     }
 
     final outerHaloPaint = Paint()
-      ..color = const Color.fromRGBO(237, 41, 42, 0.28)
+      ..color = lineColor.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
     final innerDotPaint = Paint()
-      ..color = primaryRed
+      ..color = lineColor
       ..style = PaintingStyle.fill;
 
     if (selectedIndex != null &&
@@ -126,7 +158,7 @@ class BezierChartPainter extends CustomPainter {
 
       // Vertical dashed guideline to bottom
       final guidePaint = Paint()
-        ..color = primaryRed.withValues(alpha: 0.3)
+        ..color = lineColor.withValues(alpha: 0.35)
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
 
@@ -219,6 +251,8 @@ class BezierChartPainter extends CustomPainter {
   bool shouldRepaint(covariant BezierChartPainter oldDelegate) {
     return oldDelegate.values != values ||
         oldDelegate.selectedIndex != selectedIndex ||
-        oldDelegate.tooltipText != tooltipText;
+        oldDelegate.tooltipText != tooltipText ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.noDataMessage != noDataMessage;
   }
 }

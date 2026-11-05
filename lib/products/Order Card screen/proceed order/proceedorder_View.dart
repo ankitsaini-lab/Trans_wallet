@@ -7,7 +7,9 @@ class ProceedorderView extends GetView<ProceedorderController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => ProceedorderController(),); 
+    if (!Get.isRegistered<ProceedorderController>()) {
+      Get.put(ProceedorderController());
+    } 
     return Scaffold(
       body: Center(
           child: Column(

@@ -13,7 +13,7 @@ class TrackCardView extends StatelessWidget {
     // Read arguments passed from order confirmation screen
     String cardStyleName = "Prepaid Card";
     String referenceId = "#CRD-928481";
-    String cardBgImage = "assets/unioncardblack.png";
+    String cardBgImage = "assets/visacard.png";
 
     if (Get.arguments != null && Get.arguments is Map) {
       final args = Get.arguments as Map;

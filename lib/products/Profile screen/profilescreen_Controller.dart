@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,26 +13,29 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
+import 'package:transwallet/products/Profile%20screen/profile%20details/profile_details_Controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/products/login_singupscreen/login_singupscreen_Controller.dart';
 import 'widgets/animated_logout_dialog.dart';
 
 class ProfilescreenController extends GetxController {
   var selectedIndex = 3.obs;
   var isKycVerified = false.obs;
+  var isKycUnderReview = false.obs;
   var biometricEnabled = true.obs;
   var appLockEnabled = true.obs;
   var appLockTimeout = 30.obs;
   var profilePictureUrl = "".obs;
+  final Rxn<File> localImageFile = Rxn<File>();
+  final RxBool isUploadingImage = false.obs;
   var userName = "User".obs;
   var userPhone = "".obs;
 
   @override
   void onInit() {
     super.onInit();
-    isKycVerified.value = box.read('is_kyc_completed') == true ||
-        box.read('kyc_status')?.toString().toLowerCase() == 'verified' ||
-        box.read('kyc_status')?.toString().toLowerCase() == 'completed' ||
-        box.read('kyc_status')?.toString().toLowerCase() == 'approved';
+    loadUserData();
     profilePictureUrl.value = box.read('profilePictureUrl')?.toString() ?? '';
     if (Get.isRegistered<BiometricService>()) {
       biometricEnabled.value = BiometricService.to.isBiometricEnabled.value;
@@ -40,20 +44,48 @@ class ProfilescreenController extends GetxController {
     }
     if (Get.isRegistered<AppLockService>()) {
       appLockTimeout.value = AppLockService.to.appLockTimeoutSeconds;
-      appLockEnabled.value = box.read('app_lock_enabled') ?? true;
+      appLockEnabled.value = box.read('app_lock_enabled') ?? false;
     } else {
       appLockTimeout.value = box.read('app_lock_timeout_seconds') ?? 30;
-      appLockEnabled.value = box.read('app_lock_enabled') ?? true;
+      appLockEnabled.value = box.read('app_lock_enabled') ?? false;
     }
     loadUserData();
     fetchFromApi();
+    _checkLostData();
+  }
+
+  Future<void> _checkLostData() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final picker = ImagePicker();
+      final LostDataResponse response = await picker.retrieveLostData();
+      if (response.isEmpty) return;
+      if (response.file != null) {
+        log("[Profile] Recovered lost image from camera: ${response.file!.path}");
+        box.remove('pending_camera_upload');
+        await _processAndUploadFile(response.file!);
+      } else if (response.exception != null) {
+        log("[Profile] LostDataResponse exception: ${response.exception}");
+      }
+    } catch (e) {
+      log("[Profile] Error retrieving lost data: $e");
+    }
   }
 
   void loadUserData() {
-    isKycVerified.value = box.read('is_kyc_completed') == true ||
-        box.read('kyc_status')?.toString().toLowerCase() == 'verified' ||
-        box.read('kyc_status')?.toString().toLowerCase() == 'completed' ||
-        box.read('kyc_status')?.toString().toLowerCase() == 'approved';
+    final rawStatus = box.read('kyc_status')?.toString().toLowerCase() ?? '';
+    final bool underReview = rawStatus == 'under_review' ||
+        rawStatus == 'in_progress' ||
+        rawStatus == 'review_in_progress';
+    isKycUnderReview.value = underReview;
+
+    isKycVerified.value = !underReview &&
+        (box.read('is_kyc_completed') == true ||
+            box.read('full_kyc_completed') == true ||
+            rawStatus == 'verified' ||
+            rawStatus == 'completed' ||
+            rawStatus == 'approved' ||
+            rawStatus == 'upgrade_success');
     userName.value = box.read('name')?.toString() ?? "User";
     final rawPhone = box.read('phone')?.toString() ??
         box.read('mobileNumber')?.toString() ??
@@ -72,17 +104,10 @@ class ProfilescreenController extends GetxController {
     }
   }
 
-  Future<void> fetchFromApi() async {
+  Future<void> fetchFromApi({bool force = false}) async {
     if (Get.isRegistered<ApiService>()) {
-      final profile = await ApiService.to.fetchUserProfile();
+      final profile = await ApiService.to.fetchUserProfile(force: force);
       if (profile != null) {
-        if (profile['isKycCompleted'] != null) {
-          isKycVerified.value = profile['isKycCompleted'] == true;
-        } else if (profile['kycStatus'] != null) {
-          final st = profile['kycStatus'].toString().toLowerCase();
-          isKycVerified.value =
-              (st == 'verified' || st == 'completed' || st == 'approved');
-        }
         loadUserData();
         profilePictureUrl.value = box.read('profilePictureUrl')?.toString() ?? '';
       }
@@ -90,6 +115,8 @@ class ProfilescreenController extends GetxController {
   }
 
   Future<void> uploadProfilePicture() async {
+    if (isUploadingImage.value) return;
+
     log("uploadProfilePicture triggered");
     final ImageSource? source = await Get.bottomSheet<ImageSource>(
       Container(
@@ -133,108 +160,214 @@ class ProfilescreenController extends GetxController {
 
     if (source == null) return;
 
+    isUploadingImage.value = true;
     if (Get.isRegistered<AppLockService>()) {
       AppLockService.to.setPickingMedia(true);
     }
 
     try {
-      // Safely check permission, fallback to native picker if plugin channel is unavailable
-      try {
-        if (source == ImageSource.gallery) {
-          final photosStatus = await Permission.photos.request();
-          if (!photosStatus.isGranted && !photosStatus.isLimited) {
-            final storageStatus = await Permission.storage.request();
-            if (!storageStatus.isGranted && (photosStatus.isPermanentlyDenied || storageStatus.isPermanentlyDenied)) {
-              _showPermissionDeniedDialog(
-                title: "Gallery Permission Required",
-                message: "Please grant gallery access to select your profile picture.",
-              );
-              return;
-            }
-          }
-        } else if (source == ImageSource.camera) {
-          final cameraStatus = await Permission.camera.request();
-          if (!cameraStatus.isGranted && cameraStatus.isPermanentlyDenied) {
+      if (source == ImageSource.camera) {
+        var cameraStatus = await Permission.camera.status;
+        if (!cameraStatus.isGranted) {
+          cameraStatus = await Permission.camera.request();
+        }
+        if (!cameraStatus.isGranted) {
+          if (cameraStatus.isPermanentlyDenied) {
             _showPermissionDeniedDialog(
               title: "Camera Permission Required",
-              message: "Please grant camera access to take your profile picture.",
+              message:
+                  "Camera access is permanently denied. Please allow camera access in Settings to take a profile picture.",
             );
+          } else {
+            AppSnackbar.error("Camera access was denied.");
+          }
+          return;
+        }
+      } else if (source == ImageSource.gallery) {
+        if (Platform.isIOS) {
+          var photosStatus = await Permission.photos.status;
+          if (!photosStatus.isGranted && !photosStatus.isLimited) {
+            photosStatus = await Permission.photos.request();
+          }
+          if (!photosStatus.isGranted && !photosStatus.isLimited) {
+            if (photosStatus.isPermanentlyDenied) {
+              _showPermissionDeniedDialog(
+                title: "Gallery Permission Required",
+                message:
+                    "Photo library access is permanently denied. Please allow access in Settings to select a profile picture.",
+              );
+            } else {
+              AppSnackbar.error("Gallery access was denied.");
+            }
             return;
           }
         }
-      } catch (e) {
-        log("PermissionHandler channel exception caught safely: $e");
+      }
+
+      if (source == ImageSource.camera) {
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+        box.write('pending_camera_upload', 'profile');
       }
 
       XFile? pickedFile;
       try {
         final picker = ImagePicker();
+        // Downscale to 800x800 at 75% quality to prevent Android LMK process death
+        // Do NOT pass preferredCameraDevice: CameraDevice.front as it crashes MIUI/OEM camera intents
         pickedFile = await picker.pickImage(
           source: source,
-          imageQuality: 85,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 75,
         );
       } on PlatformException catch (e) {
         log("ImagePicker PlatformException: ${e.code} - ${e.message}");
-        if (e.code == 'photo_access_denied' || e.code == 'camera_access_denied' || e.message?.contains('permission') == true) {
+        if (e.code == 'photo_access_denied' ||
+            e.code == 'camera_access_denied' ||
+            e.message?.toLowerCase().contains('permission') == true) {
           _showPermissionDeniedDialog(
-            title: source == ImageSource.camera ? "Camera Permission Required" : "Gallery Permission Required",
+            title: source == ImageSource.camera
+                ? "Camera Permission Required"
+                : "Gallery Permission Required",
             message: source == ImageSource.camera
                 ? "Camera access was denied. Please allow access in Settings."
                 : "Gallery access was denied. Please allow access in Settings.",
           );
-        }
-        return;
-      } catch (e) {
-        log("Error picking image: $e");
-        return;
-      }
-
-      if (pickedFile == null) return;
-
-      // Validate format (JPEG, PNG, WebP)
-      final ext = pickedFile.name.split('.').last.toLowerCase();
-      final allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
-      if (!allowedExts.contains(ext)) {
-        AppSnackbar.error("Invalid format. Allowed formats: JPEG, PNG, WebP");
-        return;
-      }
-
-      // Validate size (max 2MB = 2097152 bytes)
-      final bytes = await pickedFile.readAsBytes();
-      const maxSizeBytes = 2 * 1024 * 1024;
-      if (bytes.length > maxSizeBytes) {
-        AppSnackbar.error("Image size exceeds maximum limit of 2MB");
-        return;
-      }
-
-      Get.dialog(
-        const Center(child: CircularProgressIndicator(color: primaryRed)),
-        barrierDismissible: false,
-      );
-
-      try {
-        if (Get.isRegistered<ApiService>()) {
-          final newUrl = await ApiService.to.uploadProfilePicture(pickedFile);
-          if (Get.isDialogOpen ?? false) Get.back();
-
-          if (newUrl != null && newUrl.isNotEmpty) {
-            profilePictureUrl.value = newUrl;
-            AppSnackbar.success("Profile picture updated successfully!");
-          } else {
-            AppSnackbar.error("Failed to upload profile picture");
-          }
         } else {
-          if (Get.isDialogOpen ?? false) Get.back();
-          AppSnackbar.error("Network service unavailable");
+          try {
+            final fallbackPicker = ImagePicker();
+            pickedFile = await fallbackPicker.pickImage(source: source);
+          } catch (retryError) {
+            log("Fallback camera pick failed: $retryError");
+            AppSnackbar.error("Failed to capture image: ${e.message ?? e.code}");
+          }
         }
+        if (pickedFile == null) return;
       } catch (e) {
-        if (Get.isDialogOpen ?? false) Get.back();
-        AppSnackbar.error("Error uploading profile picture: $e");
+        log("Error picking image: $e, attempting standard fallback...");
+        try {
+          final fallbackPicker = ImagePicker();
+          pickedFile = await fallbackPicker.pickImage(source: source);
+        } catch (retryError) {
+          log("Fallback camera pick failed: $retryError");
+          AppSnackbar.error("Unable to pick image. Please try again.");
+          return;
+        }
       }
+
+      if (pickedFile == null) {
+        log("[Profile] User cancelled image selection.");
+        return;
+      }
+
+      await _processAndUploadFile(pickedFile);
     } finally {
+      box.remove('pending_camera_upload');
+      isUploadingImage.value = false;
       if (Get.isRegistered<AppLockService>()) {
         AppLockService.to.setPickingMedia(false);
       }
+    }
+  }
+
+  Future<void> _processAndUploadFile(XFile pickedFile) async {
+    if (isClosed) return;
+
+    final path = pickedFile.path.toLowerCase();
+    final ext = path.split('.').last;
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
+    if (!allowedExts.contains(ext)) {
+      AppSnackbar.error("Invalid format. Allowed formats: JPEG, PNG, WebP");
+      return;
+    }
+
+    final localFile = File(pickedFile.path);
+    if (!await localFile.exists()) {
+      AppSnackbar.error("Failed to access captured image file.");
+      return;
+    }
+
+    final fileSize = await localFile.length();
+    const maxSizeBytes = 2 * 1024 * 1024;
+    if (fileSize > maxSizeBytes) {
+      AppSnackbar.error("Image size exceeds maximum limit of 2MB");
+      return;
+    }
+
+    // Set optimistic preview and set in-place avatar loading state (no route-popping Get.dialog!)
+    localImageFile.value = localFile;
+    profilePictureUrl.refresh();
+    isUploadingImage.value = true;
+
+    try {
+      if (Get.isRegistered<ApiService>()) {
+        final result = await ApiService.to.uploadProfilePicture(pickedFile);
+
+        if (isClosed) return;
+
+        if (result.isSuccess &&
+            result.url != null &&
+            result.url!.isNotEmpty) {
+          final newUrl = result.url!;
+          _evictImageCaches(newUrl, profilePictureUrl.value);
+
+          box.write('profilePictureUrl', newUrl);
+          profilePictureUrl.value = newUrl;
+          localImageFile.value = null;
+          profilePictureUrl.refresh();
+
+          _syncProfilePictureAcrossControllers(newUrl);
+
+          AppSnackbar.success("Profile picture updated successfully!");
+        } else {
+          localImageFile.value = null;
+          profilePictureUrl.refresh();
+          AppSnackbar.error(
+            result.errorMessage ?? "Failed to upload profile picture",
+          );
+        }
+      } else {
+        localImageFile.value = null;
+        profilePictureUrl.refresh();
+        AppSnackbar.error("Network service unavailable");
+      }
+    } catch (e) {
+      log("[Profile] Upload error: $e");
+      localImageFile.value = null;
+      profilePictureUrl.refresh();
+      AppSnackbar.error("Error uploading profile picture: $e");
+    } finally {
+      isUploadingImage.value = false;
+    }
+  }
+
+  void _evictImageCaches(String newUrl, String oldUrl) {
+    try {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      if (newUrl.startsWith('http://') || newUrl.startsWith('https://')) {
+        NetworkImage(newUrl).evict();
+      }
+      if (oldUrl.isNotEmpty &&
+          (oldUrl.startsWith('http://') || oldUrl.startsWith('https://'))) {
+        NetworkImage(oldUrl).evict();
+      }
+    } catch (_) {}
+  }
+
+  void _syncProfilePictureAcrossControllers(String newUrl) {
+    if (Get.isRegistered<DashboardscreenController>()) {
+      final dash = Get.find<DashboardscreenController>();
+      dash.profilePictureUrl.value = newUrl;
+      dash.profilePictureUrl.refresh();
+      dash.loadUserData();
+    }
+    if (Get.isRegistered<ProfileDetailsController>()) {
+      final details = Get.find<ProfileDetailsController>();
+      details.profilePictureUrl.value = newUrl;
+      details.localImageFile.value = null;
+      details.profilePictureUrl.refresh();
     }
   }
 
@@ -278,11 +411,19 @@ class ProfilescreenController extends GetxController {
         backgroundColor: const Color(0xFF111111),
         colorText: Colors.white,
       );
+    } else if (isKycUnderReview.value) {
+      Get.snackbar(
+        "Verification Under Review",
+        "Your Video KYC is currently under review. Please allow 24–48 hours for verification.",
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF111111),
+        colorText: Colors.white,
+      );
     } else {
       Get.toNamed('/updateKyc')?.then((_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           loadUserData();
-          fetchFromApi();
+          fetchFromApi(force: true);
         });
       });
     }
@@ -345,8 +486,14 @@ class ProfilescreenController extends GetxController {
       await AuthService.to.logout();
     }
     if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.setAppLockEnabled(false);
       AppLockService.to.isLocked.value = false;
       AppLockService.to.biometricFailedAttempts.value = 0;
+    }
+    box.write('app_lock_enabled', false);
+    box.write('pending_app_lock_prompt', true);
+    if (Get.isRegistered<LoginSingupscreenController>()) {
+      Get.find<LoginSingupscreenController>().closeOtpPopupOnly();
     }
     Get.offAllNamed('/login_singupview');
   }

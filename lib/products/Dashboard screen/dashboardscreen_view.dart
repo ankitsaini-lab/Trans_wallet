@@ -10,12 +10,12 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
+import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
 import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
-import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:transwallet/products/Recharge and Bills/recharge_bills_screens.dart';
 
@@ -43,6 +43,31 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   int _backPressCount = 0;
   DateTime? _lastBackPressTime;
 
+  late final ScrollController _scrollController;
+
+  DashboardscreenController get _controller {
+    if (!Get.isRegistered<DashboardscreenController>()) {
+      Get.lazyPut<DashboardscreenController>(() => DashboardscreenController());
+    }
+    return Get.find<DashboardscreenController>();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    try {
+      final offset = _scrollController.offset;
+      if (offset > 10) {
+        if (!_controller.isScrolled.value) {
+          _controller.isScrolled.value = true;
+        }
+      } else {
+        if (_controller.isScrolled.value) {
+          _controller.isScrolled.value = false;
+        }
+      }
+    } catch (_) {}
+  }
+
   void _handleBackPress() {
     final now = DateTime.now();
     if (_lastBackPressTime == null ||
@@ -64,8 +89,38 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+    final ctrl = _controller;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ctrl.checkPendingVkycOnView();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = Get.put(DashboardscreenController());
+    final controller = _controller;
+
+    if (GetStorage().read('pending_vkyc_success_dialog') == true ||
+        (Get.arguments is Map && Get.arguments['showVkycSuccess'] == true)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          controller.checkPendingVkycOnView();
+        }
+      });
+    }
+
     final String greeting = _getGreeting();
     final box = GetStorage();
 
@@ -107,7 +162,12 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                 Expanded(
                   child: Row(
                     children: [
-                      UserAvatar(size: 48),
+                      GestureDetector(
+                        onTap: () {
+                          Get.offNamed("/profileview");
+                        },
+                        child: UserAvatar(size: 48),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -158,9 +218,9 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           child: RefreshIndicator(
             color: primaryRed,
             backgroundColor: Colors.white,
-            onRefresh: () => controller.refreshDashboardData(),
+            onRefresh: () => controller.refreshDashboardData(force: true),
             child: SingleChildScrollView(
-              controller: controller.scrollController,
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
@@ -194,8 +254,15 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                           child: const PremiumCardsSection(),
                         ),
 
-                        _animateWidget(delayIndex: 4, child: _buildKycBanner()),
-                        height30,
+                        Obx(() {
+                          if (controller.isFullKycCompleted.value) {
+                            return const SizedBox.shrink();
+                          }
+                          return _animateWidget(
+                            delayIndex: 4,
+                            child: _buildKycBanner(),
+                          );
+                        }),
 
                         _animateWidget(
                           delayIndex: 2,
@@ -314,7 +381,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         "icon": "assets/fastag.svg",
         "label": "Fastag",
         "color": utilitiesFillColor,
-        "route": "/fastag_recharge", //fastag screen
+        "route": "/fastag_recharge",
       },
       {
         "icon": "assets/Gas.svg",
@@ -610,101 +677,130 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   Widget _buildKycBanner() {
-    return PressableScale(
-      onTap: () => Get.toNamed("/updateKyc"),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: borderColor, width: 1.5),
-          image: const DecorationImage(
-            image: AssetImage("assets/fullKyc.png"),
-            fit: BoxFit.cover,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.09),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+    final controller = _controller;
+    if (controller.isFullKycCompleted.value) {
+      return const SizedBox.shrink();
+    }
+
+    final bool isUnderReview = controller.isKycUnderReview.value;
+
+    final String title = isUnderReview
+        ? "KYC Verification Under Review"
+        : "Complete your Full KYC";
+    final String subtitle = isUnderReview
+        ? "Your Video KYC is being reviewed.\nExpected completion: 24–48 hours."
+        : "Unlock higher wallet limits and \npremium benefits.";
+    final String buttonText = isUnderReview ? "Under Review" : "Verify";
+    final Color buttonColor = isUnderReview
+        ? const Color(0xFFD97706)
+        : primaryRed;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 30),
+      child: PressableScale(
+        onTap: () => Get.toNamed("/updateKyc"),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor, width: 1.5),
+            image: const DecorationImage(
+              image: AssetImage("assets/fullKyc.png"),
+              fit: BoxFit.cover,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Complete your Full KYC",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: context.responsive(16),
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Unlock higher wallet limits and \npremium benefits.",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: context.responsive(12),
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                    ),
-                  ),
-                  height10,
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: primaryRed,
-                      borderRadius: BorderRadius.circular(50),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryRed.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Verify",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: context.responsive(13),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: const Color.fromRGBO(0, 0, 0, 0.09),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: context.responsive(16),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: context.responsive(12),
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                    height10,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: buttonColor,
+                        borderRadius: BorderRadius.circular(50),
+                        boxShadow: [
+                          BoxShadow(
+                            color: buttonColor.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (isUnderReview) ...[
+                            const Icon(
+                              Icons.pending_actions_rounded,
+                              color: Colors.white,
+                              size: 13,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            buttonText,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: context.responsive(13),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAnalyticsSection() {
-    final controller = Get.find<DashboardscreenController>();
+    final controller = _controller;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -712,13 +808,15 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              "Spending Analytics",
-              style: TextStyle(
-                color: textColor,
-                fontSize: context.responsive(18),
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
+            Obx(
+              () => Text(
+                "${controller.selectedAnalyticsMetric.value} Analytics",
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: context.responsive(18),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                ),
               ),
             ),
             GestureDetector(
@@ -766,7 +864,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         const SizedBox(height: 20),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(0, 32, 0, 24),
+          padding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
@@ -783,31 +881,93 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Metric Selector Tabs: [Expenses] [Income] [Savings]
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Obx(() {
+                  final activeMetric = controller.selectedAnalyticsMetric.value;
+                  return Row(
+                    children: [
+                      _buildMetricFilterChip(
+                        label: "Expenses",
+                        isActive: activeMetric == "Expenses",
+                        activeColor: const Color(0xFFFF4500),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          controller.selectedAnalyticsMetric.value = "Expenses";
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _buildMetricFilterChip(
+                        label: "Income",
+                        isActive: activeMetric == "Income",
+                        activeColor: const Color(0xFF10B981),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          controller.selectedAnalyticsMetric.value = "Income";
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      _buildMetricFilterChip(
+                        label: "Savings",
+                        isActive: activeMetric == "Savings",
+                        activeColor: const Color(0xFF2563EB),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          controller.selectedAnalyticsMetric.value = "Savings";
+                        },
+                      ),
+                    ],
+                  );
+                }),
+              ),
+              const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Obx(() {
+                  final activeMetric = controller.selectedAnalyticsMetric.value;
+                  final metricKey = activeMetric.toLowerCase();
                   final weekly = controller.weeklyAnalytics;
                   final List<double> values = [];
                   if (weekly.isNotEmpty) {
                     for (var w in weekly) {
                       double val = 0.0;
-                      if (w['expenses'] != null && (w['expenses'] as num) > 0) {
-                        val = (w['expenses'] as num).toDouble();
-                      } else if (w['income'] != null &&
-                          (w['income'] as num) > 0) {
-                        val = (w['income'] as num).toDouble();
-                      } else if (w['savings'] != null) {
-                        val = (w['savings'] as num).toDouble();
+                      if (metricKey == 'savings') {
+                        final inc = (w['income'] is num)
+                            ? (w['income'] as num).toDouble()
+                            : 0.0;
+                        final exp = (w['expenses'] is num)
+                            ? (w['expenses'] as num).toDouble()
+                            : 0.0;
+                        if (w['savings'] != null && (w['savings'] as num) > 0) {
+                          val = (w['savings'] as num).toDouble();
+                        } else if (inc - exp > 0) {
+                          val = inc - exp;
+                        }
+                      } else if (w[metricKey] != null &&
+                          (w[metricKey] as num) > 0) {
+                        val = (w[metricKey] as num).toDouble();
                       }
                       values.add(val);
                     }
+                  } else {
+                    values.addAll([0.0, 0.0, 0.0, 0.0]);
                   }
+
+                  final Color chartLineColor = activeMetric == "Income"
+                      ? const Color(0xFF10B981)
+                      : (activeMetric == "Savings"
+                            ? const Color(0xFF2563EB)
+                            : primaryRed);
+
+                  final String noDataMsg =
+                      "No $activeMetric data for this period";
 
                   final selectedIdx = controller.selectedAnalyticsWeek.value;
                   String? tooltip;
                   if (selectedIdx >= 0 && selectedIdx < values.length) {
                     tooltip =
-                        "W${selectedIdx + 1}: ₹${values[selectedIdx].toStringAsFixed(0)}";
+                        "W${selectedIdx + 1} ($activeMetric): ₹${values[selectedIdx].toStringAsFixed(0)}";
                   }
 
                   return LayoutBuilder(
@@ -861,6 +1021,8 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                                   ? selectedIdx
                                   : null,
                               tooltipText: tooltip,
+                              lineColor: chartLineColor,
+                              noDataMessage: noDataMsg,
                             ),
                           ),
                         ),
@@ -1069,16 +1231,40 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                             "Income",
                             incomeStr,
                             const Color(0xFF10B981),
+                            isSelected:
+                                controller.selectedAnalyticsMetric.value ==
+                                "Income",
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              controller.selectedAnalyticsMetric.value =
+                                  "Income";
+                            },
                           ),
                           _buildStatItem(
                             "Expenses",
                             expenseStr,
                             const Color(0xFFFF4500),
+                            isSelected:
+                                controller.selectedAnalyticsMetric.value ==
+                                "Expenses",
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              controller.selectedAnalyticsMetric.value =
+                                  "Expenses";
+                            },
                           ),
                           _buildStatItem(
                             "Savings",
                             savingsStr,
-                            const Color(0xFF2196F3),
+                            const Color(0xFF2563EB),
+                            isSelected:
+                                controller.selectedAnalyticsMetric.value ==
+                                "Savings",
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              controller.selectedAnalyticsMetric.value =
+                                  "Savings";
+                            },
                           ),
                         ],
                       ),
@@ -1680,41 +1866,117 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color indicatorColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _buildStatItem(
+    String label,
+    String value,
+    Color indicatorColor, {
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? indicatorColor.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? indicatorColor.withValues(alpha: 0.35)
+                : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 8,
-              width: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: indicatorColor,
-              ),
+            Row(
+              children: [
+                Container(
+                  height: 8,
+                  width: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: indicatorColor,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? indicatorColor : Colors.grey,
+                    fontSize: context.responsive(13),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 6),
+            const SizedBox(height: 6),
             Text(
-              label,
+              value,
               style: TextStyle(
-                color: Colors.grey,
-                fontSize: context.responsive(14),
-                fontWeight: FontWeight.w500,
+                color: isSelected ? indicatorColor : textColor,
+                fontSize: context.responsive(16),
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            color: textColor,
-            fontSize: context.responsive(16),
-            fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  Widget _buildMetricFilterChip({
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            color: isActive
+                ? activeColor.withValues(alpha: 0.12)
+                : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isActive ? activeColor : const Color(0xFFE2E8F0),
+              width: isActive ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isActive ? activeColor : const Color(0xFF94A3B8),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? activeColor : const Color(0xFF64748B),
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -1787,7 +2049,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             ],
           ),
           child: Obx(() {
-            final controller = Get.find<DashboardscreenController>();
+            final controller = _controller;
             if (controller.isTransactionsLoading.value ||
                 controller.isDashboardLoading.value) {
               return const Padding(
@@ -1800,6 +2062,77 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
             final txList = controller.recentTransactions;
 
             if (txList.isEmpty) {
+              final bool isServerDown =
+                  Get.isRegistered<ApiService>() &&
+                  ApiService.to.isServerDown.value;
+
+              if (isServerDown) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 30,
+                    horizontal: 20,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        height: 52,
+                        width: 52,
+                        decoration: BoxDecoration(
+                          color: primaryLightYellow.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.cloud_off_rounded,
+                          size: 24,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "Unable to Load Transactions",
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Server connection unavailable. Pull down to refresh.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 32,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              controller.refreshDashboardData(force: true),
+                          icon: const Icon(Icons.refresh_rounded, size: 14),
+                          label: const Text(
+                            "Retry",
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryYellow,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
               return Padding(
                 padding: const EdgeInsets.symmetric(
                   vertical: 36,
@@ -1861,9 +2194,9 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                   iconBgColor: isCredit
                       ? const Color(0xFF059669).withOpacity(0.08)
                       : const Color(0xFFD84315).withOpacity(0.08),
-                  title: tx['title']?.toString() ?? "Transaction",
-                  subtitle: tx['subtitle']?.toString() ?? "",
-                  amount: tx['amount']?.toString() ?? "",
+                  title: (tx['title']?.toString() ?? "Transaction").safeUtf16(),
+                  subtitle: (tx['subtitle']?.toString() ?? "").safeUtf16(),
+                  amount: (tx['amount']?.toString() ?? "").safeUtf16(),
                   amountColor: isCredit
                       ? const Color(0xFF059669)
                       : const Color(0xFFD84315),
@@ -1916,7 +2249,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      title.safeUtf16(),
                       style: TextStyle(
                         color: textColor,
                         fontWeight: FontWeight.w700,
@@ -1925,7 +2258,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      subtitle.safeUtf16(),
                       style: TextStyle(
                         color: Colors.grey,
                         fontSize: context.responsive(13),
@@ -1939,7 +2272,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    amount,
+                    amount.safeUtf16(),
                     style: TextStyle(
                       color: amountColor,
                       fontWeight: FontWeight.w800,

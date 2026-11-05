@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/widgets/constsize.dart';
 
 class PremiumVisaCard extends StatelessWidget {
   final String cardNumber;
@@ -11,12 +12,13 @@ class PremiumVisaCard extends StatelessWidget {
   final bool isPermanentlyBlocked;
   final VoidCallback? onTap;
   final Widget? topRightAction;
-  final String bgImage;
+  final String? bgImage;
+  final String? brand;
   final bool useBlackLogos;
   final Color shadowColor;
 
   const PremiumVisaCard({
-    Key? key,
+    super.key,
     required this.cardNumber,
     required this.cardHolder,
     required this.expiryDate,
@@ -25,10 +27,50 @@ class PremiumVisaCard extends StatelessWidget {
     this.isPermanentlyBlocked = false,
     this.onTap,
     this.topRightAction,
-    this.bgImage = 'assets/unioncardblack.webp',
+    this.bgImage,
+    this.brand,
     this.useBlackLogos = false,
     this.shadowColor = primaryRed,
-  }) : super(key: key);
+  });
+
+  /// Helper to resolve dynamic card background image:
+  /// - for Rupee / RuPay: assets/rupeecard.png
+  /// - for Visa: assets/visacard.png
+  static String resolveCardBgImage({
+    String? brand,
+    String? network,
+    String? bgImage,
+  }) {
+    final raw = '${brand ?? ''} ${network ?? ''}'.toLowerCase();
+    if (raw.contains('rupay') || raw.contains('rupee') || raw.contains('rup')) {
+      return 'assets/rupeecard.png';
+    }
+    if (raw.contains('visa')) {
+      return 'assets/visacard.png';
+    }
+    if (bgImage != null && bgImage.isNotEmpty) {
+      final bgLower = bgImage.toLowerCase();
+      if (bgLower.contains('rupay') || bgLower.contains('rupee')) {
+        return 'assets/rupeecard.png';
+      }
+      if (bgLower.contains('visa')) {
+        return 'assets/visacard.png';
+      }
+      return bgImage;
+    }
+    return 'assets/visacard.png';
+  }
+
+  String _formatExpiry(String expiry) {
+    final cleaned = expiry.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleaned.length == 4) {
+      return '${cleaned.substring(0, 2)}/${cleaned.substring(2, 4)}';
+    }
+    if (expiry.contains('/')) {
+      return expiry;
+    }
+    return expiry.isNotEmpty ? expiry : '--/--';
+  }
 
   String _formatCardNumber(String number) {
     String cleaned = number.replaceAll(RegExp(r'\s+'), '');
@@ -41,6 +83,7 @@ class PremiumVisaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = useBlackLogos ? Colors.black : Colors.white;
+    final resolvedBgImage = resolveCardBgImage(brand: brand, bgImage: bgImage);
 
     final cardContent = AspectRatio(
       aspectRatio: 85.60 / 53.98,
@@ -72,7 +115,7 @@ class PremiumVisaCard extends StatelessWidget {
                 return Stack(
                   children: [
                     Positioned.fill(
-                      child: Image.asset(bgImage, fit: BoxFit.cover),
+                      child: Image.asset(resolvedBgImage, fit: BoxFit.cover),
                     ),
 
                     Padding(
@@ -84,30 +127,14 @@ class PremiumVisaCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (topRightAction != null)
-                                topRightAction!
-                              else
-                                const SizedBox(),
-                              Image.asset(
-                                'assets/WHITE TRANSCORP .png',
-                                height: (cardHeight * 0.09).clamp(10.0, 22.0),
-                                fit: BoxFit.contain,
-                                color: useBlackLogos ? Colors.black : null,
-                              ),
-                            ],
-                          ),
-
+                          if (topRightAction != null) topRightAction!,
                           const Spacer(flex: 2),
 
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Padding(
-                              padding: EdgeInsets.only(left: cardWidth * 0.08),
+                              padding: EdgeInsets.only(left: cardWidth * 0.04),
                               child: Text(
                                 _formatCardNumber(cardNumber),
                                 style: TextStyle(
@@ -126,7 +153,47 @@ class PremiumVisaCard extends StatelessWidget {
                             ),
                           ),
 
-                          const Spacer(),
+                          height12,
+
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: EdgeInsets.only(left: cardWidth * 0.04),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "VALID THRU  ",
+                                    style: TextStyle(
+                                      color: textColor.withValues(alpha: 0.75),
+                                      fontSize: (cardWidth * 0.022).clamp(
+                                        7.0,
+                                        10.0,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatExpiry(expiryDate),
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: (cardWidth * 0.035).clamp(
+                                        10.0,
+                                        15.0,
+                                      ),
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          height12,
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -136,7 +203,7 @@ class PremiumVisaCard extends StatelessWidget {
                                 child: Padding(
                                   padding: EdgeInsets.only(
                                     left: cardWidth * 0.04,
-                                    bottom: cardHeight * 0.01,
+                                    bottom: cardHeight * 0.0,
                                   ),
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
@@ -154,18 +221,6 @@ class PremiumVisaCard extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  right: cardWidth * 0.01,
-                                  bottom: cardHeight * 0.04,
-                                ),
-                                child: Image.asset(
-                                  'assets/VisaFree.png',
-                                  height: (cardHeight * 0.14).clamp(14.0, 28.0),
-                                  fit: BoxFit.contain,
-                                  color: useBlackLogos ? Colors.black : null,
                                 ),
                               ),
                             ],

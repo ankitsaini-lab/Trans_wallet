@@ -5,7 +5,6 @@ import 'package:get_storage/get_storage.dart';
 import 'package:video_player/video_player.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
-import 'package:transwallet/services/deepid_service.dart';
 import 'package:transwallet/services/network_service.dart';
 
 class SplashscreenController extends GetxController {
@@ -24,10 +23,8 @@ class SplashscreenController extends GetxController {
   void onInit() {
     super.onInit();
 
-    // 1. Initialize splash video immediately
     _initSplashVideo();
 
-    // 2. Listen for network reconnection if device starts offline
     if (Get.isRegistered<NetworkService>()) {
       _netWorker = ever<bool>(NetworkService.to.isConnected, (connected) {
         if (connected && !_hasNavigated && isVideoError.value) {
@@ -51,7 +48,7 @@ class SplashscreenController extends GetxController {
       }
 
       controller.setVolume(0.0);
-      controller.setLooping(false); // Play once to match splash sequence timing
+      controller.setLooping(false);
       controller.addListener(_onVideoPlayerUpdate);
 
       await controller.play();
@@ -62,8 +59,8 @@ class SplashscreenController extends GetxController {
         'Duration: ${controller.value.duration.inMilliseconds}ms (${controller.value.size.width.toInt()}x${controller.value.size.height.toInt()})',
       );
 
-      // Maximum safety duration: video length + 350ms buffer
-      final maxWait = controller.value.duration + const Duration(milliseconds: 350);
+      final maxWait =
+          controller.value.duration + const Duration(milliseconds: 350);
       _videoSafetyTimer = Timer(maxWait, () {
         _completeAndNavigate('video_duration_timer');
       });
@@ -71,7 +68,6 @@ class SplashscreenController extends GetxController {
       debugPrint('⚠️ [Splash] Video initialization failed or unsupported: $e');
       isVideoError.value = true;
 
-      // Graceful fallback: Show static branded splash logo for 2000ms then proceed
       _fallbackTimer = Timer(const Duration(milliseconds: 2000), () {
         _completeAndNavigate('video_fallback_timeout');
       });
@@ -85,14 +81,12 @@ class SplashscreenController extends GetxController {
     final position = controller.value.position;
     final duration = controller.value.duration;
 
-    // Detect natural end of playback
     if (duration > Duration.zero &&
         position >= duration - const Duration(milliseconds: 80)) {
       _completeAndNavigate('video_completed_naturally');
     }
   }
 
-  /// Single navigation gate guaranteed to execute exactly once
   void _completeAndNavigate(String triggerReason) {
     if (_hasNavigated || _isDisposed) return;
     _hasNavigated = true;
@@ -115,41 +109,40 @@ class SplashscreenController extends GetxController {
   void _executeNavigation() {
     try {
       final box = GetStorage();
-      final bool isSkipped = box.read('sim_binding_skipped') == true;
+
+      // Check if Activity was killed by Android LMK during camera photo capture
+      final String? pendingCamera = box.read('pending_camera_upload');
+      if (pendingCamera != null &&
+          Get.isRegistered<AuthService>() &&
+          AuthService.to.isLoggedIn) {
+        box.remove('pending_camera_upload');
+        debugPrint(
+          '[Splash] Restoring route to /$pendingCamera after camera activity recreation',
+        );
+        Get.offAllNamed('/dashboard');
+        if (pendingCamera == 'profile_details') {
+          Get.toNamed('/profiledetails');
+        } else if (pendingCamera == 'profile') {
+          Get.toNamed('/profilescreen');
+        }
+        return;
+      }
 
       // 1. Is there an active valid user session?
       if (Get.isRegistered<AuthService>() && AuthService.to.isLoggedIn) {
-        final phone = box.read('phone')?.toString() ??
-            box.read('remembered_phone')?.toString() ??
-            '';
-        final isTrusted = isSkipped ||
-            (Get.isRegistered<DeepIdService>() &&
-                DeepIdService.to.isDeviceTrusted);
-
-        if (!isTrusted && phone.isNotEmpty) {
-          debugPrint('[Splash] Session active but device not trusted -> /sim_binding');
-          Get.offAllNamed(
-            '/sim_binding',
-            arguments: {'phone': phone, 'returnRoute': '/dashboard'},
-          );
-        } else {
-          debugPrint('[Splash] Session active and device trusted -> /dashboard');
-          Get.offAllNamed('/dashboard');
-        }
+        debugPrint('[Splash] Session active -> /dashboard');
+        Get.offAllNamed('/dashboard');
         return;
       }
 
       // 2. Is Biometric Quick Login enabled for a returning user?
       if (Get.isRegistered<BiometricService>() &&
           BiometricService.to.canQuickLogin) {
-        final isTrusted = isSkipped ||
-            (Get.isRegistered<DeepIdService>() &&
-                DeepIdService.to.isDeviceTrusted);
-        if (isTrusted) {
-          debugPrint('[Splash] Biometric quick login available -> /quick_biometric_login');
-          Get.offAllNamed('/quick_biometric_login');
-          return;
-        }
+        debugPrint(
+          '[Splash] Biometric quick login available -> /quick_biometric_login',
+        );
+        Get.offAllNamed('/quick_biometric_login');
+        return;
       }
 
       // 3. Brand new user who has never seen onboarding
@@ -160,22 +153,8 @@ class SplashscreenController extends GetxController {
         return;
       }
 
-      // 4. SIM Binding is MANDATORY before user can login or register (SBI YONO reference)
-      final isSimBound = isSkipped ||
-          (Get.isRegistered<DeepIdService>() &&
-              DeepIdService.to.isDeviceTrusted);
-
-      if (!isSimBound) {
-        debugPrint('[Splash] SIM binding mandatory before login/registration -> /sim_binding');
-        Get.offAllNamed(
-          '/sim_binding',
-          arguments: {'returnRoute': '/login_singupview'},
-        );
-        return;
-      }
-
-      // 5. Default fallback to standard login/signup screen with bound SIM
-      debugPrint('[Splash] Device SIM bound / skipped -> /login_singupview');
+      // 4. Default fallback to standard login/signup screen
+      debugPrint('[Splash] Navigating to /login_singupview');
       Get.offAllNamed('/login_singupview');
     } catch (e) {
       debugPrint('⚠️ [Splash] Navigation error: $e -> Fallback to login');

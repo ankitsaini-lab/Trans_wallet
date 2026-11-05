@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:transwallet/widgets/notification_button.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
@@ -11,10 +10,39 @@ import 'package:transwallet/products/Dashboard%20screen/models/wallet_card_model
 import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/card_popups.dart';
 
-class AllCardsScreen extends StatelessWidget {
+class AllCardsScreen extends StatefulWidget {
   const AllCardsScreen({super.key});
 
+  @override
+  State<AllCardsScreen> createState() => _AllCardsScreenState();
+}
+
+class _AllCardsScreenState extends State<AllCardsScreen> {
+  late final WalletCardController walletController;
+  DateTime? _lastTapTime;
+
+  @override
+  void initState() {
+    super.initState();
+    walletController = Get.isRegistered<WalletCardController>()
+        ? Get.find<WalletCardController>()
+        : Get.put(WalletCardController());
+    walletController.fetchCardsFromApi();
+  }
+
   void _onCardTap(WalletCardModel card) {
+    final now = DateTime.now();
+    if (_lastTapTime != null &&
+        now.difference(_lastTapTime!) < const Duration(milliseconds: 1500)) {
+      return;
+    }
+    _lastTapTime = now;
+
+    if (card.isPermanentlyBlocked) {
+      walletController.showPermanentlyBlockedNotice();
+      return;
+    }
+
     final cardMap = {
       "id": card.id,
       "kitNumber": card.id,
@@ -24,7 +52,8 @@ class AllCardsScreen extends StatelessWidget {
       "bgImage": card.bgImage,
       "useBlackLogos": card.useBlackLogos,
       "isBlocked": card.isBlocked,
-      "status": card.isBlocked ? "LOCKED" : "ALLOCATED",
+      "isPermanentlyBlocked": card.isPermanentlyBlocked,
+      "status": card.status,
       "colors": [card.primaryColor, card.secondaryColor],
       "label": card.type,
       "brand": card.brand,
@@ -33,9 +62,9 @@ class AllCardsScreen extends StatelessWidget {
     Get.bottomSheet(
       MpinVerifySheet(
         onSuccess: () {
-          Get.dialog(
-            CardDetailsPopup(card: cardMap),
-            barrierColor: Colors.transparent,
+          Get.to(
+            () => CardDetailsPopup(card: cardMap),
+            transition: Transition.rightToLeftWithFade,
           );
         },
         title: 'Verify MPIN',
@@ -48,10 +77,6 @@ class AllCardsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final walletController = Get.isRegistered<WalletCardController>()
-        ? Get.find<WalletCardController>()
-        : Get.put(WalletCardController());
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -76,9 +101,7 @@ class AllCardsScreen extends StatelessWidget {
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 18),
-            child: Center(
-              child: NotificationButton(),
-            ),
+            child: Center(child: NotificationButton()),
           ),
         ],
       ),
@@ -97,7 +120,7 @@ class AllCardsScreen extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
           itemCount: cardsList.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 24),
+          separatorBuilder: (context, index) => const SizedBox(height: 24),
           itemBuilder: (context, index) {
             final card = cardsList[index];
             final String fullNumber = card.cardNumber;
@@ -124,7 +147,7 @@ class AllCardsScreen extends StatelessWidget {
                         border: Border.all(color: Colors.black12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 10,
                             offset: const Offset(0, 5),
                           ),
@@ -140,14 +163,19 @@ class AllCardsScreen extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  "${card.type} ···· $last4",
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                Expanded(
+                                  child: Text(
+                                    "${card.type} ···· $last4",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 Row(
                                   children: [
                                     Container(
@@ -156,17 +184,23 @@ class AllCardsScreen extends StatelessWidget {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: card.isBlocked
+                                        color: card.isPermanentlyBlocked
                                             ? const Color(0xFFFFEBEE)
-                                            : const Color(0xFFE8F5E9),
+                                            : (card.isBlocked
+                                                ? const Color(0xFFFFF3E0)
+                                                : const Color(0xFFE8F5E9)),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
-                                        card.isBlocked ? "Blocked" : "Active",
+                                        card.isPermanentlyBlocked
+                                            ? "Blocked"
+                                            : (card.isBlocked ? "Frozen" : "Active"),
                                         style: TextStyle(
-                                          color: card.isBlocked
+                                          color: card.isPermanentlyBlocked
                                               ? const Color(0xFFC62828)
-                                              : const Color(0xFF2E7D32),
+                                              : (card.isBlocked
+                                                  ? const Color(0xFFE65100)
+                                                  : const Color(0xFF2E7D32)),
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -195,9 +229,20 @@ class AllCardsScreen extends StatelessWidget {
                       expiryDate: card.expiry,
                       cvv: "•••",
                       bgImage: card.bgImage,
+                      brand: card.brand,
                       useBlackLogos: card.useBlackLogos,
                       isBlocked: card.isBlocked,
+                      isPermanentlyBlocked: card.isPermanentlyBlocked,
                       shadowColor: Colors.transparent,
+                      onTap: () {
+                        if (card.isPermanentlyBlocked) {
+                          walletController.showPermanentlyBlockedNotice();
+                        } else if (card.isBlocked) {
+                          walletController.promptUnfreezeCard(index);
+                        } else {
+                          _onCardTap(card);
+                        }
+                      },
                     ),
                   ),
                 ],

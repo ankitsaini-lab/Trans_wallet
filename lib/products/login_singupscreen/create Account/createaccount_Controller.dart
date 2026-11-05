@@ -6,6 +6,7 @@ import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_scree
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/widgets/dob_picker.dart';
 import 'package:transwallet/widgets/textfieldwidget.dart';
 
 class CreateaccountController extends GetxController {
@@ -16,7 +17,7 @@ class CreateaccountController extends GetxController {
   var gender = ''.obs;
   var dob = ''.obs;
 
-  var hasCode = true.obs; // The screenshot shows this checked by default
+  var hasCode = true.obs;
 
   var kitNumber = ''.obs;
   var cardNumber = ''.obs;
@@ -40,6 +41,8 @@ class CreateaccountController extends GetxController {
   void onInit() {
     super.onInit();
     final box = GetStorage();
+    box.write('reg_middleName', '');
+    box.write('middleName', '');
     final savedTitle = box.read('reg_title') ?? box.read('title');
     if (savedTitle != null && savedTitle.toString().isNotEmpty) {
       final clean = savedTitle.toString().replaceAll('.', '').trim();
@@ -170,7 +173,7 @@ class CreateaccountController extends GetxController {
                         ),
                       ),
                     ),
-                    // Step 1 Circle
+
                     Positioned(
                       left: 0,
                       child: Container(
@@ -227,7 +230,7 @@ class CreateaccountController extends GetxController {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              height8,
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -288,7 +291,7 @@ class CreateaccountController extends GetxController {
         ? "First Name is required"
         : "";
     middleNameError.value = ""; // Middle Name is optional
-    lastNameError.value = lastName.value.isEmpty ? "Last Name is required" : "";
+    lastNameError.value = ""; // Last Name is optional
 
     emailError.value = email.value.isEmpty
         ? "Email is required"
@@ -317,7 +320,6 @@ class CreateaccountController extends GetxController {
     bool hasError =
         titleError.value.isNotEmpty ||
         firstNameError.value.isNotEmpty ||
-        lastNameError.value.isNotEmpty ||
         emailError.value.isNotEmpty ||
         genderError.value.isNotEmpty ||
         dobError.value.isNotEmpty ||
@@ -338,6 +340,7 @@ class CreateaccountController extends GetxController {
     box.write('title', titleToSave);
     box.write('reg_firstName', firstName.value.trim());
     box.write('reg_middleName', midName.value.trim());
+    box.write('middleName', midName.value.trim());
     box.write('reg_lastName', lastName.value.trim());
     box.write('reg_gender', gender.value.trim());
     box.write('reg_email', email.value.trim());
@@ -377,7 +380,7 @@ class CreateaccountController extends GetxController {
                 size: 16,
                 color: gender.value == label ? Colors.white : Colors.grey,
               ),
-              const SizedBox(width: 6),
+              height6,
               Text(
                 label,
                 style: TextStyle(
@@ -398,7 +401,6 @@ class CreateaccountController extends GetxController {
       key: const ValueKey(1),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title Dropdown
         const Padding(
           padding: EdgeInsets.only(left: 4),
           child: Text(
@@ -410,7 +412,7 @@ class CreateaccountController extends GetxController {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        height8,
         Obx(
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +444,9 @@ class CreateaccountController extends GetxController {
                       Icons.keyboard_arrow_down_rounded,
                       color: Colors.grey.shade400,
                     ),
-                    items: ["Mr", "Ms", "Mrs", "Dr", "Mx"].map((String value) {
+                    items: ["Select", "Mr", "Ms", "Mrs", "Dr", "Mx"].map((
+                      String value,
+                    ) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(
@@ -455,10 +459,20 @@ class CreateaccountController extends GetxController {
                       );
                     }).toList(),
                     onChanged: (val) {
+                      final box = GetStorage();
+
+                      if (val == "Select") {
+                        title.value = "";
+                        titleError.value = "";
+                        box.remove('reg_title');
+                        box.remove('title');
+                        return;
+                      }
+
                       final selected = (val ?? "Mr").replaceAll('.', '').trim();
                       title.value = selected;
                       titleError.value = "";
-                      final box = GetStorage();
+
                       box.write('reg_title', selected);
                       box.write('title', selected);
                     },
@@ -476,9 +490,7 @@ class CreateaccountController extends GetxController {
             ],
           ),
         ),
-
-        const SizedBox(height: 16),
-
+        height16,
         buildTextField(
           label: "First Name",
           hint: "Enter First Name",
@@ -488,8 +500,7 @@ class CreateaccountController extends GetxController {
             if (v.isNotEmpty) firstNameError.value = '';
           },
         ),
-        const SizedBox(height: 16),
-
+        height16,
         buildTextField(
           label: "Middle Name",
           hint: "Enter Middle Name",
@@ -499,10 +510,10 @@ class CreateaccountController extends GetxController {
             if (v.isNotEmpty) middleNameError.value = '';
           },
         ),
-        const SizedBox(height: 16),
+        height16,
 
         buildTextField(
-          label: "Last Name",
+          label: "Last Name (Optional)",
           hint: "Enter Last Name",
           errorText: lastNameError,
           onChanged: (v) {
@@ -510,9 +521,7 @@ class CreateaccountController extends GetxController {
             if (v.isNotEmpty) lastNameError.value = '';
           },
         ),
-        const SizedBox(height: 16),
-
-        // Gender Selector
+        height16,
         const Padding(
           padding: EdgeInsets.only(left: 4),
           child: Text(
@@ -524,7 +533,7 @@ class CreateaccountController extends GetxController {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        height8,
         Obx(
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,7 +565,7 @@ class CreateaccountController extends GetxController {
           ),
         ),
 
-        const SizedBox(height: 16),
+        height16,
 
         buildTextField(
           label: "Email",
@@ -574,9 +583,8 @@ class CreateaccountController extends GetxController {
             FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z0-9@._\-+]")),
           ],
         ),
-        const SizedBox(height: 16),
+        height16,
 
-        // Date of Birth
         const Padding(
           padding: EdgeInsets.only(left: 4),
           child: Text(
@@ -588,28 +596,37 @@ class CreateaccountController extends GetxController {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        height8,
         Obx(
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               GestureDetector(
                 onTap: () async {
-                  final today = DateTime.now();
-                  final maxAdultDate = DateTime(
-                    today.year - 18,
-                    today.month,
-                    today.day,
-                  );
-                  DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: maxAdultDate,
-                    firstDate: DateTime(1700),
-                    lastDate: maxAdultDate,
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  // Parse existing DOB value to pre-populate the picker.
+                  DateTime? initial;
+                  if (dob.value.isNotEmpty) {
+                    final parts = dob.value.split('/');
+                    if (parts.length == 3) {
+                      final d = int.tryParse(parts[0]);
+                      final m = int.tryParse(parts[1]);
+                      final y = int.tryParse(parts[2]);
+                      if (d != null && m != null && y != null) {
+                        initial = DateTime(y, m, d);
+                      }
+                    }
+                  }
+                  final DateTime? picked = await showDobPicker(
+                    context,
+                    initialDate: initial,
                   );
                   if (picked != null) {
-                    dob.value = "${picked.day}/${picked.month}/${picked.year}";
-                    dobError.value = "";
+                    dob.value =
+                        '${picked.day.toString().padLeft(2, '0')}'
+                        '/${picked.month.toString().padLeft(2, '0')}'
+                        '/${picked.year}';
+                    dobError.value = '';
                   }
                 },
                 child: Container(
@@ -658,7 +675,7 @@ class CreateaccountController extends GetxController {
           ),
         ),
 
-        const SizedBox(height: 16),
+        height16,
 
         Obx(
           () => Row(
@@ -689,7 +706,7 @@ class CreateaccountController extends GetxController {
           ),
         ),
 
-        const SizedBox(height: 16),
+        height16,
 
         Obx(
           () => hasCode.value
@@ -706,11 +723,7 @@ class CreateaccountController extends GetxController {
               : const SizedBox.shrink(),
         ),
 
-        Obx(
-          () => hasCode.value
-              ? const SizedBox(height: 16)
-              : const SizedBox.shrink(),
-        ),
+        Obx(() => hasCode.value ? height16 : const SizedBox.shrink()),
 
         Obx(
           () => hasCode.value
@@ -732,7 +745,7 @@ class CreateaccountController extends GetxController {
               : const SizedBox.shrink(),
         ),
 
-        const SizedBox(height: 30),
+        height30,
 
         // Next Step Button
         GestureDetector(
@@ -757,7 +770,7 @@ class CreateaccountController extends GetxController {
           ),
         ),
 
-        const SizedBox(height: 40),
+        height40,
       ],
     );
   }
@@ -786,7 +799,7 @@ class CreateaccountController extends GetxController {
             if (v.isNotEmpty) address1Error.value = '';
           },
         ),
-        const SizedBox(height: 16),
+        height16,
 
         buildTextField(
           label: "Address Line 2 (Optional)",
@@ -797,7 +810,7 @@ class CreateaccountController extends GetxController {
             if (v.isNotEmpty) address2Error.value = '';
           },
         ),
-        const SizedBox(height: 16),
+        height16,
 
         Row(
           children: [
@@ -821,7 +834,7 @@ class CreateaccountController extends GetxController {
                 },
               ),
             ),
-            const SizedBox(width: 16),
+            width16,
             Expanded(
               child: buildTextField(
                 label: "Country",
@@ -847,7 +860,7 @@ class CreateaccountController extends GetxController {
                           color: primaryRed,
                         ),
                       ),
-                      SizedBox(width: 8),
+                      height8,
                       Text(
                         "Fetching location details...",
                         style: TextStyle(fontSize: 12, color: Colors.grey),
@@ -857,7 +870,7 @@ class CreateaccountController extends GetxController {
                 )
               : const SizedBox.shrink(),
         ),
-        const SizedBox(height: 16),
+        height16,
 
         Row(
           children: [
@@ -873,7 +886,7 @@ class CreateaccountController extends GetxController {
                 },
               ),
             ),
-            const SizedBox(width: 16),
+            width16,
             Expanded(
               child: buildTextField(
                 label: "City",
@@ -888,7 +901,7 @@ class CreateaccountController extends GetxController {
             ),
           ],
         ),
-        const SizedBox(height: 40),
+        height40,
 
         // Proceed Button
         GestureDetector(
@@ -923,6 +936,7 @@ class CreateaccountController extends GetxController {
             box.write('title', titleToSave);
             box.write('reg_firstName', firstName.value.trim());
             box.write('reg_middleName', midName.value.trim());
+            box.write('middleName', midName.value.trim());
             box.write('reg_lastName', lastName.value.trim());
             box.write('reg_gender', gender.value.trim());
             box.write('reg_email', email.value.trim());
@@ -968,9 +982,8 @@ class CreateaccountController extends GetxController {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        height16,
 
-        // Go to Previous Step Button
         GestureDetector(
           onTap: previousStep,
           child: Container(

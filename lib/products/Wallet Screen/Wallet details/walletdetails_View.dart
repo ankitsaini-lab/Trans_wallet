@@ -14,7 +14,9 @@ class WalletdetailsView extends GetView<WalletdetailsController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => WalletdetailsController());
+    if (!Get.isRegistered<WalletdetailsController>()) {
+      Get.put(WalletdetailsController());
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,

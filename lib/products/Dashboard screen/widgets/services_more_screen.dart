@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/pressable_scale.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
+import 'package:transwallet/widgets/constsize.dart';
 
 class ServicesMoreScreen extends StatelessWidget {
   const ServicesMoreScreen({super.key});
@@ -113,6 +114,7 @@ class ServicesMoreScreen extends StatelessWidget {
                 const SizedBox(height: 28),
                 Expanded(
                   child: GridView.count(
+                    padding: EdgeInsets.only(bottom: context.responsive(130)),
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,

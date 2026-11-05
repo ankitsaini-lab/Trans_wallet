@@ -13,7 +13,7 @@ class OrdercardController extends GetxController {
       "label": "Gold Elite",
       "textColor": const Color(0xFF111111),
       "subColor": const Color(0xFF4B5563),
-      "bgImage": 'assets/unioncardyellow.png',
+      "bgImage": 'assets/visacard.png',
       "useBlackLogos": false,
       "isPopular": false,
     },

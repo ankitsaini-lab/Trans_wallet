@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
@@ -95,6 +96,15 @@ class AddmoneyController extends GetxController
 
   String formatAmount(String value) {
     if (value.isEmpty) return "0";
+    if (value.contains('.')) {
+      final parts = value.split('.');
+      final intPart = int.tryParse(parts[0]) ?? 0;
+      final formattedInt = intPart.toString().replaceAllMapped(
+        RegExp(r'\B(?=(\d{3})+(?!\d))'),
+        (match) => ",",
+      );
+      return "$formattedInt.${parts.length > 1 ? parts[1] : ''}";
+    }
     final number = int.tryParse(value) ?? 0;
     return number.toString().replaceAllMapped(
       RegExp(r'\B(?=(\d{3})+(?!\d))'),
@@ -109,11 +119,25 @@ class AddmoneyController extends GetxController
           0,
           enteredAmount.value.length - 1,
         );
+        if (enteredAmount.value.isEmpty) {
+          enteredAmount.value = '0';
+        }
+      }
+    } else if (value == '.') {
+      if (enteredAmount.value.contains('.')) return;
+      if (enteredAmount.value.isEmpty || enteredAmount.value == '0') {
+        enteredAmount.value = '0.';
+      } else {
+        enteredAmount.value += '.';
       }
     } else {
       if (enteredAmount.value == '0') {
         enteredAmount.value = value;
-      } else if (enteredAmount.value.length < 7) {
+      } else if (enteredAmount.value.length < 9) {
+        if (enteredAmount.value.contains('.')) {
+          final parts = enteredAmount.value.split('.');
+          if (parts.length > 1 && parts[1].length >= 2) return;
+        }
         enteredAmount.value += value;
       }
     }
@@ -978,20 +1002,22 @@ Thank you for using Transwallet!
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: _detailsExpanded
-                                ? null
-                                : Border.all(color: Colors.grey.shade100),
-                            boxShadow: _detailsExpanded
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.06,
-                                      ),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ]
-                                : null,
+                            border: Border.all(
+                              color: _detailsExpanded
+                                  ? Colors.grey.shade200
+                                  : Colors.grey.shade100,
+                              width: 0.8,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: _detailsExpanded ? 0.045 : 0.025,
+                                ),
+                                blurRadius: _detailsExpanded ? 12 : 8,
+                                spreadRadius: 0,
+                                offset: Offset(0, _detailsExpanded ? 3 : 2),
+                              ),
+                            ],
                           ),
                           child: Theme(
                             data: Theme.of(context).copyWith(
@@ -1361,25 +1387,43 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
     }
   }
 
-  void _verifyMpin() {
+  Future<void> _verifyMpin() async {
     setState(() {
       _isVerifying = true;
+      _hasError = false;
     });
 
-    Timer(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        if (_mpin == "1234" || _mpin == "0000" || _mpin.length == 4) {
-          Get.back();
-          widget.onSuccess();
-        } else {
-          setState(() {
-            _mpin = "";
-            _isVerifying = false;
-            _hasError = true;
-          });
+    MpinVerifyResponse res;
+    if (Get.isRegistered<ApiService>()) {
+      res = await ApiService.to.verifyMpin(_mpin);
+    } else {
+      final box = GetStorage();
+      final savedMpin =
+          box.read<String>('saved_mpin') ?? box.read('mpin')?.toString();
+      final ok = savedMpin != null && savedMpin == _mpin;
+      res = MpinVerifyResponse(
+        isSuccess: ok,
+        message: ok ? 'MPIN verified' : 'Incorrect MPIN. Please try again.',
+      );
+    }
+
+    if (mounted) {
+      if (res.isSuccess) {
+        HapticFeedback.mediumImpact();
+        Get.back();
+        widget.onSuccess();
+      } else {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _mpin = "";
+          _isVerifying = false;
+          _hasError = true;
+        });
+        if (res.message.isNotEmpty) {
+          AppSnackbar.error(res.message);
         }
       }
-    });
+    }
   }
 
   @override

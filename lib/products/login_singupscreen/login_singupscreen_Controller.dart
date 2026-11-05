@@ -1,23 +1,88 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/models/send_otp_model.dart';
+import 'package:transwallet/models/privacy_policy_model.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:transwallet/services/deepid_service.dart';
+import 'package:transwallet/widgets/otp_input_field.dart';
+import 'package:transwallet/services/sms_user_consent_service.dart';
 
 class LoginSingupscreenController extends GetxController {
+  static LoginSingupscreenController get to =>
+      Get.find<LoginSingupscreenController>();
+
   GetStorage get box => GetStorage();
   final phoneFocusNode = FocusNode();
   var isPhoneFocused = false.obs;
+
+  /// Closes only the OTP popup overlay and resets OTP fields without clearing the mobile number
+  void closeOtpPopupOnly() {
+    SmsUserConsentService.stopListening();
+    isOtpSent.value = false;
+    isPressed.value = false;
+    _timer?.cancel();
+    clearOtp();
+    otpError.value = '';
+    seconds.value = 60;
+    canResend.value = false;
+  }
+
+  /// Completely resets OTP popup overlay, input fields, errors, and timers
+  void resetLoginState({bool clearPhone = false}) {
+    closeOtpPopupOnly();
+    phoneError.value = '';
+    mpinError.value = '';
+    mpinController.clear();
+    mpin.value = '';
+    isChecked.value = false;
+    if (clearPhone) {
+      phoneController.clear();
+      phone.value = '';
+    }
+  }
+
+  // Privacy Policy state (persisted in-memory so it only fetches on-demand when user opens sheet)
+  static PrivacyPolicyData? _cachedPrivacyPolicyData;
+  final Rxn<PrivacyPolicyData> privacyPolicyData = Rxn<PrivacyPolicyData>();
+  final RxBool isPrivacyPolicyLoading = false.obs;
+
+  Future<void> fetchPrivacyPolicy({bool force = false}) async {
+    if (!force) {
+      if (privacyPolicyData.value != null) return;
+      if (_cachedPrivacyPolicyData != null) {
+        privacyPolicyData.value = _cachedPrivacyPolicyData;
+        return;
+      }
+    }
+    if (isPrivacyPolicyLoading.value) return;
+    isPrivacyPolicyLoading.value = true;
+    try {
+      final response = await ApiService.to.getPrivacyPolicy(force: force);
+      if (response.isOk && response.body != null) {
+        final policyResp = PrivacyPolicyResponse.fromJson(response.body!);
+        if (policyResp.success && policyResp.data != null) {
+          _cachedPrivacyPolicyData = policyResp.data;
+          privacyPolicyData.value = policyResp.data;
+          log(
+            "[Privacy Policy] Successfully loaded policy from API: ${policyResp.data!.sections.length} sections",
+          );
+        }
+      }
+    } catch (e) {
+      log("[Privacy Policy] Failed to fetch privacy policy: $e");
+    } finally {
+      isPrivacyPolicyLoading.value = false;
+    }
+  }
 
   // Reactive biometric state
   final RxBool isBiometricAvailable = false.obs;
@@ -42,11 +107,35 @@ class LoginSingupscreenController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (_cachedPrivacyPolicyData != null) {
+      privacyPolicyData.value = _cachedPrivacyPolicyData;
+    }
+    closeOtpPopupOnly();
+    // Pre-fill phone if saved and not already set in phoneController
+    if (phoneController.text.isEmpty) {
+      final savedPhone =
+          box.read<String>('remembered_phone') ?? box.read<String>('phone');
+      if (savedPhone != null && savedPhone.isNotEmpty) {
+        final cleanPhone = savedPhone.replaceAll(RegExp(r'\D'), '');
+        final finalPhone = cleanPhone.length > 10
+            ? cleanPhone.substring(cleanPhone.length - 10)
+            : cleanPhone;
+        phoneController.text = finalPhone;
+        phone.value = finalPhone;
+      }
+    }
     phoneFocusNode.addListener(() {
       isPhoneFocused.value = phoneFocusNode.hasFocus;
+      if (!phoneFocusNode.hasFocus && scrollController.hasClients) {
+        if (scrollController.offset > 0) {
+          scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
     });
-
-    _syncSimBindingState();
 
     if (Get.isRegistered<BiometricService>()) {
       BiometricService.to.checkBiometricSupport().then((_) {
@@ -54,46 +143,6 @@ class LoginSingupscreenController extends GetxController {
       });
     }
     updateBiometricState();
-  }
-
-  final RxBool isSimBound = false.obs;
-  final RxString boundMobileNumber = ''.obs;
-
-  void _syncSimBindingState() {
-    final isSkipped = box.read('sim_binding_skipped') == true;
-    final isTrusted = (Get.isRegistered<DeepIdService>() &&
-        DeepIdService.to.isDeviceTrusted) || isSkipped;
-    isSimBound.value = isTrusted;
-
-    if (!isTrusted) {
-      log("[Login] Device SIM is not bound. Redirecting to mandatory SIM binding.");
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Get.offAllNamed(
-          '/sim_binding',
-          arguments: {'returnRoute': '/login_singupview'},
-        );
-      });
-      return;
-    }
-
-    final bound = box.read('deepid_bound_mobile')?.toString() ??
-        box.read('bound_mobile')?.toString() ??
-        box.read('phone')?.toString() ??
-        '';
-
-    if (bound.isNotEmpty) {
-      boundMobileNumber.value = bound;
-      phoneController.text = bound;
-      phone.value = bound;
-    }
-  }
-
-  void rebindSim() {
-    box.remove('sim_binding_skipped');
-    Get.toNamed(
-      '/sim_binding',
-      arguments: {'returnRoute': '/login_singupview'},
-    );
   }
 
   var isBiometricLoading = false.obs;
@@ -108,12 +157,16 @@ class LoginSingupscreenController extends GetxController {
 
     final service = BiometricService.to;
     if (!service.isBiometricAvailable) {
-      AppSnackbar.error("Biometric authentication is not available on this device.");
+      AppSnackbar.error(
+        "Biometric authentication is not available on this device.",
+      );
       return;
     }
 
     if (!service.isBiometricSetup) {
-      AppSnackbar.info("Biometric login is not set up yet. Please log in using MPIN or OTP first.");
+      AppSnackbar.info(
+        "Biometric login is not set up yet. Please log in using MPIN or OTP first.",
+      );
       return;
     }
 
@@ -149,10 +202,10 @@ class LoginSingupscreenController extends GetxController {
   var isPressed = false.obs;
   final phoneController = TextEditingController();
 
-  // Login Method: 'OTP' or 'MPIN'
-  var loginMethod = 'MPIN'.obs;
-  bool get isOtpLogin => loginMethod.value == 'OTP';
-  bool get isMpinLogin => loginMethod.value == 'MPIN';
+  // Login Method: 'OTP' (sole authentication method on login screen)
+  var loginMethod = 'OTP'.obs;
+  bool get isOtpLogin => true;
+  bool get isMpinLogin => false;
 
   void setLoginMethod(String method) {
     loginMethod.value = method;
@@ -205,24 +258,25 @@ class LoginSingupscreenController extends GetxController {
       return;
     }
 
-    if (isOtpLogin) {
-      sendOtp();
-    } else {
-      loginWithMpin();
+    _showPrivacyPolicyDialog();
+  }
+
+  /// Shows the User Data Privacy Policy bottom sheet before sending OTP.
+  /// Only calls [sendOtp] if the user taps "Agree & Continue".
+  void _showPrivacyPolicyDialog() {
+    if (privacyPolicyData.value == null && !isPrivacyPolicyLoading.value) {
+      fetchPrivacyPolicy();
     }
+    Get.bottomSheet(
+      _PrivacyPolicySheet(onAgreed: sendOtp, controller: this),
+      isScrollControlled: true,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      ignoreSafeArea: false,
+    );
   }
 
   Future<void> loginWithMpin() async {
-    final isSkipped = box.read('sim_binding_skipped') == true;
-    if (!isSkipped && Get.isRegistered<DeepIdService>() && !DeepIdService.to.isDeviceTrusted) {
-      AppSnackbar.error("SIM binding is mandatory to log in.");
-      Get.offAllNamed(
-        '/sim_binding',
-        arguments: {'returnRoute': '/login_singupview'},
-      );
-      return;
-    }
-
     final enteredPhone = phoneController.text.trim();
     final enteredMpin = mpinController.text.trim();
 
@@ -277,10 +331,10 @@ class LoginSingupscreenController extends GetxController {
         final body = response.body!;
         final bool isSuccess =
             (body['success'] == true ||
-             body['status'] == true ||
-             body['status'] == 'success' ||
-             body['code'] == 'OK' ||
-             body['code'] == 200) &&
+                body['status'] == true ||
+                body['status'] == 'success' ||
+                body['code'] == 'OK' ||
+                body['code'] == 200) &&
             body['status'] != false &&
             body['success'] != false;
 
@@ -353,15 +407,18 @@ class LoginSingupscreenController extends GetxController {
           box.write('biometric_quick_login_enabled', true);
           box.write('biometric_enabled', true);
           box.write('is_logged_in', true);
+          box.write('pending_app_lock_prompt', true);
+          closeOtpPopupOnly();
 
-          final Map<String, dynamic>? responseData =
-              data is Map ? Map<String, dynamic>.from(data) : null;
-          _navigateAfterSuccessfulAuth(
-            phone: enteredPhone,
-            data: responseData,
-            fallbackSuccessMessage:
-                body['message']?.toString() ?? "Login successful",
+          // Register device token with backend on successful login response
+          if (Get.isRegistered<ApiService>()) {
+            ApiService.to.registerDeviceToken();
+          }
+
+          AppSnackbar.success(
+            body['message']?.toString() ?? "Login successful",
           );
+          Get.offAllNamed('/dashboard');
         } else {
           final errorMsg =
               body['message']?.toString() ??
@@ -425,16 +482,6 @@ class LoginSingupscreenController extends GetxController {
   }
 
   Future<void> _sendOtp() async {
-    final isSkipped = box.read('sim_binding_skipped') == true;
-    if (!isSkipped && Get.isRegistered<DeepIdService>() && !DeepIdService.to.isDeviceTrusted) {
-      AppSnackbar.error("SIM binding is mandatory to request OTP.");
-      Get.offAllNamed(
-        '/sim_binding',
-        arguments: {'returnRoute': '/login_singupview'},
-      );
-      return;
-    }
-
     final phone = phoneController.text.trim();
 
     if (phone.isEmpty) {
@@ -454,6 +501,9 @@ class LoginSingupscreenController extends GetxController {
       return;
     }
 
+    // Start listening for SMS User Consent BEFORE calling the OTP-send API
+    _listenForSmsConsent();
+
     // Show loading indicator
     Get.dialog(
       const Center(child: CircularProgressIndicator(color: primaryRed)),
@@ -466,7 +516,7 @@ class LoginSingupscreenController extends GetxController {
         mobileNumber: phone,
       );
       log("check response>> $requestModel");
-      final response = await ApiService.to.postRequest<Map<String, dynamic>>(
+      final response = await ApiService.to.postRequest<dynamic>(
         '/api/v1/auth/otp/send',
         requestModel.toJson(),
       );
@@ -476,7 +526,12 @@ class LoginSingupscreenController extends GetxController {
       }
 
       if (response.status.isOk && response.body != null) {
-        final otpResponse = SendOtpResponse.fromJson(response.body!);
+        final Map<String, dynamic>? body = _parseBody(response.body);
+        if (body == null) {
+          AppSnackbar.error("Unexpected server response. Please try again.");
+          return;
+        }
+        final otpResponse = SendOtpResponse.fromJson(body);
         if (otpResponse.success && otpResponse.data != null) {
           final providerRef = otpResponse.data!.providerRef;
           final flow = otpResponse.data!.flow;
@@ -491,18 +546,17 @@ class LoginSingupscreenController extends GetxController {
           startTimer();
           AppSnackbar.success("OTP has been sent successfully");
         } else {
+          SmsUserConsentService.stopListening();
           final errorMsg = otpResponse.exception ?? "Failed to send OTP";
           AppSnackbar.error(errorMsg);
         }
       } else {
+        SmsUserConsentService.stopListening();
+        final Map<String, dynamic>? errBody = _parseBody(response.body);
         final String errorMsg =
-            (response.body != null &&
-                (response.body!['message'] != null ||
-                    response.body!['error'] != null))
-            ? (response.body!['message']?.toString() ??
-                  response.body!['error']?.toString() ??
-                  "Server error. Please try again after some time.")
-            : "Server error. Please try again after some time.";
+            errBody?['message']?.toString() ??
+            errBody?['error']?.toString() ??
+            "Server error. Please try again after some time.";
         phoneError.value = errorMsg;
         AppSnackbar.error(errorMsg);
       }
@@ -511,13 +565,31 @@ class LoginSingupscreenController extends GetxController {
         Get.back();
       }
       log("[Send OTP] Error: $e");
+      SmsUserConsentService.stopListening();
       const errorMsg = "Server error. Please try again after some time.";
       phoneError.value = errorMsg;
       AppSnackbar.error(errorMsg);
     }
   }
 
+  bool _isVerifyingOtp = false;
+
+  void _listenForSmsConsent() {
+    SmsUserConsentService.listenForOtp().then((code) {
+      if (code != null && code.length == 6) {
+        if (isOtpSent.value && !_isVerifyingOtp) {
+          log(
+            "[SMS Autofill] Received 6-digit OTP from SMS User Consent: $code",
+          );
+          _otpController.text = code;
+        }
+      }
+    });
+  }
+
   Future<void> _verifyOtp() async {
+    if (_isVerifyingOtp) return;
+
     if (!isChecked.value) {
       AppSnackbar.error("Please accept the Terms & Conditions to proceed");
       return;
@@ -529,6 +601,9 @@ class LoginSingupscreenController extends GetxController {
       return;
     }
     otpError.value = '';
+
+    _isVerifyingOtp = true;
+    SmsUserConsentService.stopListening();
 
     final enteredPhone = phoneController.text.trim();
 
@@ -554,7 +629,7 @@ class LoginSingupscreenController extends GetxController {
 
       log("Verifying OTP with body: ${requestModel.toJson()}");
 
-      final response = await ApiService.to.postRequest<Map<String, dynamic>>(
+      final response = await ApiService.to.postRequest<dynamic>(
         '/api/v1/auth/otp/verify',
         requestModel.toJson(),
       );
@@ -564,13 +639,19 @@ class LoginSingupscreenController extends GetxController {
       }
 
       if (response.status.isOk && response.body != null) {
-        final verifyResponse = VerifyOtpResponse.fromJson(response.body!);
+        final Map<String, dynamic>? parsedBody = _parseBody(response.body);
+        if (parsedBody == null) {
+          otpError.value = "Unexpected server response. Please try again.";
+          AppSnackbar.error(otpError.value);
+          return;
+        }
+        final verifyResponse = VerifyOtpResponse.fromJson(parsedBody);
         if (verifyResponse.success) {
           log("OTP Verified successfully: ${verifyResponse.data}");
           otpError.value = '';
 
           final data = verifyResponse.data;
-          final responseBody = response.body!;
+          final responseBody = parsedBody;
 
           // Determine the flow: LOGIN vs REGISTER
           // Check response data/body first, then fallback to stored otpFlow from send OTP
@@ -670,6 +751,8 @@ class LoginSingupscreenController extends GetxController {
 
             box.write('otpFlow', 'LOGIN');
             box.write('is_logged_in', true);
+            box.write('has_mpin', true);
+            box.write('mpin_set', true);
             box.write('phone', enteredPhone);
 
             if (Get.isRegistered<AuthService>()) {
@@ -687,14 +770,17 @@ class LoginSingupscreenController extends GetxController {
               );
             }
 
-            final Map<String, dynamic>? responseData =
-                data != null ? Map<String, dynamic>.from(data) : null;
-            _navigateAfterSuccessfulAuth(
-              phone: enteredPhone,
-              data: responseData,
-              fallbackSuccessMessage:
-                  verifyResponse.message ?? "Login successful",
-            );
+            box.write('is_logged_in', true);
+            box.write('pending_app_lock_prompt', true);
+            closeOtpPopupOnly();
+
+            // Register device token with backend on successful login response
+            if (Get.isRegistered<ApiService>()) {
+              ApiService.to.registerDeviceToken();
+            }
+
+            AppSnackbar.success(verifyResponse.message ?? "Login successful");
+            Get.offAllNamed('/dashboard');
           } else {
             log(
               "[OTP Verify] Flow is REGISTER -> Saving registrationToken and redirecting to /createaccountview",
@@ -712,10 +798,14 @@ class LoginSingupscreenController extends GetxController {
               }
             }
 
+            closeOtpPopupOnly();
+
             AppSnackbar.success(
               verifyResponse.message ?? "OTP verified successfully",
             );
-            Get.toNamed('/createaccountview');
+            Get.toNamed('/createaccountview')?.then((_) {
+              closeOtpPopupOnly();
+            });
           }
         } else {
           final errorMsg = verifyResponse.message ?? "OTP verification failed";
@@ -723,14 +813,11 @@ class LoginSingupscreenController extends GetxController {
           AppSnackbar.error(errorMsg);
         }
       } else {
+        final Map<String, dynamic>? errBody = _parseBody(response.body);
         final String errorMsg =
-            (response.body != null &&
-                (response.body!['message'] != null ||
-                    response.body!['error'] != null))
-            ? (response.body!['message']?.toString() ??
-                  response.body!['error']?.toString() ??
-                  "Server error. Please try again after some time.")
-            : "Server error. Please try again after some time.";
+            errBody?['message']?.toString() ??
+            errBody?['error']?.toString() ??
+            "Server error. Please try again after some time.";
         otpError.value = errorMsg;
         AppSnackbar.error(errorMsg);
       }
@@ -742,43 +829,8 @@ class LoginSingupscreenController extends GetxController {
       const errorMsg = "Server error. Please try again after some time.";
       otpError.value = errorMsg;
       AppSnackbar.error(errorMsg);
-    }
-  }
-
-  void _navigateAfterSuccessfulAuth({
-    required String phone,
-    required Map<String, dynamic>? data,
-    required String fallbackSuccessMessage,
-  }) {
-    AppSnackbar.success(fallbackSuccessMessage);
-
-    final bool isSkipped = box.read('sim_binding_skipped') == true;
-
-    // Determine if backend requires SIM binding or if device needs verification
-    final bool backendRequiresBinding = !isSkipped &&
-        (data?['simBindingRequired'] == true ||
-            data?['isSimBindingRequired'] == true ||
-            data?['deviceTrusted'] == false ||
-            data?['simBindingStatus'] == 'required');
-
-    final bool isTrusted = isSkipped ||
-        (Get.isRegistered<DeepIdService>() &&
-            DeepIdService.to.isDeviceTrusted &&
-            !backendRequiresBinding);
-
-    if (backendRequiresBinding || !isTrusted) {
-      log(
-        "[Auth Navigation] SIM binding required for $phone -> Navigating to /sim_binding",
-      );
-      Get.offAllNamed(
-        '/sim_binding',
-        arguments: {'phone': phone, 'returnRoute': '/dashboard'},
-      );
-    } else {
-      log(
-        "[Auth Navigation] Device is trusted / skipped -> Navigating to /dashboard",
-      );
-      Get.offAllNamed('/dashboard');
+    } finally {
+      _isVerifyingOtp = false;
     }
   }
 
@@ -807,21 +859,41 @@ class LoginSingupscreenController extends GetxController {
   }
 
   void changeNumber() {
-    isOtpSent.value = false;
-    _timer?.cancel();
-    clearOtp();
+    closeOtpPopupOnly();
   }
 
   void clearOtp() {
     otp.value = '';
     otpError.value = '';
-    for (var c in otpControllers) {
-      c.clear();
+    _otpController.clear();
+  }
+
+  /// Safely coerces a GetConnect response body to `Map<String, dynamic>`.
+  ///
+  /// GetConnect sometimes returns the body as a raw [String] instead of a
+  /// decoded [Map] — particularly when the server sends `Content-Type: text/plain`
+  /// or when the response decoder isn't triggered. This helper handles all cases:
+  ///   - Already a Map  → returned as-is
+  ///   - A JSON String  → decoded via jsonDecode
+  ///   - Anything else  → returns null (caller shows a generic error)
+  Map<String, dynamic>? _parseBody(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    if (raw is String) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return null;
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
     }
+    return null;
   }
 
   @override
   void onClose() {
+    SmsUserConsentService.stopListening();
     _mpinVisibilityTimer?.cancel();
     _timer?.cancel();
     phoneFocusNode.dispose();
@@ -829,147 +901,443 @@ class LoginSingupscreenController extends GetxController {
     mpinController.dispose();
     mpinFocusNode.dispose();
     scrollController.dispose();
+    _otpController.dispose();
+    _otpFocusNode.dispose();
     super.onClose();
   }
 
-  final List<TextEditingController> otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
+  // Single controller + focus node backing the OtpInputField widget
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
 
-  final List<FocusNode> otpFocusNodes = List.generate(6, (_) => FocusNode());
-
+  /// Builds the OTP input field. [onCompleted] is called when all 6 digits
+  /// are filled — either by manual typing or OS SMS autofill.
   Widget otpField({required Function(String otp) onCompleted}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(6, (index) {
-        return Expanded(
-          child: Container(
-            height: 40,
-
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: PremiumOtpCell(
-                controller: otpControllers[index],
-                focusNode: otpFocusNodes[index],
-                index: index,
-                onChanged: (value) {
-                  otpError.value = '';
-                  otp.value = otpControllers.map((e) => e.text).join();
-
-                  if (value.isNotEmpty) {
-                    if (index < 5) {
-                      FocusScope.of(
-                        Get.context!,
-                      ).requestFocus(otpFocusNodes[index + 1]);
-                    } else {
-                      FocusScope.of(Get.context!).unfocus();
-                      onCompleted(otp.value);
-                    }
-                  } else {
-                    if (index > 0) {
-                      FocusScope.of(
-                        Get.context!,
-                      ).requestFocus(otpFocusNodes[index - 1]);
-                    }
-                  }
-                },
-              ),
-            ),
-          ),
-        );
-      }),
+    return OtpInputField(
+      controller: _otpController,
+      focusNode: _otpFocusNode,
+      boxHeight: 40,
+      onChanged: (val) {
+        otpError.value = '';
+        otp.value = val;
+      },
+      onCompleted: (val) {
+        otp.value = val;
+        onCompleted(val);
+      },
     );
   }
 }
 
-class PremiumOtpCell extends StatefulWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final int index;
-  final Function(String) onChanged;
+// ─────────────────────────────────────────────────────────────────────────────
+// Privacy Policy Bottom Sheet
+// Shown before the OTP is sent. User must tap "Agree & Continue" to proceed.
+// "Decline" closes the sheet without doing anything.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const PremiumOtpCell({
-    super.key,
-    required this.controller,
-    required this.focusNode,
-    required this.index,
-    required this.onChanged,
-  });
+// Stateful because it owns the consent checkbox in the consent section.
+class _PrivacyPolicySheet extends StatefulWidget {
+  final VoidCallback onAgreed;
+  final LoginSingupscreenController? controller;
+  const _PrivacyPolicySheet({required this.onAgreed, this.controller});
 
   @override
-  State<PremiumOtpCell> createState() => _PremiumOtpCellState();
+  State<_PrivacyPolicySheet> createState() => _PrivacyPolicySheetState();
 }
 
-class _PremiumOtpCellState extends State<PremiumOtpCell> {
-  bool _isFocused = false;
+class _PrivacyPolicySheetState extends State<_PrivacyPolicySheet> {
+  bool _consentChecked = false;
 
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_onFocusChange);
-  }
-
-  @override
-  void dispose() {
-    widget.focusNode.removeListener(_onFocusChange);
-    super.dispose();
-  }
-
-  void _onFocusChange() {
-    setState(() {
-      _isFocused = widget.focusNode.hasFocus;
-    });
-  }
+  LoginSingupscreenController get _controller =>
+      widget.controller ?? Get.find<LoginSingupscreenController>();
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: _isFocused ? 1.06 : 1.0,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutBack,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _isFocused ? primaryRed : const Color(0xFFE5E7EB),
-            width: _isFocused ? 2.0 : 1.5,
-          ),
+    final screenHeight = MediaQuery.of(context).size.height;
+    final agreeEnabled = _consentChecked;
+
+    return SafeArea(
+      child: Container(
+        height: screenHeight * 0.88,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Center(
-          child: TextField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            maxLength: 1,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Color.fromARGB(255, 17, 17, 17),
-              letterSpacing: 0,
+        child: Column(
+          children: [
+            // ── Drag handle ──────────────────────────────────────────────────
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            showCursor: false,
-            decoration: const InputDecoration(
-              counterText: "",
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
+            const SizedBox(height: 20),
+
+            // ── Header ───────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: primaryLightYellow,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.privacy_tip_rounded,
+                      color: primaryRed,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Obx(
+                      () => Text(
+                        _controller.privacyPolicyData.value?.title ??
+                            'User Data Privacy Policy',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111111),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onChanged: (val) {
-              setState(() {});
-              widget.onChanged(val);
-            },
-          ),
+
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+
+            // ── Scrollable policy content ────────────────────────────────────
+            Expanded(
+              child: Obx(() {
+                if (_controller.isPrivacyPolicyLoading.value &&
+                    _controller.privacyPolicyData.value == null) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                final policyData = _controller.privacyPolicyData.value;
+                if (policyData == null || policyData.sections.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 40,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No policy data available',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () =>
+                                _controller.fetchPrivacyPolicy(force: true),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final sections = policyData.sections;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...sections.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final section = entry.value;
+                        final isConsent =
+                            section.heading.trim().toLowerCase() == 'consent' ||
+                            (index == sections.length - 1 &&
+                                section.heading.toLowerCase().contains(
+                                  'consent',
+                                ));
+
+                        if (isConsent) {
+                          final consentText = section.paragraphs.join('\n\n');
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _PolicySection(
+                              number: '${index + 1}',
+                              title: section.heading,
+                              customBody: GestureDetector(
+                                onTap: () => setState(
+                                  () => _consentChecked = !_consentChecked,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: _consentChecked
+                                        ? const Color(0xFFF8F8F8)
+                                        : const Color(0xFFF8F8F8),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: _consentChecked
+                                          ? const Color(0xFFE7E7E7)
+                                          : const Color(0xFFE7E7E7),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Checkbox
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        margin: const EdgeInsets.only(top: 1),
+                                        decoration: BoxDecoration(
+                                          color: _consentChecked
+                                              ? primaryRed
+                                              : Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          border: Border.all(
+                                            color: _consentChecked
+                                                ? primaryRed
+                                                : const Color(0xFF9CA3AF),
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: _consentChecked
+                                            ? const Icon(
+                                                Icons.check,
+                                                size: 13,
+                                                color: Colors.white,
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // Consent text
+                                      Expanded(
+                                        child: Text(
+                                          consentText,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            height: 1.6,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: _PolicySection(
+                            number: '${index + 1}',
+                            title: section.heading,
+                            paragraphs: section.paragraphs,
+                            bullets: section.bullets,
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                );
+              }),
+            ),
+
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+
+            // ── Action buttons ───────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: Row(
+                children: [
+                  // Decline
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Get.back(),
+                      child: Container(
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: const Color(0xFFFCA5A5),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Decline',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFEF4444),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Agree & Continue — active only when consent checkbox is ticked
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: agreeEnabled
+                          ? () {
+                              Get.back();
+                              widget.onAgreed();
+                            }
+                          : null,
+                      child: AnimatedContainer(
+                        height: 50,
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: agreeEnabled
+                              ? Colors.black
+                              : const Color(0xFFD1D5DB),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Agree & Continue',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: agreeEnabled
+                                  ? Colors.white
+                                  : const Color(0xFF9CA3AF),
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+/// Renders a single numbered policy section.
+/// If [customBody] is provided it is rendered instead of the plain [body] or [paragraphs]/[bullets].
+class _PolicySection extends StatelessWidget {
+  final String number;
+  final String title;
+  final List<String>? paragraphs;
+  final List<String>? bullets;
+  final Widget? customBody;
+
+  const _PolicySection({
+    required this.number,
+    required this.title,
+    this.paragraphs,
+    this.bullets,
+    this.customBody,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$number. $title',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF111111),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (customBody != null)
+          customBody!
+        else ...[
+          if (paragraphs != null && paragraphs!.isNotEmpty)
+            ...paragraphs!.map(
+              (p) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  p,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.65,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+            ),
+          if (bullets != null && bullets!.isNotEmpty)
+            ...bullets!.map(
+              (b) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '• ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4B5563),
+                        height: 1.65,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        b,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.65,
+                          color: Color(0xFF4B5563),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ],
     );
   }
 }

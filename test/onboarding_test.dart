@@ -96,4 +96,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Welcome'), findsOneWidget);
   });
+
+  testWidgets('OnboardingscreenView does not overlap text on Android 3-button nav devices', (tester) async {
+    // Typical Android phone with 3-button navigation bar (1080 x 2400, 48dp bottom bar)
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.75;
+    tester.view.padding = const FakeViewPadding(bottom: 132); // 48dp * 2.75 ~ 132 physical px
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        initialRoute: '/onboarding',
+        getPages: [
+          GetPage(name: '/onboarding', page: () => const OnboardingscreenView()),
+          GetPage(name: '/login_singupview', page: () => const LoginSingupscreenView()),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Title and Subtitle exist
+    expect(find.text('All Your Finances In One Wallet'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_forward_rounded), findsOneWidget);
+
+    // Verify text is strictly ABOVE the Next button
+    final textFinder = find.text('Send money, add funds, pay utility bills, and manage your prepaid cards in one secure place.');
+    final textBottom = tester.getBottomLeft(textFinder).dy;
+    final nextButtonTop = tester.getTopLeft(find.byIcon(Icons.arrow_forward_rounded)).dy;
+
+    expect(textBottom < nextButtonTop, isTrue,
+        reason: 'Text bottom ($textBottom) must be higher up than next button top ($nextButtonTop)');
+  });
+
+  testWidgets('OnboardingscreenView renders without overflow on compact 360x640 screens', (tester) async {
+    tester.view.physicalSize = const Size(720, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    tester.view.padding = const FakeViewPadding(bottom: 96); // 48dp bottom nav bar
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        initialRoute: '/onboarding',
+        getPages: [
+          GetPage(name: '/onboarding', page: () => const OnboardingscreenView()),
+          GetPage(name: '/login_singupview', page: () => const LoginSingupscreenView()),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('All Your Finances In One Wallet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

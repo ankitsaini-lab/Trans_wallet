@@ -5,8 +5,6 @@ import 'package:transwallet/widgets/notification_button.dart';
 import 'package:get/get.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:transwallet/products/Manage%20Card/managecard_Controller.dart';
-import 'package:transwallet/products/Notification%20screen/notification_View.dart';
-import 'package:transwallet/products/Contact%20Support%20screen/contact_Support_screen_View.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 
@@ -15,7 +13,9 @@ class ManagecardView extends GetView<ManagecardController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => ManagecardController());
+    if (!Get.isRegistered<ManagecardController>()) {
+      Get.put(ManagecardController());
+    }
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -29,7 +29,7 @@ class ManagecardView extends GetView<ManagecardController> {
         leading: const AppBarBackButton(),
         title: const Text(
           "Card Details",
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w500,
             fontSize: 20,
@@ -44,7 +44,6 @@ class ManagecardView extends GetView<ManagecardController> {
         ],
       ),
       body: SafeArea(
-        bottom: false,
         child: Container(
           decoration: const BoxDecoration(color: Colors.white),
           child: ListView(
@@ -52,19 +51,18 @@ class ManagecardView extends GetView<ManagecardController> {
             children: [
               controller.cardPreview(),
               const SizedBox(height: 24),
-              GetBuilder<ManagecardController>(
-                builder: (controller) {
-                  if (controller.isCardPermanentlyBlocked.value) {
-                    return Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.red.withOpacity(0.3),
-                          width: 1.5,
-                        ),
+              Obx(() {
+                if (controller.isCardPermanentlyBlocked.value) {
+                  return Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.3),
+                        width: 1.5,
                       ),
+                    ),
                       child: Column(
                         children: [
                           const Icon(
@@ -94,7 +92,7 @@ class ManagecardView extends GetView<ManagecardController> {
                           const SizedBox(height: 24),
                           CustomButton(
                             text: "Contact Support",
-                            textsize: 16,
+                            textsize: context.responsive(14),
                             btncolor: Colors.red,
                             textColor: Colors.white,
                             height: 50,
@@ -116,9 +114,9 @@ class ManagecardView extends GetView<ManagecardController> {
                           children: [
                             Expanded(
                               child: actionButton(
-                                icon: controller.isCardBlocked.value
-                                    ? Icons.credit_card
-                                    : Icons.credit_card_off_outlined,
+                                image: controller.isCardBlocked.value
+                                    ? "assets/freezecard.svg"
+                                    : "assets/unfreezedcard.svg",
                                 label: controller.isCardBlocked.value
                                     ? "Unfreeze"
                                     : "Freeze card",
@@ -128,7 +126,7 @@ class ManagecardView extends GetView<ManagecardController> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: actionButton(
-                                icon: Icons.password_rounded,
+                                image: "assets/resetpin.svg",
                                 label: "Reset PIN",
                                 onTap: controller.showResetPinDialog,
                               ),
@@ -169,31 +167,31 @@ class ManagecardView extends GetView<ManagecardController> {
                                     featureTile(
                                       "ATM",
                                       controller.atm,
-                                      Icons.credit_card,
+                                      "assets/ordernewcard.svg",
                                       true,
                                       maxLimit: 10000,
                                     ),
                                     featureTile(
                                       "POS",
                                       controller.pos,
-                                      Icons.point_of_sale,
+                                      "assets/pos.svg",
                                       true,
                                       maxLimit: 200000,
                                     ),
                                     featureTile(
                                       "ECOM",
                                       controller.ecom,
-                                      Icons.storefront_outlined,
+                                      "assets/ecom.svg",
                                       true,
                                       maxLimit: 200000,
                                     ),
                                     featureTile(
                                       "Contactless",
                                       controller.contactless,
-                                      Icons.contactless_outlined,
+                                      "assets/contactless.svg",
                                       true,
                                       maxLimit: 200000,
-                                      // isLast: true,
+                                      isLast: true,
                                     ),
                                   ],
                                 ),
@@ -219,8 +217,7 @@ class ManagecardView extends GetView<ManagecardController> {
                       ),
                     ],
                   );
-                },
-              ),
+                }),
             ],
           ),
         ),
@@ -229,9 +226,10 @@ class ManagecardView extends GetView<ManagecardController> {
   }
 
   Widget actionButton({
-    required IconData icon,
+    IconData? icon,
     required String label,
     required VoidCallback onTap,
+    String? image,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -252,7 +250,9 @@ class ManagecardView extends GetView<ManagecardController> {
                 color: lightprimaryred,
                 border: Border.all(color: primaryYellow, width: 1.5),
               ),
-              child: Icon(icon, color: Colors.black, size: 18),
+              child: image != null
+                  ? SvgPicture.asset(image, height: 18)
+                  : Icon(icon, color: Colors.black, size: 18),
             ),
             const SizedBox(height: 10),
             Text(

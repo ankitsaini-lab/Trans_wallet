@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "com.trans.wallet"
-        minSdk = 29 // Required by DeepID Protect SDK
+        minSdk = flutter.minSdkVersion
         targetSdk = 36
 
         versionCode = flutter.versionCode
@@ -47,7 +47,7 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
 }
 
 flutter {

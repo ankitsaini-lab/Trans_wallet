@@ -1,48 +1,286 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 class SendmoneyController extends GetxController {
+  static const String recentRecipientsKey = 'recent_w2w_recipients';
+
   var searchQuery = ''.obs;
+  var contactSearchQuery = ''.obs;
   var mobileNumber = ''.obs;
   var isP2PTransfer = true.obs;
   var isLoading = false.obs;
   var checkingPhone = ''.obs;
+  var isLoadingContacts = false.obs;
+  var hasContactPermission = true.obs;
 
   final searchController = TextEditingController();
+  final contactSearchController = TextEditingController();
   final mobileController = TextEditingController();
 
-  final List<Map<String, String>> phonebookContacts = [
-    {"name": "Rahul Sharma", "phone": "9876543210", "avatar": "RS"},
-    {"name": "Priya Verma", "phone": "9812345678", "avatar": "PV"},
-    {"name": "Amit Kumar", "phone": "9765432109", "avatar": "AK"},
-    {"name": "Sneha Gupta", "phone": "9654321098", "avatar": "SG"},
-    {"name": "Vikram Singh", "phone": "9543210987", "avatar": "VS"},
-    {"name": "Neha Kapoor", "phone": "9432109876", "avatar": "NK"},
-    {"name": "Siddharth Malhotra", "phone": "9321098765", "avatar": "SM"},
-  ];
+  // Dynamic device contacts and recent recipients
+  final RxList<Map<String, String>> phoneContacts = <Map<String, String>>[].obs;
+  final RxList<Map<String, String>> recentRecipients =
+      <Map<String, String>>[].obs;
 
-  final List<Map<String, String>> recentRecipients = [
-    {"name": "Ankit Saini", "phone": "+91 9327856473", "avatar": "AS"},
-    {"name": "Olivia Taylor", "phone": "+91 9327856474", "avatar": "OT"},
-    {"name": "Elaine Covington", "phone": "+91 9327856475", "avatar": "EC"},
-    {"name": "Robert Cooper", "phone": "+91 9327856476", "avatar": "RC"},
-    {"name": "Austin Cannon", "phone": "+91 9327856477", "avatar": "AC"},
-    {"name": "Nadia Page", "phone": "+91 9327856478", "avatar": "NP"},
-    {"name": "Maria Charles", "phone": "+91 9327856479", "avatar": "MC"},
-  ];
+  @override
+  void onInit() {
+    super.onInit();
+    loadRecentRecipients();
+    fetchPhoneContacts();
+  }
 
+  /// Clean phone number to 10 digits
+  static String cleanPhoneNumber(String raw) {
+    String digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 10) {
+      return digits.substring(digits.length - 10);
+    }
+    return digits;
+  }
+
+  /// Extract initials for contact avatar
+  static String getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'C';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+      final first = parts[0][0];
+      final second = parts[1][0];
+      return '$first$second'.toUpperCase();
+    }
+    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  /// Load persisted recent recipients from GetStorage
+  void loadRecentRecipients() {
+    try {
+      final raw = box.read(recentRecipientsKey);
+      if (raw != null && raw is List) {
+        final list = raw
+            .map((e) => Map<String, String>.from(e as Map))
+            .toList();
+        recentRecipients.assignAll(list);
+      } else {
+        recentRecipients.clear();
+      }
+    } catch (e) {
+      developer.log('Error loading recent recipients: $e');
+      recentRecipients.clear();
+    }
+  }
+
+  /// Save recipient to recent recipients in GetStorage
+  void saveRecentRecipient(Map<String, String> user) {
+    try {
+      final raw = box.read(recentRecipientsKey);
+      List<Map<String, String>> list = [];
+      if (raw != null && raw is List) {
+        list = raw.map((e) => Map<String, String>.from(e as Map)).toList();
+      }
+      final cleaned = cleanPhoneNumber(user['phone'] ?? '');
+      list.removeWhere(
+        (item) => cleanPhoneNumber(item['phone'] ?? '') == cleaned,
+      );
+      list.insert(0, Map<String, String>.from(user));
+      if (list.length > 20) {
+        list = list.sublist(0, 20);
+      }
+      box.write(recentRecipientsKey, list);
+      recentRecipients.assignAll(list);
+    } catch (e) {
+      developer.log('Error saving recent recipient: $e');
+    }
+  }
+
+  /// Delete a single recipient from recent list
+  void removeRecentRecipient(String phone) {
+    try {
+      final cleaned = cleanPhoneNumber(phone);
+      recentRecipients.removeWhere(
+        (item) => cleanPhoneNumber(item['phone'] ?? '') == cleaned,
+      );
+      box.write(recentRecipientsKey, recentRecipients.toList());
+    } catch (e) {
+      developer.log('Error removing recent recipient: $e');
+    }
+  }
+
+  /// Clear all recent recipients
+  void clearRecentRecipients() {
+    try {
+      box.remove(recentRecipientsKey);
+      recentRecipients.clear();
+    } catch (e) {
+      developer.log('Error clearing recent recipients: $e');
+    }
+  }
+
+  /// Fetch phone contacts from device
+  Future<void> fetchPhoneContacts({bool forceRefresh = false}) async {
+    if (phoneContacts.isNotEmpty && !forceRefresh) return;
+
+    try {
+      isLoadingContacts.value = true;
+
+      // Check / request permission using flutter_contacts 2.x
+      final status = await FlutterContacts.permissions.request(
+        PermissionType.read,
+      );
+      if (status != PermissionStatus.granted) {
+        hasContactPermission.value = false;
+        isLoadingContacts.value = false;
+        return;
+      }
+
+      hasContactPermission.value = true;
+      final contacts = await FlutterContacts.getAll(
+        properties: {ContactProperty.phone},
+      );
+
+      final Set<String> seenNumbers = {};
+      final List<Map<String, String>> loaded = [];
+
+      for (final contact in contacts) {
+        final name = (contact.displayName ?? '').trim();
+        for (final phone in contact.phones) {
+          final raw = phone.number.trim();
+          final cleaned = cleanPhoneNumber(raw);
+          if (cleaned.length < 10) continue; // skip non-phone/short numbers
+
+          if (seenNumbers.contains(cleaned)) continue;
+          seenNumbers.add(cleaned);
+
+          final displayName = name.isNotEmpty ? name : "Contact $cleaned";
+          loaded.add({
+            "name": displayName,
+            "phone": "+91 $cleaned",
+            "rawPhone": cleaned,
+            "avatar": getInitials(displayName),
+          });
+        }
+      }
+
+      // Sort contacts alphabetically
+      loaded.sort(
+        (a, b) => (a['name'] ?? '').toLowerCase().compareTo(
+          (b['name'] ?? '').toLowerCase(),
+        ),
+      );
+
+      phoneContacts.assignAll(loaded);
+    } catch (e) {
+      developer.log("Error loading device contacts: $e");
+    } finally {
+      isLoadingContacts.value = false;
+    }
+  }
+
+  /// Open native system contact picker directly
+  Future<void> pickFromNativeContacts() async {
+    try {
+      final contact = await FlutterContacts.native.showPicker(
+        properties: {ContactProperty.phone},
+      );
+      if (contact != null) {
+        String? selectedPhone;
+        if (contact.phones.isNotEmpty) {
+          selectedPhone = contact.phones.first.number;
+        } else if (contact.id != null) {
+          final full = await FlutterContacts.get(
+            contact.id!,
+            properties: {ContactProperty.phone},
+          );
+          if (full != null && full.phones.isNotEmpty) {
+            selectedPhone = full.phones.first.number;
+          }
+        }
+
+        if (selectedPhone != null && selectedPhone.isNotEmpty) {
+          final cleaned = cleanPhoneNumber(selectedPhone);
+          if (cleaned.length >= 10) {
+            final rawName = (contact.displayName ?? '').trim();
+            final name = rawName.isNotEmpty ? rawName : "User ($cleaned)";
+            mobileController.text = cleaned;
+            mobileNumber.value = cleaned;
+
+            final user = {
+              "name": name,
+              "phone": "+91 $cleaned",
+              "avatar": getInitials(name),
+            };
+            selectRecipient(user);
+          } else {
+            AppSnackbar.error(
+              "Selected contact does not have a valid 10-digit mobile number",
+            );
+          }
+        } else {
+          AppSnackbar.error("Selected contact does not have a phone number");
+        }
+      }
+    } catch (e) {
+      developer.log("Error in pickFromNativeContacts: $e");
+      AppSnackbar.error("Unable to open native contact picker");
+    }
+  }
+
+  /// Open app settings if contact permission was permanently denied
+  Future<void> openSettingsForPermission() async {
+    await FlutterContacts.permissions.openSettings();
+  }
+
+  /// Filtered phone contacts for phonebook modal
+  List<Map<String, String>> get filteredPhoneContacts {
+    final query = contactSearchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) {
+      return phoneContacts;
+    }
+    return phoneContacts.where((contact) {
+      final name = (contact['name'] ?? '').toLowerCase();
+      final phone = (contact['phone'] ?? '').replaceAll(' ', '');
+      return name.contains(query) || phone.contains(query);
+    }).toList();
+  }
+
+  /// Filtered recipients / contacts for the main screen
   List<Map<String, String>> get filteredRecipients {
     final query = searchQuery.value.trim().toLowerCase();
     if (query.isEmpty) {
       return recentRecipients;
     }
-    return recentRecipients.where((user) {
-      final name = user['name']?.toLowerCase() ?? '';
-      final phone = user['phone']?.replaceAll(' ', '') ?? '';
-      return name.contains(query) || phone.contains(query);
-    }).toList();
+
+    final List<Map<String, String>> results = [];
+    final Set<String> seen = {};
+
+    // 1. Search in recent recipients first
+    for (final user in recentRecipients) {
+      final name = (user['name'] ?? '').toLowerCase();
+      final phone = (user['phone'] ?? '').replaceAll(' ', '');
+      if (name.contains(query) || phone.contains(query)) {
+        final c = cleanPhoneNumber(phone);
+        seen.add(c);
+        results.add(user);
+      }
+    }
+
+    // 2. Also search in loaded phone contacts for instant contact suggestions
+    for (final contact in phoneContacts) {
+      final name = (contact['name'] ?? '').toLowerCase();
+      final phone = (contact['phone'] ?? '').replaceAll(' ', '');
+      final c = cleanPhoneNumber(phone);
+      if ((name.contains(query) || phone.contains(query)) &&
+          !seen.contains(c)) {
+        seen.add(c);
+        results.add(contact);
+      }
+    }
+
+    return results;
   }
 
   Future<void> verifyAndProceed(Map<String, String> user) async {
@@ -58,37 +296,81 @@ class SendmoneyController extends GetxController {
       return;
     }
 
+    // Check if sending to own mobile number
+    final myMobile = (box.read('mobileNumber') ?? box.read('phone') ?? '')
+        .toString()
+        .replaceAll(RegExp(r'\D'), '');
+    final my10 =
+        myMobile.length > 10 ? myMobile.substring(myMobile.length - 10) : myMobile;
+    if (my10.isNotEmpty && my10 == phoneToVerify) {
+      AppSnackbar.error("You cannot send money to your own mobile number");
+      return;
+    }
+
     try {
       isLoading.value = true;
       checkingPhone.value = phoneToVerify;
-      final res = await ApiService.to.checkW2WRecipient(
+      final res = await ApiService.to.checkC2CRecipient(
         toMobileNumber: phoneToVerify,
       );
 
       if (res != null) {
-        final canReceive = res['canReceiveW2W'] == true;
-        final exists = res['exists'] == true;
-
-        if (canReceive) {
-          final String firstName = res['firstName'] ?? '';
-          final updatedUser = Map<String, String>.from(user);
-          if (firstName.isNotEmpty &&
-              (updatedUser['name'] == null ||
-                  updatedUser['name']!.startsWith('User ('))) {
-            updatedUser['name'] = firstName;
-          }
-          Get.toNamed("/sendmoneyprocess", arguments: updatedUser);
-        } else {
-          final String msg = res['message'] ??
-              (exists
-                  ? "Recipient must complete full KYC before wallet transfer."
-                  : "Recipient user does not exist or cannot receive W2W transfers.");
-          AppSnackbar.error(msg);
+        // 1. Verify existence
+        final bool exists = res['exists'] == true;
+        if (!exists) {
+          final errorMsg = res['message']?.toString() ??
+              "This mobile number is not registered on TransWallet.";
+          AppSnackbar.error(errorMsg);
+          return;
         }
+
+        // 2. Verify capability to receive transfer (canReceiveW2W / canReceiveC2C)
+        final bool? canReceive = res['canReceiveW2W'] ?? res['canReceiveC2C'];
+        if (canReceive == false) {
+          final String reasonCode = res['reasonCode']?.toString() ?? '';
+          final String errorMsg = res['message']?.toString() ??
+              (reasonCode == 'FULL_KYC_REQUIRED'
+                  ? "Recipient must complete full KYC before wallet transfer"
+                  : "Recipient cannot receive transfers at this time.");
+          AppSnackbar.error(errorMsg);
+          return;
+        }
+
+        // 3. Recipient verified successfully: extract registered details
+        final String firstName = (res['firstName'] ?? '').toString().trim();
+        final updatedUser = Map<String, String>.from(user);
+        if (firstName.isNotEmpty &&
+            (updatedUser['name'] == null ||
+                updatedUser['name']!.isEmpty ||
+                updatedUser['name']!.startsWith('User ('))) {
+          updatedUser['name'] = firstName;
+          updatedUser['avatar'] = getInitials(firstName);
+        }
+
+        // Attach KYC and status metadata for the transaction flow
+        if (res['kycLevel'] != null) {
+          updatedUser['kycLevel'] = res['kycLevel'].toString();
+        }
+        if (res['kycStatus'] != null) {
+          updatedUser['kycStatus'] = res['kycStatus'].toString();
+        }
+        if (res['isFullKyc'] != null) {
+          updatedUser['isFullKyc'] =
+              res['isFullKyc'] == true ? 'true' : 'false';
+        }
+
+        // Normalize phone number to +91 format
+        updatedUser['phone'] = "+91 $phoneToVerify";
+
+        // Save to recent recipients list
+        saveRecentRecipient(updatedUser);
+
+        Get.toNamed("/sendmoneyprocess", arguments: updatedUser);
       } else {
         AppSnackbar.error("Failed to verify recipient. Please try again.");
       }
     } catch (e) {
+      developer.log("Error in verifyAndProceed: $e");
       AppSnackbar.error("An error occurred while checking recipient status.");
     } finally {
       isLoading.value = false;
@@ -113,7 +395,7 @@ class SendmoneyController extends GetxController {
     final user = {
       "name": name,
       "phone": "+91 $phone",
-      "avatar": "W2W",
+      "avatar": getInitials(name),
     };
     verifyAndProceed(user);
   }
@@ -121,6 +403,7 @@ class SendmoneyController extends GetxController {
   @override
   void onClose() {
     searchController.dispose();
+    contactSearchController.dispose();
     mobileController.dispose();
     super.onClose();
   }

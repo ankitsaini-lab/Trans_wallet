@@ -179,7 +179,7 @@ class _LiquidGlassNavItem extends StatelessWidget {
           vertical: context.responsive(4),
         ),
         padding: EdgeInsets.symmetric(
-          vertical: context.responsive(8),
+          vertical: context.responsive(4),
           horizontal: context.responsive(4),
         ),
         decoration: BoxDecoration(
@@ -202,6 +202,7 @@ class _LiquidGlassNavItem extends StatelessWidget {
           curve: Curves.easeOutBack,
           scale: selected ? 1.0 : 0.94,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               AnimatedSwitcher(

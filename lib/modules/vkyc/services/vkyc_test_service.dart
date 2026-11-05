@@ -2,7 +2,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-enum VkycStatus { notStarted, inProgress, approved, cancelled }
+enum VkycStatus {
+  notStarted,
+  inProgress,
+  underReview,
+  approved,
+  rejected,
+  cancelled,
+}
 
 class VkycTestService extends GetxService {
   static VkycTestService get to => Get.find<VkycTestService>();
@@ -22,15 +29,17 @@ class VkycTestService extends GetxService {
   /// Do NOT rely on deep link alone as proof of approval in production.
   Future<VkycStatus> checkVkycStatus() async {
     debugPrint("🔍 [VKYC Service] Checking VKYC verification status...");
-    // Simulate network latency for backend verification
     await Future.delayed(const Duration(milliseconds: 600));
 
-    // For test flow, return approved if currently inProgress/approved
-    if (status.value == VkycStatus.inProgress ||
-        status.value == VkycStatus.approved) {
-      status.value = VkycStatus.approved;
+    if (status.value == VkycStatus.approved) {
       debugPrint("✅ [VKYC Service] Verification result: APPROVED");
       return VkycStatus.approved;
+    } else if (status.value == VkycStatus.underReview) {
+      debugPrint("⏳ [VKYC Service] Verification result: UNDER REVIEW");
+      return VkycStatus.underReview;
+    } else if (status.value == VkycStatus.rejected) {
+      debugPrint("❌ [VKYC Service] Verification result: REJECTED");
+      return VkycStatus.rejected;
     }
     return status.value;
   }
@@ -39,8 +48,21 @@ class VkycTestService extends GetxService {
     debugPrint(
       "🎯 [VKYC Service] Success deep link received: transwallet://vkyc/success",
     );
-    startVkyc();
-    await checkVkycStatus();
+    status.value = VkycStatus.approved;
+  }
+
+  Future<void> handleVkycUnderReview() async {
+    debugPrint(
+      "⏳ [VKYC Service] Under review deep link received: transwallet://vkyc/under_review",
+    );
+    status.value = VkycStatus.underReview;
+  }
+
+  Future<void> handleVkycRejected() async {
+    debugPrint(
+      "❌ [VKYC Service] Rejected deep link received: transwallet://vkyc/rejected",
+    );
+    status.value = VkycStatus.rejected;
   }
 
   void handleVkycCancel() {

@@ -6,13 +6,17 @@ import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_Contro
 import 'package:transwallet/utilities/getStorage.dart';
 
 class PaymentMethodController extends GetxController {
-  final RxInt selectedMethod = 1.obs; // 1 = UPI, 2 = Credit/Debit Card, 3 = Net Banking, 4 = General Wallet
+  final RxInt selectedMethod = 1
+      .obs; // 1 = UPI, 2 = Credit/Debit Card, 3 = Net Banking, 4 = General Wallet
   var walletBalance = 0.obs;
   var amount = 897.obs;
 
-  var cardGradient = <Color>[const Color(0xFF111111), const Color(0xFF2C2C2C)].obs;
+  var cardGradient = <Color>[
+    const Color(0xFF111111),
+    const Color(0xFF2C2C2C),
+  ].obs;
   var cardStyleName = "Obsidian Black".obs;
-  var cardBgImage = 'assets/unioncardblack.png'.obs;
+  var cardBgImage = 'assets/visacard.png'.obs;
 
   var deliveryAddress = "General Address".obs;
   var receiverName = "".obs;
@@ -26,14 +30,19 @@ class PaymentMethodController extends GetxController {
     if (Get.isRegistered<OrdercardController>()) {
       final orderCtrl = Get.find<OrdercardController>();
       final activeStyle = orderCtrl.cardStyles[orderCtrl.activeCardIndex.value];
-      cardGradient.assignAll(activeStyle["colors"] ?? [const Color(0xFF111111), const Color(0xFF2C2C2C)]);
+      cardGradient.assignAll(
+        activeStyle["colors"] ??
+            [const Color(0xFF111111), const Color(0xFF2C2C2C)],
+      );
       cardStyleName.value = activeStyle["name"] ?? "Obsidian Black";
-      cardBgImage.value = activeStyle["bgImage"] ?? 'assets/unioncardblack.png';
+      cardBgImage.value = activeStyle["bgImage"] ?? 'assets/visacard.png';
       amount.value = orderCtrl.amount.value;
     }
     if (Get.isRegistered<ReviewOrderDetailsController>()) {
       final reviewCtrl = Get.find<ReviewOrderDetailsController>();
-      receiverName.value = reviewCtrl.name.value.isEmpty ? (box.read('name') ?? "User") : reviewCtrl.name.value;
+      receiverName.value = reviewCtrl.name.value.isEmpty
+          ? (box.read('name') ?? "User")
+          : reviewCtrl.name.value;
       deliveryAddress.value = reviewCtrl.address1.value.isEmpty
           ? "General Address"
           : "${reviewCtrl.address1.value}, ${reviewCtrl.city.value}, ${reviewCtrl.state.value} - ${reviewCtrl.pincode.value}";
@@ -56,12 +65,12 @@ class PaymentMethodController extends GetxController {
   }
 
   void processPayment() {
-
     Get.bottomSheet(
       MpinVerifySheetForPayment(
         onSuccess: () => _executePayment(),
         title: "Verify MPIN to Order Card",
-        subtitle: "Enter MPIN to authorize ₹${amount.value}.00 from ${getSelectedMethodName()}",
+        subtitle:
+            "Enter MPIN to authorize ₹${amount.value}.00 from ${getSelectedMethodName()}",
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -78,14 +87,17 @@ class PaymentMethodController extends GetxController {
       box.write('balance', walletBalance.value);
     }
 
-    Get.offAllNamed('/orderdetails', arguments: {
-      'amount': amount.value,
-      'cardGradient': cardGradient,
-      'cardStyleName': cardStyleName.value,
-      'receiverName': receiverName.value,
-      'deliveryAddress': deliveryAddress.value,
-      'paymentMethod': getSelectedMethodName(),
-      'cardBgImage': cardBgImage.value,
-    });
+    Get.offAllNamed(
+      '/orderdetails',
+      arguments: {
+        'amount': amount.value,
+        'cardGradient': cardGradient,
+        'cardStyleName': cardStyleName.value,
+        'receiverName': receiverName.value,
+        'deliveryAddress': deliveryAddress.value,
+        'paymentMethod': getSelectedMethodName(),
+        'cardBgImage': cardBgImage.value,
+      },
+    );
   }
 }

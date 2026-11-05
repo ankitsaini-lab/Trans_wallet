@@ -29,9 +29,8 @@ const SizedBox heightZero = SizedBox.shrink();
 extension ResponsiveSize on BuildContext {
   double get screenWidth => MediaQuery.of(this).size.width;
   double get screenHeight => MediaQuery.of(this).size.height;
-  
-  // Base width is 390. Clamped between 0.85 and 1.15 to prevent extreme scaling.
+
   double get scaleFactor => (screenWidth / 390).clamp(0.85, 1.15);
-  
+
   double responsive(double size) => size * scaleFactor;
 }

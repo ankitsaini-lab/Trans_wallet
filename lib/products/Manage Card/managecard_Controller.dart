@@ -1,15 +1,18 @@
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
-import 'package:transwallet/widgets/constsize.dart';
-import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
 
 class FeatureControl {
   RxBool enabled;
@@ -39,13 +42,53 @@ class ManagecardController extends GetxController {
     super.onInit();
     if (Get.arguments != null && Get.arguments is Map<String, dynamic>) {
       cardData.addAll(Get.arguments as Map<String, dynamic>);
-      if (cardData['isBlocked'] == true ||
-          cardData['status'] == 'LOCKED' ||
-          cardData['status'] == 'BLOCKED') {
-        isCardBlocked.value = true;
+    }
+
+    String status = cardData['status']?.toString().toUpperCase() ?? '';
+    if (status.isEmpty) {
+      final kit = _getKitNumber();
+      final storedCards = GetStorage().read('user_cards');
+      if (storedCards is List && storedCards.isNotEmpty) {
+        for (var c in storedCards) {
+          if (c is Map &&
+              (c['kitNumber']?.toString() == kit ||
+                  c['last4']?.toString() == cardData['last4']?.toString())) {
+            status = c['status']?.toString().toUpperCase() ?? '';
+            break;
+          }
+        }
       }
     }
-    fetchCardPreferences();
+
+    if (status == 'BLOCKED' ||
+        status == 'PERMANENT_BLOCK' ||
+        status == 'PERMANENTLY_BLOCKED' ||
+        cardData['isPermanentlyBlocked'] == true) {
+      isCardPermanentlyBlocked.value = true;
+      isCardBlocked.value = false;
+      cardData['isPermanentlyBlocked'] = true;
+      cardData['isBlocked'] = false;
+      cardData['status'] = 'BLOCKED';
+    } else if (status == 'LOCKED' ||
+        status == 'FROZEN' ||
+        cardData['isBlocked'] == true) {
+      isCardBlocked.value = true;
+      isCardPermanentlyBlocked.value = false;
+      cardData['isPermanentlyBlocked'] = false;
+      cardData['isBlocked'] = true;
+      cardData['status'] = 'LOCKED';
+    } else {
+      isCardBlocked.value = false;
+      isCardPermanentlyBlocked.value = false;
+      cardData['isPermanentlyBlocked'] = false;
+      cardData['isBlocked'] = false;
+      cardData['status'] = status.isNotEmpty ? status : 'ALLOCATED';
+    }
+    update();
+
+    if (!isCardPermanentlyBlocked.value) {
+      fetchCardPreferences();
+    }
   }
 
   Future<void> fetchCardPreferences() async {
@@ -195,7 +238,45 @@ class ManagecardController extends GetxController {
 
   void toggleCardStatus() {
     if (isCardPermanentlyBlocked.value) return;
-    isCardBlocked.toggle();
+    showFreezeCardBottomSheet();
+  }
+
+  void _updateStoredCards({
+    required String kitNumber,
+    required bool isBlocked,
+    required bool isPermanentlyBlocked,
+    required String status,
+  }) {
+    final box = GetStorage();
+    final storedCards = box.read('user_cards');
+    if (storedCards is List) {
+      final updatedList = storedCards.map((c) {
+        if (c is Map &&
+            (c['kitNumber']?.toString() == kitNumber ||
+                c['id']?.toString() == kitNumber ||
+                c['last4']?.toString() == cardData['last4']?.toString())) {
+          final copy = Map<String, dynamic>.from(c);
+          copy['status'] = status;
+          copy['isBlocked'] = isBlocked;
+          copy['isPermanentlyBlocked'] = isPermanentlyBlocked;
+          return copy;
+        }
+        return c;
+      }).toList();
+      box.write('user_cards', updatedList);
+    }
+
+    if (Get.isRegistered<WalletCardController>()) {
+      Get.find<WalletCardController>().syncCardStatus(
+        kitNumber: kitNumber,
+        isBlocked: isBlocked,
+        isPermanentlyBlocked: isPermanentlyBlocked,
+        status: status,
+      );
+      Get.find<WalletCardController>().fetchCardsFromApi();
+    } else if (Get.isRegistered<ApiService>()) {
+      ApiService.to.fetchUserCards();
+    }
   }
 
   String _getKitNumber() {
@@ -217,7 +298,13 @@ class ManagecardController extends GetxController {
   }
 
   void showFreezeCardBottomSheet() {
-    if (isCardPermanentlyBlocked.value) return;
+    if (isCardPermanentlyBlocked.value) {
+      AppSnackbar.error(
+        "This card is permanently blocked and cannot be frozen or unfreezed.",
+        title: "Card Blocked",
+      );
+      return;
+    }
     final bool isCurrentlyBlocked = isCardBlocked.value;
 
     showConfirmationBottomSheet(
@@ -229,8 +316,8 @@ class ManagecardController extends GetxController {
       iconColor: primaryRed,
       iconBorderColor: primaryYellow,
       actionText: isCurrentlyBlocked ? "Unfreeze card" : "Freeze card",
-      actionButtonColor: primaryYellow,
-      actionTextColor: Colors.black,
+      actionButtonColor: Colors.black,
+      actionTextColor: Colors.white,
       cardSubtext: isCurrentlyBlocked ? "Ready To Unfreeze" : "Ready To Freeze",
       onConfirm: () async {
         final kitNumber = _getKitNumber();
@@ -257,8 +344,15 @@ class ManagecardController extends GetxController {
 
             isCardBlocked.value = isNowLocked;
             cardData['isBlocked'] = isNowLocked;
-            cardData['status'] = isNowLocked ? 'LOCKED' : 'UNLOCKED';
+            cardData['status'] = isNowLocked ? 'LOCKED' : 'ALLOCATED';
             update();
+
+            _updateStoredCards(
+              kitNumber: kitNumber,
+              isBlocked: isNowLocked,
+              isPermanentlyBlocked: false,
+              status: isNowLocked ? 'LOCKED' : 'ALLOCATED',
+            );
 
             AppSnackbar.success(
               isNowLocked
@@ -279,7 +373,19 @@ class ManagecardController extends GetxController {
           return;
         }
 
-        toggleCardStatus();
+        final bool isNowLocked = !isCurrentlyBlocked;
+        isCardBlocked.value = isNowLocked;
+        cardData['isBlocked'] = isNowLocked;
+        cardData['status'] = isNowLocked ? 'LOCKED' : 'ALLOCATED';
+        update();
+
+        _updateStoredCards(
+          kitNumber: kitNumber,
+          isBlocked: isNowLocked,
+          isPermanentlyBlocked: false,
+          status: isNowLocked ? 'LOCKED' : 'ALLOCATED',
+        );
+
         AppSnackbar.success(
           isCurrentlyBlocked ? "Card Unfreezed" : "Card Freezed",
           title: "Success",
@@ -290,7 +396,13 @@ class ManagecardController extends GetxController {
   }
 
   void showPermanentBlockBottomSheet() {
-    if (isCardPermanentlyBlocked.value) return;
+    if (isCardPermanentlyBlocked.value) {
+      AppSnackbar.error(
+        "This card is already permanently blocked.",
+        title: "Card Blocked",
+      );
+      return;
+    }
     showConfirmationBottomSheet(
       title: "Block your card?",
       subtitle:
@@ -299,7 +411,7 @@ class ManagecardController extends GetxController {
       iconColor: Colors.red,
       iconBorderColor: Colors.red.shade200,
       actionText: "Block Card",
-      actionButtonColor: Colors.red,
+      actionButtonColor: Colors.black,
       actionTextColor: Colors.white,
       cardSubtext: "Ready To Block",
       onConfirm: () async {
@@ -314,8 +426,17 @@ class ManagecardController extends GetxController {
             isCardPermanentlyBlocked.value = true;
             isCardBlocked.value = false;
             cardData['isBlocked'] = false;
+            cardData['isPermanentlyBlocked'] = true;
             cardData['status'] = 'BLOCKED';
             update();
+
+            _updateStoredCards(
+              kitNumber: kitNumber,
+              isBlocked: false,
+              isPermanentlyBlocked: true,
+              status: 'BLOCKED',
+            );
+
             AppSnackbar.success(
               "Card Permanently Blocked",
               title: "Success",
@@ -333,7 +454,17 @@ class ManagecardController extends GetxController {
 
         isCardPermanentlyBlocked.value = true;
         isCardBlocked.value = false;
+        cardData['isBlocked'] = false;
+        cardData['isPermanentlyBlocked'] = true;
+        cardData['status'] = 'BLOCKED';
         update();
+
+        _updateStoredCards(
+          kitNumber: kitNumber,
+          isBlocked: false,
+          isPermanentlyBlocked: true,
+          status: 'BLOCKED',
+        );
         AppSnackbar.success(
           "Card Permanently Blocked",
           title: "Success",
@@ -361,8 +492,8 @@ class ManagecardController extends GetxController {
       iconColor: newValue ? primaryYellow : primaryRed,
       iconBorderColor: newValue ? primaryYellow : primaryRed,
       actionText: "$actionText $title",
-      actionButtonColor: newValue ? primaryYellow : primaryRed,
-      actionTextColor: newValue ? Colors.black : Colors.white,
+      actionButtonColor: Colors.black,
+      actionTextColor: Colors.white,
       cardSubtext: "$title Status Change",
       onConfirm: () async {
         control.enabled.value = newValue;
@@ -451,8 +582,8 @@ class ManagecardController extends GetxController {
       iconColor: primaryYellow,
       iconBorderColor: primaryYellow,
       actionText: "Update Limit",
-      actionButtonColor: primaryYellow,
-      actionTextColor: Colors.black,
+      actionButtonColor: Colors.black,
+      actionTextColor: Colors.white,
       cardSubtext: "$title Daily Limit Update",
       onConfirm: () async {
         isConfirmed = true;
@@ -528,7 +659,7 @@ class ManagecardController extends GetxController {
     }
 
     final String?
-    widgetUrl = // "https://transcorpint.com/assets/app/Set-pin-for-M2p.html";
+    widgetUrl = // "https://devtc.transcorpint.com/widget/new-set-pin-for-m2p.html";
         res?['result']?.toString() ?? res?['widgetUrl']?.toString();
 
     if (widgetUrl == null || widgetUrl.isEmpty) {
@@ -536,11 +667,12 @@ class ManagecardController extends GetxController {
       return;
     }
 
-    // Open Reset PIN WebView BottomSheet
-    Get.bottomSheet(
-      ResetPinWebViewSheet(widgetUrl: widgetUrl, cardData: cardData),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    // Open Reset PIN WebView Modal Screen
+    Get.to(
+      () => ResetPinWebViewSheet(widgetUrl: widgetUrl, cardData: cardData),
+      fullscreenDialog: true,
+      transition: Transition.downToUp,
+      duration: const Duration(milliseconds: 280),
     );
   }
 
@@ -557,155 +689,188 @@ class ManagecardController extends GetxController {
     required VoidCallback onConfirm,
     VoidCallback? onCancel,
   }) {
-    final String cardNum = cardData['fullNumber'] ?? "**** **** **** 7852";
+    final String cardNum = cardData['fullNumber'] ?? "**** **** **** ****";
     final String last4 = cardNum.length >= 4
         ? cardNum.substring(cardNum.length - 4)
-        : "7852";
+        : "****";
 
     bool confirmedHandled = false;
 
+    if (Get.isBottomSheetOpen == true) {
+      Get.back();
+    }
+
     Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(color: iconBorderColor, width: 1.5),
-              ),
-              child: Icon(icon, color: iconColor, size: 24),
+      Builder(
+        builder: (sheetContext) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9F9F9),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade200, width: 1),
-              ),
-              child: Row(
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: lightprimaryred,
-                      border: Border.all(color: primaryYellow, width: 1.5),
+                      color: Colors.white,
+                      border: Border.all(color: iconBorderColor, width: 1.5),
                     ),
-                    child: const Icon(
-                      Icons.credit_card,
-                      color: Colors.black,
-                      size: 18,
+                    child: Icon(icon, color: iconColor, size: 24),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 12),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9F9F9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200, width: 1),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          "Card Ending **** **** **** $last4",
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: lightprimaryred,
+                            border: Border.all(
+                              color: primaryYellow,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.credit_card,
+                            color: Colors.black,
+                            size: 18,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          cardSubtext,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w500,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Card Ending **** **** **** $last4",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                cardSubtext,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            if (Navigator.of(sheetContext).canPop()) {
+                              Navigator.of(sheetContext).pop();
+                            } else {
+                              Get.back();
+                            }
+                            if (onCancel != null) onCancel();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            side: BorderSide(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            confirmedHandled = true;
+                            if (Navigator.of(sheetContext).canPop()) {
+                              Navigator.of(sheetContext).pop();
+                            } else {
+                              Get.back();
+                            }
+                            onConfirm();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: actionButtonColor,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: Text(
+                            actionText,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: actionTextColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Get.back();
-                      if (onCancel != null) onCancel();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      side: BorderSide(color: Colors.grey.shade300, width: 1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: Text(
-                      "Cancel",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      confirmedHandled = true;
-                      Get.back();
-                      onConfirm();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryRed,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: Text(
-                      actionText,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
+          );
+        },
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -719,12 +884,46 @@ class ManagecardController extends GetxController {
   Widget cardPreview() {
     final box = GetStorage();
     return Obx(() {
-      final String cardNum = cardData['fullNumber'] ?? "••••••••••••4567";
-      final String holder =
-          box.read('name') ?? cardData['holder'] ?? "John Doe";
-      final String exp = cardData['expiry'] ?? "12/28";
-      final String cvvVal = cardData['cvv'] ?? "•••";
-      final String bgImg = cardData['bgImage'] ?? 'assets/unioncardblack.webp';
+      final String cardNum =
+          cardData['fullNumber'] ??
+          (cardData['maskedNumber'] != null &&
+                  cardData['maskedNumber'].toString().isNotEmpty
+              ? cardData['maskedNumber'].toString()
+              : (cardData['last4'] != null &&
+                        cardData['last4'].toString().isNotEmpty
+                    ? '•••• •••• •••• ${cardData['last4']}'
+                    : '•••• •••• •••• ••••'));
+      final String rawHolder =
+          (box.read('name') ??
+                  box.read('userName') ??
+                  cardData['holder'] ??
+                  cardData['name'] ??
+                  '')
+              .toString()
+              .trim();
+      final String holder = rawHolder.isNotEmpty
+          ? rawHolder.toUpperCase()
+          : "CARDHOLDER";
+      final String rawExp =
+          cardData['expiryMmYy']?.toString() ??
+          cardData['expiry']?.toString() ??
+          "";
+      String exp = "--/--";
+      final digits = rawExp.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.length == 4) {
+        exp = '${digits.substring(0, 2)}/${digits.substring(2, 4)}';
+      } else if (rawExp.contains('/')) {
+        exp = rawExp;
+      } else if (rawExp.isNotEmpty) {
+        exp = rawExp;
+      }
+      final String cvvVal = cardData['cvv']?.toString() ?? "•••";
+      final String? brand =
+          cardData['brand']?.toString() ?? cardData['network']?.toString();
+      final String bgImg = PremiumVisaCard.resolveCardBgImage(
+        brand: brand,
+        bgImage: cardData['bgImage']?.toString(),
+      );
       final bool useBlackLg = cardData['useBlackLogos'] ?? false;
       final Color shadowCol =
           (cardData['colors'] != null &&
@@ -744,6 +943,7 @@ class ManagecardController extends GetxController {
               ? () => toggleCardStatus()
               : null,
           bgImage: bgImg,
+          brand: brand,
           useBlackLogos: useBlackLg,
           shadowColor: shadowCol,
         ),
@@ -755,7 +955,7 @@ class ManagecardController extends GetxController {
 Widget featureTile(
   String title,
   FeatureControl control,
-  IconData iconData,
+  String iconData,
   bool showSlider, {
   double maxLimit = 200000,
   bool isLast = false,
@@ -782,7 +982,8 @@ Widget featureTile(
                   color: lightprimaryred,
                   border: Border.all(color: primaryYellow, width: 1.5),
                 ),
-                child: Icon(iconData, color: Colors.black, size: 18),
+                child: SvgPicture.asset(iconData.toString()),
+                // Icon(iconData, color: Colors.black, size: 18),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1032,6 +1233,22 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
   double _progress = 0.0;
   bool _isFinished = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.customWebview);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.finishExternalFlow(ExternalFlowType.customWebview);
+    }
+    super.dispose();
+  }
+
   void _handleCallback(String url) {
     if (_isFinished) return;
     developer.log("Reset PIN Callback intercepted URL: $url");
@@ -1058,77 +1275,63 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final sheetHeight = mediaQuery.size.height * 0.85;
-
-    return Container(
-      height: sheetHeight,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
         child: Column(
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border(
                   bottom: BorderSide(color: Colors.grey.shade200, width: 1),
                 ),
               ),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const Row(
                     children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.lock_reset_rounded,
-                            color: primaryRed,
-                            size: 22,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            "Reset Card PIN",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                              decoration: TextDecoration.none,
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.lock_reset_rounded,
+                        color: primaryRed,
+                        size: 22,
                       ),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.close,
-                            size: 20,
-                            color: Colors.grey.shade700,
-                          ),
+                      SizedBox(width: 8),
+                      Text(
+                        "Reset Card PIN",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                          decoration: TextDecoration.none,
                         ),
                       ),
                     ],
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Get.back();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1150,14 +1353,32 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                     initialUrlRequest: URLRequest(
                       url: WebUri(widget.widgetUrl),
                     ),
+                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<VerticalDragGestureRecognizer>(
+                        () => VerticalDragGestureRecognizer(),
+                      ),
+                      Factory<HorizontalDragGestureRecognizer>(
+                        () => HorizontalDragGestureRecognizer(),
+                      ),
+                      Factory<ScaleGestureRecognizer>(
+                        () => ScaleGestureRecognizer(),
+                      ),
+                    },
                     initialSettings: InAppWebViewSettings(
                       javaScriptEnabled: true,
                       domStorageEnabled: true,
                       useShouldOverrideUrlLoading: true,
-                      transparentBackground: true,
+                      transparentBackground: false,
                       allowFileAccessFromFileURLs: true,
                       allowUniversalAccessFromFileURLs: true,
                       mediaPlaybackRequiresUserGesture: false,
+                      supportZoom: false,
+                      builtInZoomControls: false,
+                      displayZoomControls: false,
+                      verticalScrollBarEnabled: true,
+                      horizontalScrollBarEnabled: false,
+                      overScrollMode: OverScrollMode.ALWAYS,
+                      clearCache: false,
                     ),
                     onWebViewCreated: (controller) {
                       controller.addJavaScriptHandler(
@@ -1187,10 +1408,40 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                         if (progress == 100) _isLoading = false;
                       });
                     },
-                    onLoadStop: (controller, url) {
+                    onLoadStop: (controller, url) async {
                       setState(() => _isLoading = false);
                       if (url != null) {
                         _handleCallback(url.toString());
+                      }
+                      try {
+                        await controller.evaluateJavascript(
+                          source: """
+                      (function() {
+                        var viewport = document.querySelector('meta[name="viewport"]');
+                        if (!viewport) {
+                          viewport = document.createElement('meta');
+                          viewport.name = 'viewport';
+                          viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                          document.getElementsByTagName('head')[0].appendChild(viewport);
+                        }
+                        document.body.style.paddingBottom = '24px';
+                        document.documentElement.style.paddingBottom = '24px';
+
+                        // Auto scroll focused input into viewport center smoothly when keyboard opens
+                        window.addEventListener('focusin', function(e) {
+                          if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+                            setTimeout(function() {
+                              e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 250);
+                          }
+                        });
+                      })();
+                    """,
+                        );
+                      } catch (e) {
+                        developer.log(
+                          "Error evaluating JS for bottom padding: $e",
+                        );
                       }
                     },
                     onLoadError: (controller, url, code, message) {

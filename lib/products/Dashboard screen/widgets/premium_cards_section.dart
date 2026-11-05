@@ -4,7 +4,6 @@ import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_co
 import 'package:transwallet/products/Dashboard screen/widgets/realistic_wallet_widget.dart';
 import 'package:transwallet/products/Dashboard screen/widgets/mpin_verify_sheet.dart';
 import 'package:transwallet/products/Dashboard screen/widgets/card_popups.dart';
-import 'package:transwallet/products/Dashboard screen/widgets/all_cards_screen.dart';
 
 class PremiumCardsSection extends StatefulWidget {
   const PremiumCardsSection({super.key});
@@ -25,6 +24,12 @@ class _PremiumCardsSectionState extends State<PremiumCardsSection> {
   void _onActiveCardTap(int index) {
     if (index < 0 || index >= _walletController.cards.length) return;
     final cardModel = _walletController.cards[index];
+
+    if (cardModel.isPermanentlyBlocked) {
+      _walletController.showPermanentlyBlockedNotice();
+      return;
+    }
+
     final cardMap = {
       "id": cardModel.id,
       "kitNumber": cardModel.id,
@@ -34,7 +39,8 @@ class _PremiumCardsSectionState extends State<PremiumCardsSection> {
       "bgImage": cardModel.bgImage,
       "useBlackLogos": cardModel.useBlackLogos,
       "isBlocked": cardModel.isBlocked,
-      "status": cardModel.isBlocked ? "LOCKED" : "ALLOCATED",
+      "isPermanentlyBlocked": cardModel.isPermanentlyBlocked,
+      "status": cardModel.status,
       "colors": [cardModel.primaryColor, cardModel.secondaryColor],
       "label": cardModel.type,
       "brand": cardModel.brand,
@@ -43,9 +49,9 @@ class _PremiumCardsSectionState extends State<PremiumCardsSection> {
     Get.bottomSheet(
       MpinVerifySheet(
         onSuccess: () {
-          Get.dialog(
-            CardDetailsPopup(card: cardMap),
-            barrierColor: Colors.transparent,
+          Get.to(
+            () => CardDetailsPopup(card: cardMap),
+            transition: Transition.rightToLeftWithFade,
           );
         },
         title: 'Verify MPIN',

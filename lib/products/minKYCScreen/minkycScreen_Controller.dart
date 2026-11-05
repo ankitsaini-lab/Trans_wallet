@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
@@ -10,9 +9,10 @@ import 'package:transwallet/products/login_singupscreen/create%20Account/createa
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
-import 'package:transwallet/services/deepid_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/otp_input_field.dart';
+import 'package:transwallet/services/sms_user_consent_service.dart';
 
 class MinkycscreenController extends GetxController {
   var pan = ''.obs;
@@ -186,13 +186,16 @@ class MinkycscreenController extends GetxController {
         }
       }
 
-      // 3. Middle Name: parse as blank if empty
-      String middleName = _resolveParam(createCtrl?.midName.value, [
-        'reg_middleName',
-        'middleName',
-        'midName',
-        'middle_name',
-      ]);
+      // 3. Middle Name: parse as blank if empty (Middle Name is optional)
+      String middleName = '';
+      if (createCtrl != null) {
+        middleName = createCtrl.midName.value.trim();
+      } else if (box.hasData('reg_middleName')) {
+        final val = box.read('reg_middleName');
+        middleName = (val != null && val.toString().trim() != 'null')
+            ? val.toString().trim()
+            : '';
+      }
 
       // 4. Last Name: parse as blank if empty
       String lastName = _resolveParam(createCtrl?.lastName.value, [
@@ -426,6 +429,10 @@ class MinkycscreenController extends GetxController {
               body['message']?.toString() ??
               "Registration details submitted successfully";
           AppSnackbar.success(message);
+
+          if (Get.isRegistered<ApiService>()) {
+            ApiService.to.registerDeviceToken();
+          }
 
           // After api success open otp popup
           showOtpBottomSheet();
@@ -797,6 +804,10 @@ class MinkycscreenController extends GetxController {
               body['message']?.toString() ?? "OTP verified successfully";
           AppSnackbar.success(message);
 
+          if (Get.isRegistered<ApiService>()) {
+            ApiService.to.registerDeviceToken();
+          }
+
           if (Get.isDialogOpen ?? false) {
             Get.back();
           }
@@ -862,11 +873,7 @@ class _OtpDialog extends StatefulWidget {
 }
 
 class _OtpDialogState extends State<_OtpDialog> {
-  final List<TextEditingController> _controllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  final TextEditingController _controller = TextEditingController();
 
   String _otp = '';
   int _secondsLeft = 60;
@@ -878,61 +885,20 @@ class _OtpDialogState extends State<_OtpDialog> {
   void initState() {
     super.initState();
     _startTimer();
-    final serverOtp = widget.controller.debugOtp.value.trim();
-    if (serverOtp.isNotEmpty) {
-      _fillOtp(serverOtp);
-    } else {
-      Future.delayed(const Duration(milliseconds: 2500), () {
-        if (mounted && _otp.isEmpty) {
-          _simulateAutoFetch();
-        }
-      });
-    }
+    _listenForSmsConsent();
   }
 
-  void _fillOtp(String code) {
-    for (int i = 0; i < code.length && i < 6; i++) {
-      _controllers[i].text = code[i];
-    }
-    setState(() {
-      _otp = _controllers.map((c) => c.text).join();
+  void _listenForSmsConsent() {
+    SmsUserConsentService.listenForOtp().then((code) {
+      if (code != null && code.length == 6 && mounted && !_isSubmitting) {
+        _controller.text = code;
+      }
     });
-  }
-
-  void _simulateAutoFetch() {
-    final serverOtp = widget.controller.debugOtp.value.trim();
-    final code = serverOtp.isNotEmpty ? serverOtp : "482617";
-    for (int i = 0; i < code.length && i < 6; i++) {
-      Future.delayed(Duration(milliseconds: i * 150), () {
-        if (mounted) {
-          _controllers[i].text = code[i];
-          if (i == code.length - 1 || i == 5) {
-            setState(() {
-              _otp = _controllers.map((c) => c.text).join();
-            });
-            _focusNodes[i].unfocus();
-          } else {
-            _focusNodes[i + 1].requestFocus();
-          }
-        }
-      });
-    }
-
-    Get.snackbar(
-      'Auto-Fill Success',
-      'Securely fetched OTP code $code',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: const Color(0xFF22C55E),
-      colorText: Colors.white,
-      borderRadius: 16,
-      margin: const EdgeInsets.all(16),
-      duration: const Duration(seconds: 2),
-      icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
-    );
   }
 
   Future<void> _handleVerifyProceed() async {
     if (_otp.length != 6 || _isSubmitting) return;
+    SmsUserConsentService.stopListening();
     setState(() => _isSubmitting = true);
     await widget.controller.verifyPpiOtp(_otp);
     if (mounted) {
@@ -942,13 +908,9 @@ class _OtpDialogState extends State<_OtpDialog> {
 
   @override
   void dispose() {
+    SmsUserConsentService.stopListening();
     _timer?.cancel();
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    _controller.dispose();
     super.dispose();
   }
 
@@ -972,11 +934,10 @@ class _OtpDialogState extends State<_OtpDialog> {
   }
 
   void _resend() {
-    for (final c in _controllers) {
-      c.clear();
-    }
+    _controller.clear();
     setState(() => _otp = '');
     _startTimer();
+    _listenForSmsConsent();
   }
 
   String get _timerLabel {
@@ -1032,73 +993,20 @@ class _OtpDialogState extends State<_OtpDialog> {
                   ),
                   const SizedBox(height: 32),
 
-                  // OTP Fields
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(6, (i) {
-                      return Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 48,
-                          child: TextField(
-                            controller: _controllers[i],
-                            focusNode: _focusNodes[i],
-                            textAlign: TextAlign.center,
-                            keyboardType: TextInputType.number,
-                            maxLength: 1,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            decoration: InputDecoration(
-                              counterText: '',
-                              filled: true,
-                              fillColor: const Color(0xFFF9F9F9),
-                              contentPadding: EdgeInsets.zero,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade200,
-                                  width: 1.0,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade200,
-                                  width: 1.0,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: primaryRed,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                            onChanged: (val) {
-                              if (val.isNotEmpty && i < 5) {
-                                FocusScope.of(
-                                  context,
-                                ).requestFocus(_focusNodes[i + 1]);
-                              } else if (val.isEmpty && i > 0) {
-                                FocusScope.of(
-                                  context,
-                                ).requestFocus(_focusNodes[i - 1]);
-                              }
-                              setState(() {
-                                _otp = _controllers.map((c) => c.text).join();
-                              });
-                            },
-                          ),
-                        ),
-                      );
-                    }),
+                  // OTP Field — single hidden input + 6 visual boxes.
+                  // autofillHints: oneTimeCode inside OtpInputField enables
+                  // iOS "From Messages" QuickType and Android SMS suggestion bar.
+                  OtpInputField(
+                    controller: _controller,
+                    boxHeight: 48,
+                    onChanged: (val) => setState(() => _otp = val),
+                    onCompleted: (val) {
+                      setState(() => _otp = val);
+                      if (!_isSubmitting) {
+                        FocusScope.of(context).unfocus();
+                        _handleVerifyProceed();
+                      }
+                    },
                   ),
                   const SizedBox(height: 24),
 
@@ -1431,6 +1339,16 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
   bool _isSuccess = false;
   String _errorMessage = 'MPINs do not match. Try again.';
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.arguments is Map && Get.arguments['isChangePin'] == true) {
+        Get.offNamed('/change_pin');
+      }
+    });
+  }
+
   String get _currentPin => _step == 1 ? _mpin : _confirmMpin;
 
   void _onKeyTap(String digit) {
@@ -1532,6 +1450,10 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
               body['message']?.toString() ?? "MPIN set successfully";
           AppSnackbar.success(message);
 
+          if (Get.isRegistered<ApiService>()) {
+            ApiService.to.registerDeviceToken();
+          }
+
           Future.delayed(const Duration(milliseconds: 600), () async {
             if (!mounted) return;
             if (Get.isRegistered<BiometricService>()) {
@@ -1593,24 +1515,7 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
   }
 
   void _navigateToPostRegistration() {
-    final box = GetStorage();
-    final phone =
-        box.read('phone')?.toString() ??
-        box.read('remembered_phone')?.toString() ??
-        '';
-    final bool isSkipped = box.read('sim_binding_skipped') == true;
-    final isTrusted =
-        isSkipped ||
-        (Get.isRegistered<DeepIdService>() && DeepIdService.to.isDeviceTrusted);
-
-    if (!isTrusted && phone.isNotEmpty) {
-      Get.offAllNamed(
-        '/sim_binding',
-        arguments: {'phone': phone, 'returnRoute': '/dashboard'},
-      );
-    } else {
-      Get.offAllNamed('/dashboard');
-    }
+    Get.offAllNamed('/dashboard');
   }
 
   @override

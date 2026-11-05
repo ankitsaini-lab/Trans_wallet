@@ -16,7 +16,9 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => ReviewOrderDetailsController());
+    if (!Get.isRegistered<ReviewOrderDetailsController>()) {
+      Get.put(ReviewOrderDetailsController());
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -158,7 +160,7 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: _buildProceedButton(),
+              child: _buildProceedButton(context),
             ),
           ],
         ),
@@ -437,11 +439,12 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
     );
   }
 
-  Widget _buildProceedButton() {
+  Widget _buildProceedButton(BuildContext context) {
     return Obx(() {
       final isEnabled = controller.isFormValid;
       return CustomButton(
         text: "Continue to Review",
+        textsize: context.responsive(14),
         btncolor: isEnabled ? primaryRed : Colors.grey.shade300,
         textColor: isEnabled ? Colors.white : Colors.grey.shade600,
         onPressed: () {

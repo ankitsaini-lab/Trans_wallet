@@ -8,13 +8,12 @@ import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
 import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
 import 'package:transwallet/products/Dashboard screen/models/wallet_card_model.dart';
-import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
 class RealisticWalletWidget extends StatefulWidget {
   final WalletCardController controller;
-  final Function(int index)? onCardTap;
+  final void Function(int index)? onCardTap;
 
   const RealisticWalletWidget({
     super.key,
@@ -36,7 +35,6 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
 
   Timer? _hintTimer;
   bool _showHint = false;
-  bool _isSwipeHint = true;
 
   @override
   void initState() {
@@ -57,7 +55,6 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
         setState(() {
           _previousIndex = wasClosed ? newIndex : _currentIndex;
           _currentIndex = newIndex;
-          _isSwipeHint = false;
         });
         _animController.forward(from: 0.0);
 
@@ -78,7 +75,6 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
     _hintTimer = Timer(const Duration(seconds: 15), () {
       if (mounted) {
         setState(() {
-          _isSwipeHint = true;
           _showHint = true;
         });
       }
@@ -212,8 +208,11 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
           final double walletContainerHeight = cardHeight + 85.0 + 45.0;
 
           return Obx(() {
-            final cards = widget.controller.cards;
+            final cards = widget.controller.cards.toList();
             if (cards.isEmpty) return const SizedBox.shrink();
+
+            final int safeIndex = _currentIndex.clamp(0, cards.length - 1);
+            final int safePrevIndex = _previousIndex.clamp(0, cards.length - 1);
 
             return GestureDetector(
               onVerticalDragEnd: _handleVerticalDragEnd,
@@ -229,7 +228,7 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
 
                     // 1. BACK LAYER: Tucked inactive cards (placed behind pocket)
                     for (int i = 0; i < cards.length; i++) {
-                      if (i != _currentIndex && i != _previousIndex) {
+                      if (i != safeIndex && i != safePrevIndex) {
                         stackLayers.add(
                           _buildTuckedCard(i, cards[i], cards.length),
                         );
@@ -237,13 +236,11 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                     }
 
                     // 2. RETRACTING CARD: The card transitioning back into the wallet
-                    if (_previousIndex != _currentIndex &&
-                        _previousIndex >= 0 &&
-                        _previousIndex < cards.length) {
+                    if (safePrevIndex != safeIndex) {
                       stackLayers.add(
                         _buildRetractingCard(
-                          _previousIndex,
-                          cards[_previousIndex],
+                          safePrevIndex,
+                          cards[safePrevIndex],
                         ),
                       );
                     }
@@ -307,11 +304,9 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                       ),
                     );
 
-                    if (_currentIndex >= 0 && _currentIndex < cards.length) {
-                      stackLayers.add(
-                        _buildActiveCard(_currentIndex, cards[_currentIndex]),
-                      );
-                    }
+                    stackLayers.add(
+                      _buildActiveCard(safeIndex, cards[safeIndex]),
+                    );
                     stackLayers.add(
                       Positioned(
                         bottom: context.responsive(53),
@@ -423,11 +418,9 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                           onTap: () => Get.toNamed('/all_cards'),
                           child: Center(
                             child: Container(
-                              width: context.responsive(120),
-                              height: context.responsive(35),
                               padding: EdgeInsets.symmetric(
-                                horizontal: context.responsive(14),
-                                vertical: context.responsive(6),
+                                horizontal: context.responsive(16),
+                                vertical: context.responsive(8),
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.black,
@@ -436,6 +429,7 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                                 ),
                               ),
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
@@ -511,7 +505,9 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
             expiryDate: card.expiry,
             cvv: "•••",
             isBlocked: card.isBlocked,
+            isPermanentlyBlocked: card.isPermanentlyBlocked,
             bgImage: card.bgImage,
+            brand: card.brand,
             useBlackLogos: card.useBlackLogos,
           ),
         ),
@@ -555,7 +551,9 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
             expiryDate: card.expiry,
             cvv: "•••",
             isBlocked: card.isBlocked,
+            isPermanentlyBlocked: card.isPermanentlyBlocked,
             bgImage: card.bgImage,
+            brand: card.brand,
             useBlackLogos: card.useBlackLogos,
           ),
         ),
@@ -565,9 +563,7 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
 
   Widget _buildActiveCard(int index, WalletCardModel card) {
     final double progress = _slideAnimation.value;
-    final double initialTuckedTop = context.responsive(
-      36.0,
-    ); // Fixed front pocket depth
+    final double initialTuckedTop = context.responsive(36.0);
     final double topOffset = initialTuckedTop * (0.35 - progress);
     final double initialScale = 0.98 - (index * 0.03);
     final double scale = initialScale + (progress * (1.0 - initialScale));
@@ -586,6 +582,15 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
           scale: scale,
           child: GestureDetector(
             onTap: () {
+              if (card.isPermanentlyBlocked) {
+                widget.controller.showPermanentlyBlockedNotice();
+                return;
+              }
+              if (card.isBlocked) {
+                widget.controller.promptUnfreezeCard(index);
+                return;
+              }
+              if (_animController.isAnimating) return;
               if (_animController.value > 0.0) {
                 _animController.reverse();
               } else {
@@ -593,6 +598,10 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
               }
             },
             onLongPress: () {
+              if (card.isPermanentlyBlocked) {
+                widget.controller.showPermanentlyBlockedNotice();
+                return;
+              }
               if (widget.onCardTap != null) {
                 widget.onCardTap!(index);
               }
@@ -616,7 +625,9 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                     expiryDate: card.expiry,
                     cvv: "•••",
                     isBlocked: card.isBlocked,
+                    isPermanentlyBlocked: card.isPermanentlyBlocked,
                     bgImage: card.bgImage,
+                    brand: card.brand,
                     useBlackLogos: card.useBlackLogos,
                   ),
                   Positioned.fill(

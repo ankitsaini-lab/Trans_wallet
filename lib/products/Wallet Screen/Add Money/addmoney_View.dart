@@ -12,7 +12,9 @@ class AddmoneyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(AddmoneyController());
+    final controller = Get.isRegistered<AddmoneyController>()
+        ? Get.find<AddmoneyController>()
+        : Get.put(AddmoneyController());
 
     return MediaQuery(
       data: MediaQuery.of(
@@ -354,8 +356,9 @@ class AddmoneyView extends StatelessWidget {
                               text: "Add Money",
                               btncolor: Colors.black,
                               textColor: Colors.white,
+
                               height: context.responsive(54),
-                              textsize: context.responsive(16),
+                              textsize: context.responsive(14),
                               borderRadius: context.responsive(50),
                               onPressed: controller.amount > 0
                                   ? () => controller.payNow()
@@ -393,10 +396,10 @@ class AddmoneyView extends StatelessWidget {
           alignment: Alignment.center,
           padding: EdgeInsets.symmetric(vertical: context.responsive(9)),
           decoration: BoxDecoration(
-            color: isSelected ? primaryRed : Colors.white,
+            color: isSelected ? primaryLightYellow : Colors.white,
             borderRadius: BorderRadius.circular(context.responsive(24)),
             border: Border.all(
-              color: isSelected ? primaryRed : const Color(0xFFE5E7EB),
+              color: isSelected ? primaryYellow : const Color(0xFFE5E7EB),
               width: 1.2,
             ),
           ),
@@ -405,7 +408,7 @@ class AddmoneyView extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: context.responsive(13.5),
-              color: isSelected ? Colors.white : Colors.black,
+              color: isSelected ? Colors.black : Colors.black,
             ),
           ),
         ),

@@ -53,6 +53,8 @@ void main() {
     );
     await GetStorage.init();
     await GetStorage().erase();
+    GetStorage().write('app_lock_enabled', true);
+    GetStorage().write('app_lock_timeout_seconds', 2);
     Get.reset();
     Get.testMode = true;
   });

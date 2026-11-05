@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:transwallet/widgets/notification_button.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/History%20screen/historyscreen_Controller.dart';
-import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_screens.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/constsize.dart';
@@ -19,7 +17,7 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
   Widget build(BuildContext context) {
     final hour = DateTime.now().hour;
     if (!Get.isRegistered<HistoryscreenController>()) {
-      Get.lazyPut(() => HistoryscreenController());
+      Get.put(HistoryscreenController());
     }
     String greeting = "Good Evening";
     if (hour < 12) {
@@ -113,7 +111,7 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                 if (list.isEmpty) {
                   return RefreshIndicator(
                     color: Colors.black,
-                    onRefresh: () => controller.loadData(),
+                    onRefresh: () => controller.loadData(isRefresh: true),
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(
                         parent: BouncingScrollPhysics(),
@@ -148,23 +146,35 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                   );
                 }
 
+                final bool showPagination =
+                    controller.hasMore.value || controller.isLoadingMore.value;
+                final bool showAllLoaded =
+                    !controller.hasMore.value && list.length >= 20;
+                final int footerCount = (showPagination || showAllLoaded)
+                    ? 1
+                    : 0;
+
                 return RefreshIndicator(
                   color: Colors.black,
-                  onRefresh: () => controller.loadData(),
+                  onRefresh: () => controller.loadData(isRefresh: true),
                   child: ListView.builder(
+                    controller: controller.scrollController,
                     padding: EdgeInsets.only(
                       left: context.responsive(20),
                       right: context.responsive(20),
                       top: context.responsive(12),
-                      bottom: context.responsive(20),
+                      bottom: context.responsive(140),
                     ),
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
-                    itemCount: list.length,
+                    itemCount: list.length + footerCount,
                     itemBuilder: (context, index) {
-                      final tx = list[index];
-                      return transactionItem(context, tx);
+                      if (index < list.length) {
+                        final tx = list[index];
+                        return transactionItem(context, tx);
+                      }
+                      return _buildPaginationFooter(context);
                     },
                   ),
                 );
@@ -307,6 +317,95 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
     );
   }
 
+  Widget _buildPaginationFooter(BuildContext context) {
+    return Obx(() {
+      if (controller.isLoadingMore.value) {
+        return Container(
+          margin: EdgeInsets.symmetric(vertical: context.responsive(16)),
+          padding: EdgeInsets.all(context.responsive(12)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: context.responsive(18),
+                height: context.responsive(18),
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryRed),
+                ),
+              ),
+              SizedBox(width: context.responsive(12)),
+              Text(
+                "Loading more transactions...",
+                style: TextStyle(
+                  color: const Color(0xFF6B7280),
+                  fontSize: context.responsive(13),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (controller.hasMore.value) {
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: context.responsive(12)),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => controller.loadMore(),
+              borderRadius: BorderRadius.circular(context.responsive(14)),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  vertical: context.responsive(12),
+                  horizontal: context.responsive(16),
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(context.responsive(14)),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.arrow_downward_rounded,
+                      size: context.responsive(16),
+                      color: primaryRed,
+                    ),
+                    SizedBox(width: context.responsive(8)),
+                    Text(
+                      "Load More Transactions",
+                      style: TextStyle(
+                        color: const Color(0xFF111111),
+                        fontSize: context.responsive(13),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return Container(
+        margin: EdgeInsets.symmetric(vertical: context.responsive(16)),
+        alignment: Alignment.center,
+        child: Text(
+          "All transactions loaded",
+          style: TextStyle(
+            color: const Color(0xFF9CA3AF),
+            fontSize: context.responsive(12),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    });
+  }
+
   Widget transactionItem(BuildContext context, Map<String, dynamic> tx) {
     final amount = (tx["amount"] as num).toDouble();
     final isCredit = tx["isCredit"] == true;
@@ -323,7 +422,7 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
           border: Border.all(color: const Color(0xFFECECEC)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -338,7 +437,9 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tx["name"]?.toString() ?? "Payment",
+                    (tx["name"]?.toString() ?? "Payment").safeUtf16(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: const Color(0xFF111111),
                       fontSize: context.responsive(15),
@@ -348,12 +449,16 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                   SizedBox(height: context.responsive(4)),
                   Row(
                     children: [
-                      Text(
-                        tx["date"]?.toString() ?? "",
-                        style: TextStyle(
-                          color: const Color(0xFF6B7280),
-                          fontSize: context.responsive(12),
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          (tx["date"]?.toString() ?? "").safeUtf16(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: const Color(0xFF6B7280),
+                            fontSize: context.responsive(12),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       if (isFailed) ...[
@@ -384,6 +489,7 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                 ],
               ),
             ),
+            SizedBox(width: context.responsive(8)),
             Text(
               "${isCredit ? '+' : '-'} ₹${amount.abs()}",
               style: TextStyle(
@@ -407,8 +513,8 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
         ? const Color(0xFF059669)
         : const Color(0xFFD84315);
     final iconBgColor = isCredit
-        ? const Color(0xFF059669).withOpacity(0.08)
-        : const Color(0xFFD84315).withOpacity(0.08);
+        ? const Color(0xFF059669).withValues(alpha: 0.08)
+        : const Color(0xFFD84315).withValues(alpha: 0.08);
     final icon = isCredit
         ? Icons.south_west_rounded
         : Icons.arrow_outward_rounded;

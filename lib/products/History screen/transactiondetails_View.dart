@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
@@ -7,19 +9,33 @@ import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/utilities/string_extensions.dart';
 
 class TransactiondetailsView extends StatelessWidget {
   const TransactiondetailsView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic> args = Get.arguments ?? {};
-    final tx = args["tx"] ?? {};
+    final Map<String, dynamic> args = Get.arguments is Map
+        ? Map<String, dynamic>.from(Get.arguments as Map)
+        : {};
+    final tx = args["tx"] is Map ? args["tx"] as Map : {};
 
-    final String name = tx["name"]?.toString() ?? "Payment Reference";
-    final String date = tx["date"]?.toString() ?? "Today";
-    final double amountValue = (tx["amount"] as num?)?.toDouble().abs() ?? 0.0;
-
+    final String name = (tx["name"]?.toString() ?? "Payment Reference")
+        .safeUtf16();
+    final String date = (tx["date"]?.toString() ?? "Today").safeUtf16();
+    // final double amountValue = (tx["amount"] as num?)?.toDouble().abs() ?? 0.0;
+    final double amountValue =
+        (double.tryParse(
+                  tx["amount"]?.toString().replaceAll(
+                        RegExp(r'[^0-9.-]'),
+                        '',
+                      ) ??
+                      "0",
+                ) ??
+                0.0)
+            .abs();
+    log("sdf>> ${tx["amount"]}");
     bool isCredit = false;
     if (tx.containsKey("isCredit")) {
       isCredit = tx["isCredit"] == true;
@@ -301,6 +317,7 @@ class TransactiondetailsView extends StatelessWidget {
                 text: "Share Receipt",
                 btncolor: Colors.black,
                 textColor: Colors.white,
+                textsize: context.responsive(14),
                 prefixIcon: const Icon(
                   Icons.ios_share_outlined,
                   color: Colors.white,
@@ -308,7 +325,8 @@ class TransactiondetailsView extends StatelessWidget {
                 ),
                 borderRadius: 50,
                 onPressed: () async {
-                  final String text = '''
+                  final String text =
+                      '''
 ================================
    TRANSWALLET TRANSACTION  
 ================================
@@ -320,11 +338,15 @@ Date & Time   : $date
 Payment Source: Transcorp Wallet
 ================================
 Thank you for using Transwallet!
-'''.trim();
+'''
+                          .trim();
                   Clipboard.setData(ClipboardData(text: text));
                   HapticFeedback.lightImpact();
                   try {
-                    await Share.share(text, subject: 'Transwallet Transaction Details');
+                    await Share.share(
+                      text,
+                      subject: 'Transwallet Transaction Details',
+                    );
                   } catch (_) {
                     Get.snackbar(
                       "Receipt Copied",
