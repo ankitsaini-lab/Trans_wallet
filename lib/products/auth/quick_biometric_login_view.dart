@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/auth/quick_biometric_login_controller.dart';
+import 'package:transwallet/widgets/custom_numeric_keypad.dart';
 
 class QuickBiometricLoginView extends StatelessWidget {
   const QuickBiometricLoginView({super.key});
@@ -204,17 +205,17 @@ class QuickBiometricLoginView extends StatelessWidget {
                             height: 16,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: hasError
+                              color: isFilled
                                   ? primaryRed
-                                  : (isFilled ? primaryRed : Colors.white),
+                                  : Colors.white,
                               border: Border.all(
-                                color: hasError
+                                color: isFilled
                                     ? primaryRed
-                                    : (isFilled
-                                          ? primaryRed
-                                          : Colors.black.withValues(
-                                              alpha: 0.18,
-                                            )),
+                                    : (hasError
+                                        ? primaryRed.withValues(alpha: 0.35)
+                                        : Colors.black.withValues(
+                                            alpha: 0.18,
+                                          )),
                                 width: 2,
                               ),
                               boxShadow: isFilled
@@ -273,24 +274,6 @@ class QuickBiometricLoginView extends StatelessWidget {
 
                       const SizedBox(height: 12),
 
-                      // Switch back to biometrics button
-                      TextButton.icon(
-                        onPressed: controller.switchToBiometrics,
-                        icon: Icon(
-                          controller.biometricIcon,
-                          color: primaryRed,
-                          size: 18,
-                        ),
-                        label: Text(
-                          "Use ${controller.biometricLabel} instead",
-                          style: const TextStyle(
-                            color: primaryRed,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-
                       // Full Login
                       TextButton(
                         onPressed: controller.navigateToFullLogin,
@@ -315,101 +298,11 @@ class QuickBiometricLoginView extends StatelessWidget {
   }
 
   Widget _buildKeypad(QuickBiometricLoginController controller) {
-    return Column(
-      children: [
-        _keyRow(controller, ['1', '2', '3']),
-        const SizedBox(height: 10),
-        _keyRow(controller, ['4', '5', '6']),
-        const SizedBox(height: 10),
-        _keyRow(controller, ['7', '8', '9']),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _KeypadBtn(
-              icon: controller.biometricIcon,
-              iconColor: primaryRed,
-              onTap: controller.switchToBiometrics,
-            ),
-            _KeypadBtn(
-              label: '0',
-              onTap: () => controller.onKeyTap('0'),
-            ),
-            _KeypadBtn(
-              icon: Icons.backspace_outlined,
-              iconColor: textColor,
-              onTap: controller.onDeleteKey,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _keyRow(
-    QuickBiometricLoginController controller,
-    List<String> digits,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: digits
-          .map((d) => _KeypadBtn(label: d, onTap: () => controller.onKeyTap(d)))
-          .toList(),
-    );
-  }
-}
-
-class _KeypadBtn extends StatelessWidget {
-  final String? label;
-  final IconData? icon;
-  final Color? iconColor;
-  final VoidCallback onTap;
-
-  const _KeypadBtn({
-    this.label,
-    this.icon,
-    this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 50,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(28),
-        splashColor: primaryRed.withValues(alpha: 0.15),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: Colors.black.withValues(alpha: 0.06),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: label != null
-                ? Text(
-                    label!,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  )
-                : Icon(icon, color: iconColor ?? textColor, size: 22),
-          ),
-        ),
+    return Center(
+      child: CustomNumericKeypad(
+        onDigitTap: controller.onKeyTap,
+        onDeleteTap: controller.onDeleteKey,
+        onClear: controller.clearPin,
       ),
     );
   }

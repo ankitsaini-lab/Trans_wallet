@@ -129,7 +129,9 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  SizedBox(
+                    height: 36 + MediaQuery.of(context).padding.bottom,
+                  ),
                 ],
               ),
             ),
@@ -375,10 +377,12 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Center(
               child: Container(
                 width: 48,
@@ -469,10 +473,14 @@ class OrderdetailsscreenView extends GetView<OrderdetailsscreenController> {
               btncolor: Colors.black,
               onPressed: () => Get.back(),
             ),
-            const SizedBox(height: 10),
+            SizedBox(
+              height: context.responsive(12) +
+                  (MediaQuery.of(context).padding.bottom > 0 ? 0 : 6),
+            ),
           ],
         ),
       ),
+    ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
     );

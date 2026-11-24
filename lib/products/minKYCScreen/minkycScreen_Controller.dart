@@ -8,9 +8,11 @@ import 'package:transwallet/products/Recharge%20and%20Bills/recharge_bills_scree
 import 'package:transwallet/products/login_singupscreen/create%20Account/createaccount_Controller.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/auth_service.dart';
-import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/widgets/dob_picker.dart';
+import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/custom_numeric_keypad.dart';
 import 'package:transwallet/widgets/otp_input_field.dart';
 import 'package:transwallet/services/sms_user_consent_service.dart';
 
@@ -47,6 +49,19 @@ class MinkycscreenController extends GetxController {
     } else {
       verifyPan();
     }
+  }
+
+  String _cleanToken(dynamic val) {
+    if (val == null) return '';
+    if (val is Map) {
+      final inner =
+          val['token'] ?? val['registrationToken'] ?? val['accessToken'];
+      if (inner != null) return _cleanToken(inner);
+      return '';
+    }
+    final s = val.toString().trim();
+    if (s.isEmpty || s == 'null' || s == '{}' || s == '[]') return '';
+    return s;
   }
 
   String _resolveParam(String? fromCtrl, List<String> storageKeys) {
@@ -107,40 +122,44 @@ class MinkycscreenController extends GetxController {
       final box = GetStorage();
 
       // Priority 1: Registration token from PAN verify API response
-      String registrationToken = panVerifyRegistrationToken.value.trim();
+      String registrationToken = _cleanToken(panVerifyRegistrationToken.value);
 
       if (registrationToken.isEmpty) {
-        registrationToken = (box.read('pan_verify_registration_token') ?? '')
-            .toString()
-            .trim();
+        registrationToken = _cleanToken(
+          box.read('pan_verify_registration_token'),
+        );
       }
 
       if (registrationToken.isEmpty) {
-        registrationToken = (box.read('registrationToken') ?? '')
-            .toString()
-            .trim();
+        registrationToken = _cleanToken(box.read('registrationToken'));
       }
 
       // Priority 2: Fallback to Get.arguments
       if (registrationToken.isEmpty &&
           Get.arguments is Map &&
           Get.arguments['registrationToken'] != null) {
-        registrationToken = Get.arguments['registrationToken']
-            .toString()
-            .trim();
+        registrationToken = _cleanToken(Get.arguments['registrationToken']);
       }
 
       // Priority 3: Fallback to other stored keys
       if (registrationToken.isEmpty) {
-        registrationToken = _resolveParam(null, [
-          'registration_token',
-          'auth_token',
-          'token',
-        ]);
+        registrationToken = _cleanToken(
+          _resolveParam(null, ['registration_token', 'auth_token', 'token']),
+        );
       }
 
       if (registrationToken.isEmpty && Get.isRegistered<AuthService>()) {
-        registrationToken = AuthService.to.token?.trim() ?? '';
+        registrationToken = _cleanToken(AuthService.to.token);
+      }
+
+      if (registrationToken.isEmpty) {
+        isLoading.value = false;
+        panError.value =
+            "Registration session expired. Please verify your mobile number again.";
+        AppSnackbar.error(
+          "Registration session expired. Please verify your mobile number again.",
+        );
+        return;
       }
 
       CreateaccountController? createCtrl;
@@ -172,21 +191,23 @@ class MinkycscreenController extends GetxController {
         rawTitle = '';
       }
 
-      // 2. First Name: parse as blank if empty
-      String firstName = _resolveParam(createCtrl?.firstName.value, [
-        'reg_firstName',
-        'firstName',
-        'first_name',
-      ]);
-      if (firstName.isEmpty) {
-        final storedName = (box.read('name') ?? '').toString().trim();
-        if (storedName.isNotEmpty && storedName != 'null') {
-          final parts = storedName.split(RegExp(r'\s+'));
-          if (parts.isNotEmpty) firstName = parts.first.trim();
-        }
+      // 2. First Name: strictly from registration form (blank if empty)
+      String firstName = '';
+      if (createCtrl != null && createCtrl.firstName.value.trim().isNotEmpty) {
+        firstName = createCtrl.firstName.value.trim();
+      } else if (box.hasData('reg_firstName')) {
+        final v = box.read('reg_firstName');
+        firstName = (v != null && v.toString().trim() != 'null')
+            ? v.toString().trim()
+            : '';
+      } else {
+        firstName = _resolveParam(null, [
+          'firstName',
+          'first_name',
+        ]);
       }
 
-      // 3. Middle Name: parse as blank if empty (Middle Name is optional)
+      // 3. Middle Name: strictly from registration form (blank if empty, optional)
       String middleName = '';
       if (createCtrl != null) {
         middleName = createCtrl.midName.value.trim();
@@ -197,20 +218,21 @@ class MinkycscreenController extends GetxController {
             : '';
       }
 
-      // 4. Last Name: parse as blank if empty
-      String lastName = _resolveParam(createCtrl?.lastName.value, [
-        'reg_lastName',
-        'lastName',
-        'last_name',
-      ]);
-      if (lastName.isEmpty) {
-        final storedName = (box.read('name') ?? '').toString().trim();
-        if (storedName.isNotEmpty && storedName != 'null') {
-          final parts = storedName.split(RegExp(r'\s+'));
-          if (parts.length > 1) {
-            lastName = parts.sublist(1).join(' ').trim();
-          }
-        }
+      // 4. Last Name: strictly from registration form (blank if empty, optional)
+      // Strictly do not use any PAN verification response or fall back to PAN name.
+      String lastName = '';
+      if (createCtrl != null) {
+        lastName = createCtrl.lastName.value.trim();
+      } else if (box.hasData('reg_lastName')) {
+        final val = box.read('reg_lastName');
+        lastName = (val != null && val.toString().trim() != 'null')
+            ? val.toString().trim()
+            : '';
+      } else {
+        lastName = _resolveParam(null, [
+          'lastName',
+          'last_name',
+        ]);
       }
 
       // 5. Gender: parse as blank if empty
@@ -231,6 +253,17 @@ class MinkycscreenController extends GetxController {
       // 7. DOB: parse as blank if empty
       String rawDob = _resolveParam(createCtrl?.dob.value, ['reg_dob', 'dob']);
       String dobVal = _formatDob(rawDob);
+      if (dobVal.isNotEmpty) {
+        try {
+          final parsed = DateTime.tryParse(dobVal);
+          if (parsed != null && isUnderAge(parsed)) {
+            isLoading.value = false;
+            panError.value = "You must be at least 18 years old to register.";
+            AppSnackbar.error("You must be at least 18 years old to register.");
+            return;
+          }
+        } catch (_) {}
+      }
 
       // 8. Has Activation Code: boolean
       bool hasCodeVal = true;
@@ -353,6 +386,7 @@ class MinkycscreenController extends GetxController {
         final bool isSuccess = body['success'] == true || body['code'] == 'OK';
 
         if (isSuccess) {
+          String? accessToken;
           if (body['data'] != null && body['data'] is Map) {
             final data = body['data'] as Map;
             final rawAccess = data['accessToken'];
@@ -360,7 +394,6 @@ class MinkycscreenController extends GetxController {
             final rawRegToken = data['registrationToken'];
             final rawDebugOtp = data['debugOtp'];
 
-            String? accessToken;
             if (rawAccess is String &&
                 rawAccess.trim().isNotEmpty &&
                 rawAccess.trim() != '{}') {
@@ -422,6 +455,10 @@ class MinkycscreenController extends GetxController {
                   'phone': box.read('phone') ?? '',
                 },
               );
+              final registeredFullName = '$firstName $lastName'.trim();
+              if (registeredFullName.isNotEmpty) {
+                box.write('name', registeredFullName);
+              }
             }
           }
 
@@ -430,8 +467,17 @@ class MinkycscreenController extends GetxController {
               "Registration details submitted successfully";
           AppSnackbar.success(message);
 
-          if (Get.isRegistered<ApiService>()) {
+          // Only register device token if user is actively authenticated with accessToken
+          if (Get.isRegistered<ApiService>() &&
+              accessToken != null &&
+              accessToken.isNotEmpty &&
+              accessToken != '{}') {
             ApiService.to.registerDeviceToken();
+          }
+
+          // Close any open dialogs then open OTP sheet
+          if (Get.isDialogOpen ?? false) {
+            Get.back();
           }
 
           // After api success open otp popup
@@ -497,22 +543,21 @@ class MinkycscreenController extends GetxController {
       String registrationToken = '';
 
       if (Get.arguments is Map && Get.arguments['registrationToken'] != null) {
-        registrationToken = Get.arguments['registrationToken']
-            .toString()
-            .trim();
+        registrationToken = _cleanToken(Get.arguments['registrationToken']);
       }
 
       if (registrationToken.isEmpty) {
-        registrationToken = _resolveParam(null, [
-          'registrationToken',
-          'registration_token',
-          'auth_token',
-          'token',
-        ]);
+        registrationToken = _cleanToken(box.read('registrationToken'));
+      }
+
+      if (registrationToken.isEmpty) {
+        registrationToken = _cleanToken(
+          _resolveParam(null, ['registration_token', 'auth_token', 'token']),
+        );
       }
 
       if (registrationToken.isEmpty && Get.isRegistered<AuthService>()) {
-        registrationToken = AuthService.to.token?.trim() ?? '';
+        registrationToken = _cleanToken(AuthService.to.token);
       }
 
       final requestBody = {
@@ -574,8 +619,12 @@ class MinkycscreenController extends GetxController {
                 dataMap['name']?.toString().trim() ??
                 '';
             if (verifiedName.isNotEmpty && verifiedName != 'null') {
-              box.write('name', verifiedName);
               box.write('pan_name', verifiedName);
+              // Do not overwrite user-entered name from registration form with PAN name
+              final existingName = (box.read('reg_firstName') ?? box.read('name') ?? '').toString().trim();
+              if (existingName.isEmpty || existingName == 'null') {
+                box.write('name', verifiedName);
+              }
               box.write('registeredName', verifiedName);
               developer.log(
                 "[PAN Verify] Extracted verified name: $verifiedName",
@@ -679,40 +728,34 @@ class MinkycscreenController extends GetxController {
       final box = GetStorage();
 
       // Priority 1: Registration token from storage or PAN verify response
-      String registrationToken = (box.read('registrationToken') ?? '')
-          .toString()
-          .trim();
+      String registrationToken = _cleanToken(box.read('registrationToken'));
 
       if (registrationToken.isEmpty) {
-        registrationToken = panVerifyRegistrationToken.value.trim();
+        registrationToken = _cleanToken(panVerifyRegistrationToken.value);
       }
 
       if (registrationToken.isEmpty) {
-        registrationToken = (box.read('pan_verify_registration_token') ?? '')
-            .toString()
-            .trim();
+        registrationToken = _cleanToken(
+          box.read('pan_verify_registration_token'),
+        );
       }
 
       // Priority 2: Fallback to Get.arguments
       if (registrationToken.isEmpty &&
           Get.arguments is Map &&
           Get.arguments['registrationToken'] != null) {
-        registrationToken = Get.arguments['registrationToken']
-            .toString()
-            .trim();
+        registrationToken = _cleanToken(Get.arguments['registrationToken']);
       }
 
       // Priority 3: Fallback to other stored keys
       if (registrationToken.isEmpty) {
-        registrationToken = _resolveParam(null, [
-          'registration_token',
-          'auth_token',
-          'token',
-        ]);
+        registrationToken = _cleanToken(
+          _resolveParam(null, ['registration_token', 'auth_token', 'token']),
+        );
       }
 
       if (registrationToken.isEmpty && Get.isRegistered<AuthService>()) {
-        registrationToken = AuthService.to.token?.trim() ?? '';
+        registrationToken = _cleanToken(AuthService.to.token);
       }
 
       final requestBody = {
@@ -787,12 +830,20 @@ class MinkycscreenController extends GetxController {
                 accessToken != null &&
                 accessToken.isNotEmpty &&
                 accessToken != '{}') {
+              final regFirst =
+                  (box.read('reg_firstName') ?? '').toString().trim();
+              final regLast =
+                  (box.read('reg_lastName') ?? '').toString().trim();
+              final regCombined = '$regFirst $regLast'.trim();
+              final resolvedName = regCombined.isNotEmpty
+                  ? regCombined
+                  : (box.read('name') ?? '').toString().trim();
               Get.find<AuthService>().saveSession(
                 token: accessToken,
                 refreshToken: refreshToken,
                 userId: box.read('user_id') ?? 'user',
                 userData: {
-                  'name': box.read('name') ?? '',
+                  'name': resolvedName,
                   'email': box.read('email') ?? '',
                   'phone': box.read('phone') ?? '',
                 },
@@ -1352,9 +1403,18 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
   String get _currentPin => _step == 1 ? _mpin : _confirmMpin;
 
   void _onKeyTap(String digit) {
-    if (_currentPin.length >= 4 || _isSuccess || _isLoading) return;
+    if (_isSuccess || _isLoading) return;
     setState(() {
-      _hasError = false;
+      if (_hasError) {
+        _hasError = false;
+        _errorMessage = '';
+        if (_step == 1) {
+          _mpin = '';
+        } else {
+          _confirmMpin = '';
+        }
+      }
+      if (_currentPin.length >= 4) return;
       if (_step == 1) {
         _mpin += digit;
         if (_mpin.length == 4) _onMpinComplete();
@@ -1369,10 +1429,31 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
     if (_isSuccess || _isLoading) return;
     setState(() {
       _hasError = false;
+      _errorMessage = '';
       if (_step == 1 && _mpin.isNotEmpty) {
         _mpin = _mpin.substring(0, _mpin.length - 1);
-      } else if (_step == 2 && _confirmMpin.isNotEmpty) {
-        _confirmMpin = _confirmMpin.substring(0, _confirmMpin.length - 1);
+      } else if (_step == 2) {
+        if (_confirmMpin.isNotEmpty) {
+          _confirmMpin = _confirmMpin.substring(0, _confirmMpin.length - 1);
+        } else {
+          _step = 1;
+          if (_mpin.isNotEmpty) {
+            _mpin = _mpin.substring(0, _mpin.length - 1);
+          }
+        }
+      }
+    });
+  }
+
+  void _onClear() {
+    if (_isSuccess || _isLoading) return;
+    setState(() {
+      _hasError = false;
+      _errorMessage = '';
+      if (_step == 1) {
+        _mpin = '';
+      } else {
+        _confirmMpin = '';
       }
     });
   }
@@ -1391,7 +1472,6 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
       setState(() {
         _hasError = true;
         _errorMessage = 'MPINs do not match. Try again.';
-        _confirmMpin = '';
       });
       return;
     }
@@ -1445,6 +1525,10 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
           box.write('has_mpin', true);
           box.write('mpin_set', true);
           box.write('saved_mpin', _confirmMpin);
+          box.write('is_logged_in', true);
+          box.write('registration_in_progress', false);
+          box.remove('otpFlow');
+          box.remove('registrationToken');
 
           final message =
               body['message']?.toString() ?? "MPIN set successfully";
@@ -1454,24 +1538,9 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
             ApiService.to.registerDeviceToken();
           }
 
-          Future.delayed(const Duration(milliseconds: 600), () async {
+          Future.delayed(const Duration(milliseconds: 600), () {
             if (!mounted) return;
-            if (Get.isRegistered<BiometricService>()) {
-              final biometricService = BiometricService.to;
-              await biometricService.checkBiometricSupport();
-              if (mounted && biometricService.isBiometricAvailable) {
-                await biometricService.promptBiometricPermission(
-                  context,
-                  onComplete: () {
-                    _navigateToPostRegistration();
-                  },
-                );
-              } else {
-                _navigateToPostRegistration();
-              }
-            } else {
-              _navigateToPostRegistration();
-            }
+            _navigateToPostRegistration();
           });
         } else {
           final errorMsg = body['message']?.toString() ?? "Failed to set MPIN";
@@ -1479,7 +1548,6 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
             _isLoading = false;
             _hasError = true;
             _errorMessage = errorMsg;
-            _confirmMpin = '';
           });
           AppSnackbar.error(errorMsg);
         }
@@ -1497,7 +1565,6 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
           _isLoading = false;
           _hasError = true;
           _errorMessage = errorMsg;
-          _confirmMpin = '';
         });
         AppSnackbar.error(errorMsg);
       }
@@ -1508,7 +1575,6 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
         _isLoading = false;
         _hasError = true;
         _errorMessage = "Something went wrong: $e";
-        _confirmMpin = '';
       });
       AppSnackbar.error("Something went wrong: $e");
     }
@@ -1654,13 +1720,13 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                                 shape: BoxShape.circle,
                                 color: _isSuccess
                                     ? const Color(0xFF22C55E)
-                                    : _hasError
-                                    ? Colors.red
-                                    : filled
-                                    ? primaryRed
-                                    : const Color(0xFFECECEC),
+                                    : (filled
+                                          ? (_hasError
+                                                ? Colors.red
+                                                : primaryRed)
+                                          : const Color(0xFFECECEC)),
                                 border: Border.all(
-                                  color: _hasError
+                                  color: _hasError && filled
                                       ? Colors.red.withOpacity(0.3)
                                       : Colors.transparent,
                                   width: 2,
@@ -1736,32 +1802,12 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
   }
 
   Widget _buildKeypad() {
-    return Column(
-      children: [
-        _keyRow(['1', '2', '3']),
-        const SizedBox(height: 14),
-        _keyRow(['4', '5', '6']),
-        const SizedBox(height: 14),
-        _keyRow(['7', '8', '9']),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            const SizedBox(width: 72),
-            _KeyButton(label: '0', onTap: () => _onKeyTap('0')),
-            _DeleteButton(onTap: _onDelete),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _keyRow(List<String> digits) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: digits
-          .map((d) => _KeyButton(label: d, onTap: () => _onKeyTap(d)))
-          .toList(),
+    return Center(
+      child: CustomNumericKeypad(
+        onDigitTap: _onKeyTap,
+        onDeleteTap: _onDelete,
+        onClear: _onClear,
+      ),
     );
   }
 }
@@ -1780,85 +1826,6 @@ class _StepDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: active || done ? primaryRed : const Color(0xFFECECEC),
         borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
-}
-
-class _KeyButton extends StatefulWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _KeyButton({required this.label, required this.onTap});
-
-  @override
-  State<_KeyButton> createState() => _KeyButtonState();
-}
-
-class _KeyButtonState extends State<_KeyButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.9 : 1.0,
-        duration: const Duration(milliseconds: 80),
-        child: Container(
-          height: 72,
-          width: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _pressed ? primaryYellow : const Color(0xFFF5F5F5),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            widget.label,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteButton extends StatefulWidget {
-  final VoidCallback onTap;
-  const _DeleteButton({required this.onTap});
-
-  @override
-  State<_DeleteButton> createState() => _DeleteButtonState();
-}
-
-class _DeleteButtonState extends State<_DeleteButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.9 : 1.0,
-        duration: const Duration(milliseconds: 80),
-        child: SizedBox(
-          height: 72,
-          width: 72,
-          child: Icon(
-            Icons.backspace_outlined,
-            color: const Color(0xFF6B7280),
-            size: 24,
-          ),
-        ),
       ),
     );
   }

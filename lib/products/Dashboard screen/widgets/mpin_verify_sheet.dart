@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/pressable_scale.dart';
-import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/widgets/custom_numeric_keypad.dart';
 
 class MpinVerifySheet extends StatefulWidget {
   final VoidCallback onSuccess;
@@ -18,6 +20,25 @@ class MpinVerifySheet extends StatefulWidget {
     this.subtitle = "For your security, enter your 4-digit mobile PIN",
   });
 
+  /// Presents the MPIN verification bottom sheet and awaits verification.
+  /// Returns `true` only if MPIN was verified successfully via the API.
+  static Future<bool> show({
+    String title = "Enter MPIN for Confirmation",
+    String subtitle = "Enter your 4-digit MPIN for confirmation",
+  }) async {
+    final result = await Get.bottomSheet<bool>(
+      MpinVerifySheet(
+        title: title,
+        subtitle: subtitle,
+        onSuccess: () {},
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+    );
+    return result == true;
+  }
+
   @override
   State<MpinVerifySheet> createState() => _MpinVerifySheetState();
 }
@@ -26,51 +47,54 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
   String _mpin = "";
   bool _isVerifying = false;
   bool _hasError = false;
+  String _errorMessage = "";
 
   void _keypadPress(String value) {
-    if (_mpin.length < 4 && !_isVerifying) {
-      setState(() {
-        _mpin += value;
-        _hasError = false;
-      });
+    if (_isVerifying) return;
 
-      if (_mpin.length == 4) {
-        _verifyMpin();
+    setState(() {
+      if (_hasError) {
+        _hasError = false;
+        _errorMessage = "";
+        _mpin = "";
       }
+      if (_mpin.length < 4) {
+        _mpin += value;
+      }
+    });
+
+    if (_mpin.length == 4) {
+      _verifyMpin();
     }
   }
 
   void _deletePress() {
-    if (_mpin.isNotEmpty && !_isVerifying) {
-      setState(() {
+    if (_isVerifying) {
+      _isVerifying = false;
+    }
+    setState(() {
+      _hasError = false;
+      _errorMessage = "";
+      if (_mpin.isNotEmpty) {
         _mpin = _mpin.substring(0, _mpin.length - 1);
-        _hasError = false;
-      });
-    }
-  }
-
-  Future<void> _biometricPress() async {
-    if (_isVerifying) return;
-    if (Get.isRegistered<BiometricService>()) {
-      final result = await BiometricService.to.authenticate(
-        localizedReason: "Authenticate to view balance",
-      );
-      if (result.success && mounted) {
-        Get.back();
-        widget.onSuccess();
-        return;
       }
-    }
-    if (mounted) {
-      setState(() {
-        _hasError = true;
-      });
-    }
+    });
   }
 
-  String _errorMessage = "Invalid MPIN. Try again.";
+  void _clearPress() {
+    if (_isVerifying) {
+      _isVerifying = false;
+    }
+    setState(() {
+      _hasError = false;
+      _errorMessage = "";
+      _mpin = "";
+    });
+  }
 
   Future<void> _verifyMpin() async {
+    final pinToVerify = _mpin;
+
     setState(() {
       _isVerifying = true;
       _hasError = false;
@@ -79,12 +103,12 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
 
     MpinVerifyResponse res;
     if (Get.isRegistered<ApiService>()) {
-      res = await ApiService.to.verifyMpin(_mpin);
+      res = await ApiService.to.verifyMpin(pinToVerify);
     } else {
       final box = GetStorage();
       final savedMpin =
           box.read<String>('saved_mpin') ?? box.read('mpin')?.toString();
-      final ok = savedMpin != null && savedMpin == _mpin;
+      final ok = savedMpin != null && savedMpin == pinToVerify;
       res = MpinVerifyResponse(
         isSuccess: ok,
         message: ok ? 'MPIN verified' : 'Invalid MPIN. Try again.',
@@ -93,16 +117,17 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
 
     if (mounted) {
       if (res.isSuccess) {
-        Get.back();
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.clearMpinLockout();
+        }
+        Get.back(result: true);
         widget.onSuccess();
       } else {
         setState(() {
-          _mpin = "";
+          _mpin = pinToVerify;
           _isVerifying = false;
           _hasError = true;
-          _errorMessage = res.message.isNotEmpty
-              ? res.message
-              : "Invalid MPIN. Try again.";
+          _errorMessage = res.message;
         });
       }
     }
@@ -190,16 +215,18 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
                 height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _hasError
-                      ? primaryRed
-                      : (_isVerifying
-                          ? primaryRed.withOpacity(0.4)
-                          : (isFilled ? primaryRed : Colors.white)),
+                  color: isFilled
+                      ? (_hasError
+                          ? primaryRed
+                          : (_isVerifying
+                              ? primaryRed.withOpacity(0.4)
+                              : primaryRed))
+                      : Colors.white,
                   border: Border.all(
-                    color: _hasError
+                    color: isFilled
                         ? primaryRed
-                        : (isFilled
-                            ? primaryRed
+                        : (_hasError
+                            ? primaryRed.withOpacity(0.35)
                             : Colors.black.withOpacity(0.18)),
                     width: 2,
                   ),
@@ -243,52 +270,10 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
             const SizedBox(height: 36),
           ],
 
-          Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadNum("1"),
-                  _buildKeypadNum("2"),
-                  _buildKeypadNum("3"),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadNum("4"),
-                  _buildKeypadNum("5"),
-                  _buildKeypadNum("6"),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadNum("7"),
-                  _buildKeypadNum("8"),
-                  _buildKeypadNum("9"),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildKeypadAction(
-                    icon: Icons.fingerprint_rounded,
-                    iconColor: primaryRed,
-                    onTap: _biometricPress,
-                  ),
-                  _buildKeypadNum("0"),
-                  _buildKeypadAction(
-                    icon: Icons.backspace_outlined,
-                    iconColor: secondaryText,
-                    onTap: _deletePress,
-                  ),
-                ],
-              ),
-            ],
+          CustomNumericKeypad(
+            onDigitTap: _keypadPress,
+            onDeleteTap: _deletePress,
+            onClear: _clearPress,
           ),
           const SizedBox(height: 20),
 
@@ -304,49 +289,6 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildKeypadNum(String number) {
-    return PressableScale(
-      onTap: () => _keypadPress(number),
-      child: Container(
-        height: 64,
-        width: Get.width * 0.25,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF8F9FA),
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKeypadAction({
-    required IconData icon,
-    Color iconColor = const Color(0xFF6B7280),
-    required VoidCallback onTap,
-  }) {
-    return PressableScale(
-      onTap: onTap,
-      child: Container(
-        height: 64,
-        width: Get.width * 0.25,
-        decoration: const BoxDecoration(
-          color: Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: iconColor, size: 24),
       ),
     );
   }

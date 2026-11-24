@@ -20,8 +20,8 @@ class QuickActionButton extends StatefulWidget {
 class _QuickActionButtonState extends State<QuickActionButton> {
   bool _pressed = false;
 
-  static const Color _primaryRed = Color(0xFFFFCC00);
-  static const Color _textColor = Color(0xFF111111);
+  Color primaryRed = Color(0xFFFFCC00);
+  Color textColor = Color(0xFF111111);
 
   @override
   Widget build(BuildContext context) {

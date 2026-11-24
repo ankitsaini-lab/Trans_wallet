@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -59,6 +60,38 @@
                     android:scheme="transwallet"
                     android:host="vkyc" />
             </intent-filter>
+            <!-- Card PIN Reset & Widget Custom Scheme Deep Link Filter -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="reset-pin" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="card-pin" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="set-pin" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="card-details" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="card" />
+            </intent-filter>
+            <!-- M2P Card Widget Legacy Scheme Deep Link Filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="ppiapp"
+                    android:host="card-widget" />
+                <data
+                    android:scheme="yappay" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -81,6 +114,14 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
         </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>

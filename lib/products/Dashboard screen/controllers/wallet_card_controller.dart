@@ -9,20 +9,39 @@ import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/services/auth_service.dart';
+import 'package:transwallet/products/Dashboard screen/dashboardscreen_Controller.dart';
 
 class WalletCardController extends GetxController {
   final RxList<WalletCardModel> cards = <WalletCardModel>[].obs;
   final RxInt selectedIndex = 0.obs;
   final RxBool isAnimating = false.obs;
+  final RxBool isLoading = false.obs;
+  final RxBool isError = false.obs;
+  final RxString errorMessage = ''.obs;
   Timer? _autoResetTimer;
   DateTime? _lastBlockedNoticeTime;
+
+  bool get _canFetchCards {
+    final box = GetStorage();
+    final bool loggedIn =
+        (box.read<bool>('is_logged_in') ?? false) &&
+        (box.read<String>('accessToken') != null ||
+            box.read<String>('auth_token') != null);
+    final bool isLoggingOut =
+        (Get.isRegistered<AuthService>() && AuthService.to.isLoggingOut) ||
+        (Get.isRegistered<ApiService>() && ApiService.to.isLoggingOut);
+    return loggedIn && !isLoggingOut;
+  }
 
   @override
   void onInit() {
     super.onInit();
     _loadInitialCards();
-    fetchCardsFromApi();
-    _startAutoResetTimer();
+    if (_canFetchCards) {
+      fetchCardsFromApi();
+      _startAutoResetTimer();
+    }
   }
 
   @override
@@ -31,9 +50,24 @@ class WalletCardController extends GetxController {
     super.onClose();
   }
 
+  void clear() {
+    _autoResetTimer?.cancel();
+    cards.clear();
+    selectedIndex.value = 0;
+    isAnimating.value = false;
+    isLoading.value = false;
+    isError.value = false;
+    errorMessage.value = '';
+  }
+
   void _loadInitialCards() {
-    final rawName = (GetStorage().read('name') ?? GetStorage().read('userName') ?? '').toString().trim();
-    final String holderName = rawName.isNotEmpty ? rawName.toUpperCase() : "CARDHOLDER";
+    final rawName =
+        (GetStorage().read('name') ?? GetStorage().read('userName') ?? '')
+            .toString()
+            .trim();
+    final String holderName = rawName.isNotEmpty
+        ? rawName.toUpperCase()
+        : "CARDHOLDER";
     final storedCards = GetStorage().read('user_cards');
 
     if (storedCards is List && storedCards.isNotEmpty) {
@@ -86,8 +120,8 @@ class WalletCardController extends GetxController {
           cardNumber: masked.isNotEmpty
               ? masked
               : (last4.isNotEmpty
-                  ? '•••• •••• •••• $last4'
-                  : '•••• •••• •••• ••••'),
+                    ? '•••• •••• •••• $last4'
+                    : '•••• •••• •••• ••••'),
           cardHolder: holderName,
           expiry: expiryFormatted,
           brand: network,
@@ -115,15 +149,25 @@ class WalletCardController extends GetxController {
     cards.clear();
   }
 
-  Future<void> fetchCardsFromApi() async {
-    if (!Get.isRegistered<ApiService>()) return;
+  Future<void> fetchCardsFromApi({bool isRetry = false}) async {
+    if (!_canFetchCards || !Get.isRegistered<ApiService>()) return;
+    if (cards.isEmpty || isRetry) {
+      isLoading.value = true;
+    }
+    isError.value = false;
+    errorMessage.value = '';
     try {
       final res = await ApiService.to.fetchUserCards();
       if (res != null && res['cards'] != null && res['cards'] is List) {
         final List rawList = res['cards'] as List;
         if (rawList.isNotEmpty) {
-          final rawName = (GetStorage().read('name') ?? GetStorage().read('userName') ?? '').toString().trim();
-          final String holderName = rawName.isNotEmpty ? rawName.toUpperCase() : "CARDHOLDER";
+          final rawName =
+              (GetStorage().read('name') ?? GetStorage().read('userName') ?? '')
+                  .toString()
+                  .trim();
+          final String holderName = rawName.isNotEmpty
+              ? rawName.toUpperCase()
+              : "CARDHOLDER";
           final List<WalletCardModel> apiList = rawList.asMap().entries.map((
             entry,
           ) {
@@ -176,8 +220,8 @@ class WalletCardController extends GetxController {
               cardNumber: masked.isNotEmpty
                   ? masked
                   : (last4.isNotEmpty
-                      ? '•••• •••• •••• $last4'
-                      : '•••• •••• •••• ••••'),
+                        ? '•••• •••• •••• $last4'
+                        : '•••• •••• •••• ••••'),
               cardHolder: holderName,
               expiry: expiryFormatted,
               brand: network,
@@ -203,6 +247,12 @@ class WalletCardController extends GetxController {
       }
     } catch (e) {
       log('Error fetching cards in WalletCardController: $e');
+      if (cards.isEmpty) {
+        isError.value = true;
+        errorMessage.value = 'Failed to load cards';
+      }
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -241,7 +291,8 @@ class WalletCardController extends GetxController {
   void showPermanentlyBlockedNotice({String? message}) {
     final now = DateTime.now();
     if (_lastBlockedNoticeTime != null &&
-        now.difference(_lastBlockedNoticeTime!) < const Duration(milliseconds: 1500)) {
+        now.difference(_lastBlockedNoticeTime!) <
+            const Duration(milliseconds: 1500)) {
       return;
     }
     if (Get.isSnackbarOpen) {
@@ -251,7 +302,8 @@ class WalletCardController extends GetxController {
     HapticFeedback.lightImpact();
     AppSnackbar.show(
       title: "Card Blocked",
-      message: message ??
+      message:
+          message ??
           "This card is permanently blocked and its details cannot be viewed or accessed.",
       isSuccess: false,
       snackPosition: SnackPosition.BOTTOM,
@@ -273,6 +325,30 @@ class WalletCardController extends GetxController {
         ? cardNum.substring(cardNum.length - 4)
         : (cardNum.isNotEmpty ? cardNum : "****");
 
+    final cardMap = {
+      "id": card.id,
+      "kitNumber": card.id,
+      "fullNumber": card.cardNumber,
+      "holder": card.cardHolder,
+      "expiry": card.expiry,
+      "bgImage": card.bgImage,
+      "useBlackLogos": card.useBlackLogos,
+      "isBlocked": true,
+      "isPermanentlyBlocked": card.isPermanentlyBlocked,
+      "status": card.status.isNotEmpty ? card.status : "LOCKED",
+      "colors": [card.primaryColor, card.secondaryColor],
+      "label": card.type,
+      "brand": card.brand,
+      "cardType": card.type.toUpperCase().contains('PHYSICAL')
+          ? 'PHYSICAL'
+          : 'VIRTUAL',
+      "type": card.type.toUpperCase().contains('PHYSICAL')
+          ? 'PHYSICAL'
+          : 'VIRTUAL',
+      "isVirtual": !card.type.toUpperCase().contains('PHYSICAL'),
+      "isPhysical": card.type.toUpperCase().contains('PHYSICAL'),
+    };
+
     if (Get.isBottomSheetOpen == true) {
       Get.back();
     }
@@ -281,79 +357,100 @@ class WalletCardController extends GetxController {
       Builder(
         builder: (sheetContext) {
           return Container(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 20),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: SafeArea(
               top: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      border: Border.all(color: primaryYellow, width: 1.5),
-                    ),
-                    child: const Icon(
-                      Icons.lock_open_rounded,
-                      color: primaryRed,
-                      size: 26,
+                  // Top Drag handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 18),
+
+                  // Header icon - Snowflake / Frozen Lock
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFEFF6FF),
+                      border: Border.all(
+                        color: const Color(0xFFBFDBFE),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.ac_unit_rounded,
+                      color: Color(0xFF2563EB),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   const Text(
-                    "Unfreeze your card?",
+                    "Card is Frozen",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Your card will be active for all transactions again. Do you want to unfreeze it now?",
+                  const SizedBox(height: 8),
+
+                  // Subtitle
+                  Text(
+                    "Your card is currently frozen and transactions are temporarily paused. To unfreeze this card, please go to Card Controls.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
+                      fontSize: 13.5,
+                      color: Colors.grey.shade600,
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
+
+                  // Card preview tile
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                      horizontal: 14,
+                      vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9F9F9),
+                      color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.black12, width: 1),
+                      border: Border.all(color: Colors.grey.shade200, width: 1),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: lightprimaryred,
+                            color: const Color(0xFFEFF6FF),
                             border: Border.all(
-                              color: primaryYellow,
+                              color: const Color(0xFFBFDBFE),
                               width: 1.5,
                             ),
                           ),
                           child: const Icon(
                             Icons.credit_card,
-                            color: Colors.black,
+                            color: Color(0xFF2563EB),
                             size: 18,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,19 +458,32 @@ class WalletCardController extends GetxController {
                               Text(
                                 "Card Ending •••• $last4",
                                 style: const TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.black,
+                                  color: Color(0xFF0F172A),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                "Ready to unfreeze",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    "Frozen / Temporarily Blocked",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -381,7 +491,9 @@ class WalletCardController extends GetxController {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
+
+                  // Actions
                   Row(
                     children: [
                       Expanded(
@@ -396,6 +508,7 @@ class WalletCardController extends GetxController {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             side: BorderSide(color: Colors.grey.shade300),
+                            backgroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -403,14 +516,14 @@ class WalletCardController extends GetxController {
                           child: const Text(
                             "Cancel",
                             style: TextStyle(
-                              color: Colors.white,
+                              color: Colors.black87,
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
@@ -419,7 +532,12 @@ class WalletCardController extends GetxController {
                             } else {
                               Get.back();
                             }
-                            toggleBlockCard(index);
+                            Get.toNamed(
+                              '/managecard',
+                              arguments: cardMap,
+                            )?.then((_) {
+                              fetchCardsFromApi();
+                            });
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
@@ -429,13 +547,24 @@ class WalletCardController extends GetxController {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text(
-                            "Unfreeze Card",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.tune_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                "Manage Card / Unfreeze",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -556,6 +685,15 @@ class WalletCardController extends GetxController {
     }
 
     final box = GetStorage();
+    box.write('is_blocked', isBlocked);
+    box.write('is_card_blocked', isBlocked);
+    if (isPermanentlyBlocked) {
+      box.write('is_permanently_blocked', true);
+      box.write('is_card_permanently_blocked', true);
+    }
+    if (Get.isRegistered<DashboardscreenController>()) {
+      Get.find<DashboardscreenController>().checkCardBlockedStatus();
+    }
     final storedCards = box.read('user_cards');
     if (storedCards is List) {
       final updatedList = storedCards.map((c) {

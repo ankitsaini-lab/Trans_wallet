@@ -1,35 +1,26 @@
 import 'dart:async';
-import 'package:transwallet/widgets/notification_button.dart';
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/widgets/notification_button.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
-import 'package:transwallet/products/Notification%20screen/notification_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
-import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:transwallet/products/Recharge and Bills/recharge_bills_screens.dart';
 
 import 'package:transwallet/products/Dashboard%20screen/widgets/pressable_scale.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/bezier_chart_painter.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/card_popups.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/premium_balance_section.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/premium_cards_section.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/quick_action_button.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/all_cards_screen.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/pay_bill_screen.dart';
-import 'package:transwallet/products/Dashboard%20screen/widgets/services_more_screen.dart';
-
+import 'package:transwallet/products/Dashboard screen/widgets/dashboard_skeletons.dart';
+import 'package:transwallet/widgets/shimmer_widget.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 class DashboardscreenView extends StatefulWidget {
@@ -51,6 +42,8 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
     }
     return Get.find<DashboardscreenController>();
   }
+
+  DashboardscreenController get controller => _controller;
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
@@ -185,13 +178,28 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                                 letterSpacing: -0.1,
                               ),
                             ),
-                            Obx(
-                              () => Text(
-                                formatUserName(
-                                  controller.userName.value.isNotEmpty
-                                      ? controller.userName.value
-                                      : box.read('name'),
-                                ),
+                            Obx(() {
+                              final name = controller.userName.value.isNotEmpty
+                                  ? controller.userName.value
+                                  : (box.read('name')?.toString() ?? '');
+                              if (name.isEmpty &&
+                                  controller.isDashboardLoading.value) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 4,
+                                    bottom: 2,
+                                  ),
+                                  child: ShimmerEffect(
+                                    child: ShimmerBox(
+                                      width: context.responsive(110),
+                                      height: context.responsive(16),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return Text(
+                                formatUserName(name),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -200,8 +208,8 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                                   fontSize: context.responsive(16),
                                   letterSpacing: -0.4,
                                 ),
-                              ),
-                            ),
+                              );
+                            }),
                           ],
                         ),
                       ),
@@ -326,24 +334,106 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         Row(
           children: [
             Expanded(
-              child: QuickActionButton(
-                icon: Image.asset(
-                  "assets/sendmoney.png",
-                  height: 50,
-                  width: 44,
-                ),
-                label: "Send Money",
-                onTap: () => Get.toNamed("/sendmoney"),
-              ),
+              child: Obx(() {
+                final isFullKyc = controller.isFullKycCompleted.value;
+                final isFrozen = controller.isCardFrozen;
+                final isPermBlocked = controller.isCardPermanentlyBlocked;
+                final bool canSendMoney = isFullKyc && !isFrozen && !isPermBlocked;
+
+                return QuickActionButton(
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Opacity(
+                        opacity: canSendMoney ? 1.0 : 0.45,
+                        child: Image.asset(
+                          "assets/sendmoney.png",
+                          height: 50,
+                          width: 44,
+                        ),
+                      ),
+                      if (!canSendMoney)
+                        Positioned(
+                          top: -2,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: isFrozen
+                                  ? const Color(0xFF2563EB)
+                                  : (isPermBlocked
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFFD97706)),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFrozen
+                                  ? Icons.ac_unit_rounded
+                                  : (isPermBlocked
+                                      ? Icons.block_rounded
+                                      : Icons.lock_rounded),
+                              color: Colors.white,
+                              size: 11,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  label: "Send Money",
+                  onTap: () {
+                    if (isFrozen) {
+                      controller.showCardFrozenSendMoneyNotice();
+                    } else if (isPermBlocked) {
+                      controller.showPermanentlyBlockedSendMoneyNotice();
+                    } else if (!isFullKyc) {
+                      controller.showFullKycRequiredSendMoneyNotice();
+                    } else {
+                      Get.toNamed("/sendmoney");
+                    }
+                  },
+                );
+              }),
             ),
 
             const SizedBox(width: 12),
             Expanded(
-              child: QuickActionButton(
-                icon: Image.asset("assets/addmoney.png", height: 50, width: 44),
-                label: "Add Money",
-                onTap: _openTopUpSheet,
-              ),
+              child: Obx(() {
+                final isBlocked = controller.isCardPermanentlyBlocked;
+                return QuickActionButton(
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Opacity(
+                        opacity: isBlocked ? 0.45 : 1.0,
+                        child: Image.asset(
+                          "assets/addmoney.png",
+                          height: 50,
+                          width: 44,
+                        ),
+                      ),
+                      if (isBlocked)
+                        Positioned(
+                          top: -2,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.block,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  label: "Add Money",
+                  onTap: _openTopUpSheet,
+                );
+              }),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -808,17 +898,24 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Obx(
-              () => Text(
-                "${controller.selectedAnalyticsMetric.value} Analytics",
+            Obx(() {
+              final metric = controller.selectedAnalyticsMetric.value;
+              final displayTitle =
+                  (metric == "Credit" ||
+                      metric == "Received" ||
+                      metric == "Income")
+                  ? "Credit"
+                  : "Debit";
+              return Text(
+                "$displayTitle Analytics",
                 style: TextStyle(
                   color: textColor,
                   fontSize: context.responsive(18),
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
                 ),
-              ),
-            ),
+              );
+            }),
             GestureDetector(
               onTap: () => _showAnalyticsMonthPicker(context, controller),
               child: Container(
@@ -862,419 +959,432 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           ],
         ),
         const SizedBox(height: 20),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: const Color.fromRGBO(0, 0, 0, 0.08),
-                blurRadius: 5,
-                spreadRadius: 0,
-                offset: const Offset(0, 3),
+        Obx(() {
+          if (controller.isAnalyticsError.value &&
+              controller.weeklyAnalytics.isEmpty) {
+            return AnalyticsErrorView(
+              onRetry: () => controller.fetchTransactionAnalytics(
+                month: controller.selectedAnalyticsMonth.value.isNotEmpty
+                    ? controller.selectedAnalyticsMonth.value
+                    : null,
+                isRetry: true,
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Metric Selector Tabs: [Expenses] [Income] [Savings]
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Obx(() {
-                  final activeMetric = controller.selectedAnalyticsMetric.value;
-                  return Row(
-                    children: [
-                      _buildMetricFilterChip(
-                        label: "Expenses",
-                        isActive: activeMetric == "Expenses",
-                        activeColor: const Color(0xFFFF4500),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          controller.selectedAnalyticsMetric.value = "Expenses";
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildMetricFilterChip(
-                        label: "Income",
-                        isActive: activeMetric == "Income",
-                        activeColor: const Color(0xFF10B981),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          controller.selectedAnalyticsMetric.value = "Income";
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildMetricFilterChip(
-                        label: "Savings",
-                        isActive: activeMetric == "Savings",
-                        activeColor: const Color(0xFF2563EB),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          controller.selectedAnalyticsMetric.value = "Savings";
-                        },
-                      ),
-                    ],
-                  );
-                }),
-              ),
-              const SizedBox(height: 18),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Obx(() {
-                  final activeMetric = controller.selectedAnalyticsMetric.value;
-                  final metricKey = activeMetric.toLowerCase();
-                  final weekly = controller.weeklyAnalytics;
-                  final List<double> values = [];
-                  if (weekly.isNotEmpty) {
-                    for (var w in weekly) {
-                      double val = 0.0;
-                      if (metricKey == 'savings') {
-                        final inc = (w['income'] is num)
-                            ? (w['income'] as num).toDouble()
-                            : 0.0;
-                        final exp = (w['expenses'] is num)
-                            ? (w['expenses'] as num).toDouble()
-                            : 0.0;
-                        if (w['savings'] != null && (w['savings'] as num) > 0) {
-                          val = (w['savings'] as num).toDouble();
-                        } else if (inc - exp > 0) {
-                          val = inc - exp;
+            );
+          }
+
+          if ((controller.isAnalyticsLoading.value ||
+                  controller.isDashboardLoading.value) &&
+              controller.weeklyAnalytics.isEmpty) {
+            return const AnalyticsSkeleton();
+          }
+
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: borderColor, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color.fromRGBO(0, 0, 0, 0.08),
+                  blurRadius: 5,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Obx(() {
+                    final activeMetric =
+                        controller.selectedAnalyticsMetric.value;
+                    final bool isCredit =
+                        activeMetric == "Credit" ||
+                        activeMetric == "Received" ||
+                        activeMetric == "Income";
+                    return Row(
+                      children: [
+                        _buildMetricFilterChip(
+                          label: "Debit",
+                          isActive: !isCredit,
+                          activeColor: const Color(0xFFFF4500),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            controller.selectedAnalyticsMetric.value = "Debit";
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildMetricFilterChip(
+                          label: "Credit",
+                          isActive: isCredit,
+                          activeColor: const Color(0xFF10B981),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            controller.selectedAnalyticsMetric.value = "Credit";
+                          },
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Obx(() {
+                    final activeMetric =
+                        controller.selectedAnalyticsMetric.value;
+                    final bool isCredit =
+                        activeMetric == "Credit" ||
+                        activeMetric == "Received" ||
+                        activeMetric == "Income";
+                    final weekly = controller.weeklyAnalytics;
+                    final List<double> values = [];
+                    if (weekly.isNotEmpty) {
+                      for (var w in weekly) {
+                        double val = 0.0;
+                        if (isCredit) {
+                          if (w['income'] != null && (w['income'] as num) > 0) {
+                            val = (w['income'] as num).toDouble();
+                          }
+                        } else {
+                          if (w['expenses'] != null &&
+                              (w['expenses'] as num) > 0) {
+                            val = (w['expenses'] as num).toDouble();
+                          }
                         }
-                      } else if (w[metricKey] != null &&
-                          (w[metricKey] as num) > 0) {
-                        val = (w[metricKey] as num).toDouble();
+                        values.add(val);
                       }
-                      values.add(val);
+                    } else {
+                      values.addAll([0.0, 0.0, 0.0, 0.0]);
                     }
-                  } else {
-                    values.addAll([0.0, 0.0, 0.0, 0.0]);
-                  }
 
-                  final Color chartLineColor = activeMetric == "Income"
-                      ? const Color(0xFF10B981)
-                      : (activeMetric == "Savings"
-                            ? const Color(0xFF2563EB)
-                            : primaryRed);
+                    final Color chartLineColor = isCredit
+                        ? const Color(0xFF10B981)
+                        : primaryRed;
 
-                  final String noDataMsg =
-                      "No $activeMetric data for this period";
+                    final String displayMetric = isCredit ? "Credit" : "Debit";
+                    final String noDataMsg =
+                        "No $displayMetric data for this period";
 
-                  final selectedIdx = controller.selectedAnalyticsWeek.value;
-                  String? tooltip;
-                  if (selectedIdx >= 0 && selectedIdx < values.length) {
-                    tooltip =
-                        "W${selectedIdx + 1} ($activeMetric): ₹${values[selectedIdx].toStringAsFixed(0)}";
-                  }
+                    final selectedIdx = controller.selectedAnalyticsWeek.value;
+                    String? tooltip;
+                    if (selectedIdx >= 0 && selectedIdx < values.length) {
+                      tooltip =
+                          "W${selectedIdx + 1} ($displayMetric): ₹${values[selectedIdx].toStringAsFixed(0)}";
+                    }
 
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final chartWidth = constraints.maxWidth;
-                      final count = values.isNotEmpty ? values.length : 4;
-                      final stepX = count > 1
-                          ? chartWidth / (count - 1)
-                          : chartWidth;
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final chartWidth = constraints.maxWidth;
+                        final count = values.isNotEmpty ? values.length : 4;
+                        final stepX = count > 1
+                            ? chartWidth / (count - 1)
+                            : chartWidth;
 
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapDown: (details) {
-                          final idx = (details.localPosition.dx / stepX)
-                              .round()
-                              .clamp(0, count - 1);
-                          HapticFeedback.selectionClick();
-                          controller.selectedAnalyticsWeek.value = idx;
-                          _showWeeklyTransactionsModal(
-                            context,
-                            controller,
-                            idx,
-                          );
-                        },
-                        onPanUpdate: (details) {
-                          final idx = (details.localPosition.dx / stepX)
-                              .round()
-                              .clamp(0, count - 1);
-                          if (controller.selectedAnalyticsWeek.value != idx) {
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (details) {
+                            final idx = (details.localPosition.dx / stepX)
+                                .round()
+                                .clamp(0, count - 1);
                             HapticFeedback.selectionClick();
                             controller.selectedAnalyticsWeek.value = idx;
-                          }
-                        },
-                        onPanEnd: (_) {
-                          final idx = controller.selectedAnalyticsWeek.value;
-                          if (idx >= 0 && idx < count) {
                             _showWeeklyTransactionsModal(
                               context,
                               controller,
                               idx,
                             );
-                          }
-                        },
-                        child: SizedBox(
-                          height: 100,
-                          width: double.infinity,
-                          child: CustomPaint(
-                            painter: BezierChartPainter(
-                              values: values,
-                              selectedIndex: selectedIdx >= 0
-                                  ? selectedIdx
-                                  : null,
-                              tooltipText: tooltip,
-                              lineColor: chartLineColor,
-                              noDataMessage: noDataMsg,
+                          },
+                          onPanUpdate: (details) {
+                            final idx = (details.localPosition.dx / stepX)
+                                .round()
+                                .clamp(0, count - 1);
+                            if (controller.selectedAnalyticsWeek.value != idx) {
+                              HapticFeedback.selectionClick();
+                              controller.selectedAnalyticsWeek.value = idx;
+                            }
+                          },
+                          onPanEnd: (_) {
+                            final idx = controller.selectedAnalyticsWeek.value;
+                            if (idx >= 0 && idx < count) {
+                              _showWeeklyTransactionsModal(
+                                context,
+                                controller,
+                                idx,
+                              );
+                            }
+                          },
+                          child: SizedBox(
+                            height: 100,
+                            width: double.infinity,
+                            child: CustomPaint(
+                              painter: BezierChartPainter(
+                                values: values,
+                                selectedIndex: selectedIdx >= 0
+                                    ? selectedIdx
+                                    : null,
+                                tooltipText: tooltip,
+                                lineColor: chartLineColor,
+                                noDataMessage: noDataMsg,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                }),
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Obx(() {
-                  final weekly = controller.weeklyAnalytics;
-                  final List<String> labels = weekly.isNotEmpty
-                      ? weekly
-                            .map((w) => (w['label'] ?? '').toString())
-                            .toList()
-                      : ["W1", "W2", "W3", "W4"];
-                  final selectedIdx = controller.selectedAnalyticsWeek.value;
+                        );
+                      },
+                    );
+                  }),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Obx(() {
+                    final weekly = controller.weeklyAnalytics;
+                    final List<String> labels = weekly.isNotEmpty
+                        ? weekly
+                              .map((w) => (w['label'] ?? '').toString())
+                              .toList()
+                        : ["W1", "W2", "W3", "W4"];
+                    final selectedIdx = controller.selectedAnalyticsWeek.value;
 
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(labels.length, (idx) {
-                      final isSelected = selectedIdx == idx;
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(labels.length, (idx) {
+                        final isSelected = selectedIdx == idx;
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            controller.selectedAnalyticsWeek.value = idx;
+                            _showWeeklyTransactionsModal(
+                              context,
+                              controller,
+                              idx,
+                            );
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? lightprimaryred
+                                  : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? primaryRed
+                                    : const Color(0xFFE2E8F0),
+                                width: 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: primaryRed.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              labels[idx],
+                              style: TextStyle(
+                                color: isSelected
+                                    ? primaryRed
+                                    : const Color(0xFF475569),
+                                fontSize: context.responsive(12.5),
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 12),
+                // Helper tap banner to view transactions
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Obx(() {
+                    final selIdx = controller.selectedAnalyticsWeek.value;
+                    return Center(
+                      child: GestureDetector(
                         onTap: () {
-                          HapticFeedback.lightImpact();
-                          controller.selectedAnalyticsWeek.value = idx;
+                          final idx = selIdx >= 0 ? selIdx : 0;
                           _showWeeklyTransactionsModal(
                             context,
                             controller,
                             idx,
                           );
                         },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
+                            horizontal: 12,
+                            vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? lightprimaryred
-                                : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected
-                                  ? primaryRed
-                                  : const Color(0xFFE2E8F0),
-                              width: 1,
-                            ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: primaryRed.withValues(alpha: 0.12),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: Text(
-                            labels[idx],
-                            style: TextStyle(
-                              color: isSelected
-                                  ? primaryRed
-                                  : const Color(0xFF475569),
-                              fontSize: context.responsive(12.5),
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  );
-                }),
-              ),
-              const SizedBox(height: 12),
-              // Helper tap banner to view transactions
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Obx(() {
-                  final selIdx = controller.selectedAnalyticsWeek.value;
-                  return Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        final idx = selIdx >= 0 ? selIdx : 0;
-                        _showWeeklyTransactionsModal(context, controller, idx);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.touch_app_outlined,
-                              size: 13,
-                              color: primaryRed,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              selIdx >= 0
-                                  ? "View Week ${selIdx + 1} Transactions"
-                                  : "Tap graph or week to view transactions",
-                              style: const TextStyle(
-                                color: Color(0xFF475569),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              size: 14,
-                              color: Color(0xFF94A3B8),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                child: Divider(
-                  color: Colors.grey.shade200,
-                  thickness: 1,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Obx(() {
-                  final selIdx = controller.selectedAnalyticsWeek.value;
-                  double inc = controller.totalIncome.value;
-                  double exp = controller.totalExpenses.value;
-                  double sav = controller.totalSavings.value;
-
-                  if (selIdx >= 0 &&
-                      selIdx < controller.weeklyAnalytics.length) {
-                    final w = controller.weeklyAnalytics[selIdx];
-                    exp = (w['expenses'] is num)
-                        ? (w['expenses'] as num).toDouble()
-                        : 0.0;
-                    inc = (w['income'] is num)
-                        ? (w['income'] as num).toDouble()
-                        : 0.0;
-                    sav = (w['savings'] is num)
-                        ? (w['savings'] as num).toDouble()
-                        : (inc - exp > 0 ? inc - exp : 0.0);
-                  }
-
-                  final incomeStr = "₹${inc.toStringAsFixed(0)}";
-                  final expenseStr = "₹${exp.toStringAsFixed(0)}";
-                  final savingsStr = "₹${sav.toStringAsFixed(0)}";
-
-                  return Column(
-                    children: [
-                      if (selIdx >= 0)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
+                              const Icon(
+                                Icons.touch_app_outlined,
+                                size: 13,
+                                color: primaryRed,
+                              ),
+                              const SizedBox(width: 5),
                               Text(
-                                "Week ${selIdx + 1} Breakdown",
+                                selIdx >= 0
+                                    ? "View Week ${selIdx + 1} Transactions"
+                                    : "Tap graph or week to view transactions",
                                 style: const TextStyle(
-                                  fontSize: 12,
+                                  color: Color(0xFF475569),
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
                                 ),
                               ),
-                              GestureDetector(
-                                onTap: () =>
-                                    controller.selectedAnalyticsWeek.value = -1,
-                                child: const Text(
-                                  "Show Month Total",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: primaryRed,
-                                  ),
-                                ),
+                              const SizedBox(width: 3),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                size: 14,
+                                color: Color(0xFF94A3B8),
                               ),
                             ],
                           ),
                         ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildStatItem(
-                            "Income",
-                            incomeStr,
-                            const Color(0xFF10B981),
-                            isSelected:
-                                controller.selectedAnalyticsMetric.value ==
-                                "Income",
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              controller.selectedAnalyticsMetric.value =
-                                  "Income";
-                            },
-                          ),
-                          _buildStatItem(
-                            "Expenses",
-                            expenseStr,
-                            const Color(0xFFFF4500),
-                            isSelected:
-                                controller.selectedAnalyticsMetric.value ==
-                                "Expenses",
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              controller.selectedAnalyticsMetric.value =
-                                  "Expenses";
-                            },
-                          ),
-                          _buildStatItem(
-                            "Savings",
-                            savingsStr,
-                            const Color(0xFF2563EB),
-                            isSelected:
-                                controller.selectedAnalyticsMetric.value ==
-                                "Savings",
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              controller.selectedAnalyticsMetric.value =
-                                  "Savings";
-                            },
-                          ),
-                        ],
                       ),
-                    ],
-                  );
-                }),
-              ),
-            ],
-          ),
-        ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  child: Divider(
+                    color: Colors.grey.shade200,
+                    thickness: 1,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Obx(() {
+                    final selIdx = controller.selectedAnalyticsWeek.value;
+                    double inc = controller.totalIncome.value;
+                    double exp = controller.totalExpenses.value;
+
+                    if (selIdx >= 0 &&
+                        selIdx < controller.weeklyAnalytics.length) {
+                      final w = controller.weeklyAnalytics[selIdx];
+                      exp = (w['expenses'] is num)
+                          ? (w['expenses'] as num).toDouble()
+                          : 0.0;
+                      inc = (w['income'] is num)
+                          ? (w['income'] as num).toDouble()
+                          : 0.0;
+                    }
+
+                    final incomeStr = "₹${inc.toStringAsFixed(0)}";
+                    final expenseStr = "₹${exp.toStringAsFixed(0)}";
+
+                    return Column(
+                      children: [
+                        if (selIdx >= 0)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Week ${selIdx + 1} Breakdown",
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () =>
+                                      controller.selectedAnalyticsWeek.value =
+                                          -1,
+                                  child: const Text(
+                                    "Show Month Total",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: primaryRed,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: _buildStatItem(
+                                "Credit",
+                                incomeStr,
+                                const Color(0xFF10B981),
+                                isSelected:
+                                    controller.selectedAnalyticsMetric.value ==
+                                        "Credit" ||
+                                    controller.selectedAnalyticsMetric.value ==
+                                        "Received" ||
+                                    controller.selectedAnalyticsMetric.value ==
+                                        "Income",
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  controller.selectedAnalyticsMetric.value =
+                                      "Credit";
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildStatItem(
+                                "Debit",
+                                expenseStr,
+                                const Color(0xFFFF4500),
+                                isSelected:
+                                    controller.selectedAnalyticsMetric.value ==
+                                        "Debit" ||
+                                    controller.selectedAnalyticsMetric.value ==
+                                        "Spent" ||
+                                    controller.selectedAnalyticsMetric.value ==
+                                        "Expenses",
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  controller.selectedAnalyticsMetric.value =
+                                      "Debit";
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -1481,7 +1591,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildModalStat(
-                          "Expenses",
+                          "Debit",
                           "₹${controller.weekExpenses.value.toStringAsFixed(0)}",
                           const Color(0xFFFF4500),
                           Icons.arrow_downward_rounded,
@@ -1492,21 +1602,10 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                           color: const Color(0xFFE2E8F0),
                         ),
                         _buildModalStat(
-                          "Income",
+                          "Credit",
                           "₹${controller.weekIncome.value.toStringAsFixed(0)}",
                           const Color(0xFF10B981),
                           Icons.arrow_upward_rounded,
-                        ),
-                        Container(
-                          height: 28,
-                          width: 1,
-                          color: const Color(0xFFE2E8F0),
-                        ),
-                        _buildModalStat(
-                          "Savings",
-                          "₹${controller.weekSavings.value.toStringAsFixed(0)}",
-                          const Color(0xFF2196F3),
-                          Icons.savings_outlined,
                         ),
                       ],
                     ),
@@ -1798,7 +1897,8 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
       {'label': 'This Month', 'val': ''},
     ];
 
-    for (int i = 0; i < 12; i++) {
+    // Show only the last 6 months from the current month
+    for (int i = 0; i < 6; i++) {
       final date = DateTime(now.year, now.month - i, 1);
       final monthStr = "${date.year}-${date.month.toString().padLeft(2, '0')}";
       final display = "${monthNames[date.month - 1]} ${date.year}";
@@ -2050,14 +2150,22 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           ),
           child: Obx(() {
             final controller = _controller;
-            if (controller.isTransactionsLoading.value ||
-                controller.isDashboardLoading.value) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 36),
-                child: Center(
-                  child: CircularProgressIndicator(color: primaryRed),
-                ),
+
+            if (controller.isTransactionsError.value &&
+                controller.recentTransactions.isEmpty) {
+              return RecentTransactionsErrorView(
+                onRetry: () =>
+                    controller.fetchRecentTransactions(isRetry: true),
+                message: controller.transactionsErrorMessage.value.isNotEmpty
+                    ? controller.transactionsErrorMessage.value
+                    : null,
               );
+            }
+
+            if ((controller.isTransactionsLoading.value ||
+                    controller.isDashboardLoading.value) &&
+                controller.recentTransactions.isEmpty) {
+              return const RecentTransactionsSkeleton(count: 4);
             }
             final txList = controller.recentTransactions;
 
@@ -2378,12 +2486,13 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
   }
 
   void _openTopUpSheet() {
-    Get.bottomSheet(
-      const AddmoneyView(showGeneralWalletOption: false),
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
+    if (controller.isCardPermanentlyBlocked) {
+      controller.showPermanentlyBlockedAddMoneyNotice();
+      return;
+    }
+    Get.to(
+      () => const AddmoneyView(showGeneralWalletOption: false),
+      transition: Transition.rightToLeftWithFade,
     );
   }
 

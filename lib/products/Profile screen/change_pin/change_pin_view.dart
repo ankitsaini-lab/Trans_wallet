@@ -7,10 +7,12 @@ import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/products/Profile%20screen/change_pin/forgot_pin_view.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/custom_numeric_keypad.dart';
 
 class ChangePinView extends StatefulWidget {
   const ChangePinView({super.key});
@@ -60,13 +62,23 @@ class _ChangePinViewState extends State<ChangePinView> {
   }
 
   void _onKeyTap(String digit) {
-    if (_activePin.length >= 4 || _isSuccess || _isLoading || _isVerifying) {
-      return;
-    }
+    if (_isSuccess || _isLoading || _isVerifying) return;
 
     setState(() {
-      _hasError = false;
-      _errorMessage = '';
+      if (_hasError) {
+        _hasError = false;
+        _errorMessage = '';
+        if (_step == 1) {
+          _currentPin = '';
+        } else if (_step == 2) {
+          _newPin = '';
+        } else if (_step == 3) {
+          _confirmPin = '';
+        }
+      }
+
+      if (_activePin.length >= 4) return;
+
       if (_step == 1) {
         _currentPin += digit;
         if (_currentPin.length == 4) {
@@ -94,10 +106,39 @@ class _ChangePinViewState extends State<ChangePinView> {
       _errorMessage = '';
       if (_step == 1 && _currentPin.isNotEmpty) {
         _currentPin = _currentPin.substring(0, _currentPin.length - 1);
-      } else if (_step == 2 && _newPin.isNotEmpty) {
-        _newPin = _newPin.substring(0, _newPin.length - 1);
-      } else if (_step == 3 && _confirmPin.isNotEmpty) {
-        _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1);
+      } else if (_step == 2) {
+        if (_newPin.isNotEmpty) {
+          _newPin = _newPin.substring(0, _newPin.length - 1);
+        } else {
+          _step = 1;
+          if (_currentPin.isNotEmpty) {
+            _currentPin = _currentPin.substring(0, _currentPin.length - 1);
+          }
+        }
+      } else if (_step == 3) {
+        if (_confirmPin.isNotEmpty) {
+          _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1);
+        } else {
+          _step = 2;
+          if (_newPin.isNotEmpty) {
+            _newPin = _newPin.substring(0, _newPin.length - 1);
+          }
+        }
+      }
+    });
+  }
+
+  void _onClear() {
+    if (_isSuccess || _isLoading || _isVerifying) return;
+    setState(() {
+      _hasError = false;
+      _errorMessage = '';
+      if (_step == 1) {
+        _currentPin = '';
+      } else if (_step == 2) {
+        _newPin = '';
+      } else if (_step == 3) {
+        _confirmPin = '';
       }
     });
   }
@@ -114,8 +155,14 @@ class _ChangePinViewState extends State<ChangePinView> {
     if (Get.isRegistered<ApiService>()) {
       final res = await ApiService.to.verifyMpin(_currentPin);
       isCorrect = res.isSuccess;
-      if (!isCorrect && res.message.isNotEmpty) {
-        errorMsg = res.message;
+      if (!isCorrect) {
+        if (res.message.isNotEmpty) {
+          errorMsg = res.message;
+        }
+      } else {
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.clearMpinLockout();
+        }
       }
     } else {
       final box = GetStorage();
@@ -139,7 +186,6 @@ class _ChangePinViewState extends State<ChangePinView> {
         _isVerifying = false;
         _hasError = true;
         _errorMessage = errorMsg;
-        _currentPin = '';
       });
     }
   }
@@ -152,7 +198,6 @@ class _ChangePinViewState extends State<ChangePinView> {
         setState(() {
           _hasError = true;
           _errorMessage = 'New PIN cannot be the same as your current PIN.';
-          _newPin = '';
         });
         return;
       }
@@ -171,7 +216,6 @@ class _ChangePinViewState extends State<ChangePinView> {
       setState(() {
         _hasError = true;
         _errorMessage = 'PINs do not match. Please try again.';
-        _confirmPin = '';
       });
       return;
     }
@@ -248,7 +292,6 @@ class _ChangePinViewState extends State<ChangePinView> {
             _isLoading = false;
             _hasError = true;
             _errorMessage = errorMsg;
-            _confirmPin = '';
           });
           AppSnackbar.error(errorMsg);
         }
@@ -266,7 +309,6 @@ class _ChangePinViewState extends State<ChangePinView> {
           _isLoading = false;
           _hasError = true;
           _errorMessage = errorMsg;
-          _confirmPin = '';
         });
         AppSnackbar.error(errorMsg);
       }
@@ -277,7 +319,6 @@ class _ChangePinViewState extends State<ChangePinView> {
         _isLoading = false;
         _hasError = true;
         _errorMessage = "Something went wrong: $e";
-        _confirmPin = '';
       });
       AppSnackbar.error("Something went wrong: $e");
     }
@@ -458,13 +499,11 @@ class _ChangePinViewState extends State<ChangePinView> {
                                 shape: BoxShape.circle,
                                 color: _isSuccess
                                     ? _successGreen
-                                    : _hasError
-                                    ? Colors.red
-                                    : filled
-                                    ? _primaryRed
-                                    : const Color(0xFFECECEC),
+                                    : (filled
+                                        ? (_hasError ? Colors.red : _primaryRed)
+                                        : const Color(0xFFECECEC)),
                                 border: Border.all(
-                                  color: _hasError
+                                  color: _hasError && filled
                                       ? Colors.red.withValues(alpha: 0.3)
                                       : Colors.transparent,
                                   width: 2,
@@ -578,122 +617,11 @@ class _ChangePinViewState extends State<ChangePinView> {
   }
 
   Widget _buildKeypad(double keySize, double spacing) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _keyRow(['1', '2', '3'], keySize),
-        SizedBox(height: spacing),
-        _keyRow(['4', '5', '6'], keySize),
-        SizedBox(height: spacing),
-        _keyRow(['7', '8', '9'], keySize),
-        SizedBox(height: spacing),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            SizedBox(width: keySize, height: keySize),
-            _KeyButton(label: '0', size: keySize, onTap: () => _onKeyTap('0')),
-            _DeleteButton(size: keySize, onTap: _onDelete),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _keyRow(List<String> digits, double keySize) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: digits
-          .map(
-            (d) =>
-                _KeyButton(label: d, size: keySize, onTap: () => _onKeyTap(d)),
-          )
-          .toList(),
-    );
-  }
-}
-
-class _KeyButton extends StatefulWidget {
-  final String label;
-  final VoidCallback onTap;
-  final double size;
-
-  const _KeyButton({required this.label, required this.onTap, this.size = 66});
-
-  @override
-  State<_KeyButton> createState() => _KeyButtonState();
-}
-
-class _KeyButtonState extends State<_KeyButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final double fontSize = (widget.size * 0.35).clamp(19.0, 24.0);
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 70),
-        child: Container(
-          height: widget.size,
-          width: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _pressed ? const Color(0xFFECECEC) : const Color(0xFFF7F7F8),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF111111),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteButton extends StatefulWidget {
-  final VoidCallback onTap;
-  final double size;
-
-  const _DeleteButton({required this.onTap, this.size = 66});
-
-  @override
-  State<_DeleteButton> createState() => _DeleteButtonState();
-}
-
-class _DeleteButtonState extends State<_DeleteButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final double iconSize = (widget.size * 0.35).clamp(20.0, 24.0);
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 70),
-        child: SizedBox(
-          height: widget.size,
-          width: widget.size,
-          child: Icon(
-            Icons.backspace_outlined,
-            color: const Color(0xFF6B7280),
-            size: iconSize,
-          ),
-        ),
+    return Center(
+      child: CustomNumericKeypad(
+        onDigitTap: _onKeyTap,
+        onDeleteTap: _onDelete,
+        onClear: _onClear,
       ),
     );
   }

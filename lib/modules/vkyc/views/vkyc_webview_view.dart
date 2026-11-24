@@ -203,6 +203,10 @@ class _VkycWebviewViewState extends State<VkycWebviewView> {
     _domCheckTimer?.cancel();
     try {
       _webViewController?.stopLoading();
+      _webViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri("about:blank")),
+      );
+      _webViewController = null;
     } catch (_) {}
     // Always release external flow guard when this screen is removed from the tree
     if (Get.isRegistered<AppLockService>()) {
@@ -505,6 +509,7 @@ class _VkycWebviewViewState extends State<VkycWebviewView> {
                 javaScriptEnabled: true,
                 javaScriptCanOpenWindowsAutomatically: true,
                 useShouldOverrideUrlLoading: true,
+                useOnRenderProcessGone: true,
                 mediaPlaybackRequiresUserGesture: false,
                 allowsInlineMediaPlayback: true,
                 geolocationEnabled: true,
@@ -543,6 +548,12 @@ class _VkycWebviewViewState extends State<VkycWebviewView> {
                 } else {
                   Navigator.of(context).pop();
                 }
+              },
+              onRenderProcessGone: (webViewController, detail) async {
+                debugPrint(
+                  "⚠️ [VKYC WebView onRenderProcessGone]: didCrash=${detail.didCrash}",
+                );
+                isWebViewLoading.value = false;
               },
               onWebViewCreated: (webViewController) {
                 _webViewController = webViewController;

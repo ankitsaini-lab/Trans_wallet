@@ -37,6 +37,13 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
 
   @override
   void dispose() {
+    try {
+      webViewController?.stopLoading();
+      webViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri("about:blank")),
+      );
+      webViewController = null;
+    } catch (_) {}
     if (Get.isRegistered<AppLockService>()) {
       AppLockService.to.finishExternalFlow(ExternalFlowType.customWebview);
     }
@@ -84,12 +91,23 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
               supportZoom: true,
               allowsInlineMediaPlayback: true,
               useShouldOverrideUrlLoading: true, // Required to intercept link clicks
+              useOnRenderProcessGone: true,
               supportMultipleWindows: true,      // Required to intercept target="_blank"
               useOnDownloadStart: true,          // Required to catch attachment triggers
             ),
             onWebViewCreated: (controller) {
               webViewController = controller;
               developer.log("WebView Created");
+            },
+            onRenderProcessGone: (controller, detail) async {
+              developer.log(
+                "CommonWebView onRenderProcessGone: didCrash=${detail.didCrash}",
+              );
+              if (mounted) {
+                setState(() {
+                  isLoading = false;
+                });
+              }
             },
             shouldOverrideUrlLoading: (controller, navigationAction) async {
               final uri = navigationAction.request.url;
@@ -137,15 +155,19 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
             },
             onLoadStart: (controller, url) {
               developer.log("Load Start => $url");
-              setState(() {
-                isLoading = true;
-              });
+              if (mounted) {
+                setState(() {
+                  isLoading = true;
+                });
+              }
             },
             onLoadStop: (controller, url) async {
               developer.log("Load Stop => $url");
-              setState(() {
-                isLoading = false;
-              });
+              if (mounted) {
+                setState(() {
+                  isLoading = false;
+                });
+              }
             },
             onProgressChanged: (controller, value) {
               if (!mounted) return;

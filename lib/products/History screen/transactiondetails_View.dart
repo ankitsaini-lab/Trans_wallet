@@ -1,12 +1,11 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
@@ -81,7 +80,92 @@ class TransactiondetailsView extends StatelessWidget {
       mainCircleIcon = Icons.check_rounded;
     }
 
-    final String refId = "asd${tx.hashCode.abs()}-fd11-4f8d-9d9dfget5sd55sd";
+    final rawItem = tx["rawItem"] is Map ? tx["rawItem"] as Map : {};
+
+    // 1. Reference ID (use txRef key)
+    final String refId =
+        (tx["txRef"] ??
+                rawItem["txRef"] ??
+                tx["tx_ref"] ??
+                rawItem["tx_ref"] ??
+                "")
+            .toString()
+            .trim();
+    final String displayRefId = refId.isNotEmpty
+        ? refId
+        : (tx["externalTransactionId"] ??
+                  rawItem["externalTransactionId"] ??
+                  "TXN-${tx.hashCode.abs()}")
+              .toString()
+              .trim();
+
+    // 2. Transaction type
+    final String rawTxnType = (tx["type"] ?? rawItem["type"] ?? "")
+        .toString()
+        .trim();
+    final String displayTxnType = rawTxnType.isNotEmpty
+        ? (rawTxnType.toUpperCase() == "CREDIT"
+              ? "Credit"
+              : (rawTxnType.toUpperCase() == "DEBIT" ? "Debit" : rawTxnType))
+        : (isCredit ? "Credit" : "Debit");
+
+    // 3. description
+    final String rawDescription =
+        (tx["description"] ??
+                rawItem["description"] ??
+                rawItem["narration"] ??
+                rawItem["remarks"] ??
+                "")
+            .toString()
+            .trim();
+    final String displayDescription = rawDescription.isNotEmpty
+        ? rawDescription
+        : name;
+
+    // 4. status
+    final String displayStatus = statusText;
+
+    // 5. credited to
+    final String rawCreditedTo =
+        (tx["yourWallet"] ??
+                rawItem["yourWallet"] ??
+                rawItem["yourWallet"] ??
+                (isCredit
+                    ? (tx["yourWallet"] != null &&
+                              tx["yourWallet"].toString().isNotEmpty
+                          ? "${tx["yourWallet"]} Wallet"
+                          : "")
+                    : (rawItem["otherPartyName"] ?? tx["name"] ?? "Recipient")))
+            .toString()
+            .trim();
+    final String displayCreditedTo = rawCreditedTo.isNotEmpty
+        ? (rawCreditedTo.toUpperCase().contains('FF01')
+              ? 'NCMC Transit Wallet'
+              : rawCreditedTo)
+        : "";
+
+    // 6. source
+    final String rawSource =
+        (tx["source"] ??
+                rawItem["source"] ??
+                tx["paymentSource"] ??
+                rawItem["paymentSource"] ??
+                (!isCredit
+                    ? (tx["yourWallet"] != null &&
+                              tx["yourWallet"].toString().isNotEmpty
+                          ? "${tx["yourWallet"]} Wallet"
+                          : "Transcorp Wallet")
+                    : (rawItem["otherPartyName"] ?? "Bank / UPI")))
+            .toString()
+            .trim();
+    final String displaySource = rawSource.isNotEmpty
+        ? (rawSource.toUpperCase().contains('FF01')
+              ? 'NCMC Transit Wallet'
+              : rawSource)
+        : "Transcorp Wallet";
+
+    // 7. Date & time
+    final String displayDate = date;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -198,6 +282,7 @@ class TransactiondetailsView extends StatelessWidget {
               ),
               SizedBox(height: context.responsive(32)), // Details Receipt Card
               Container(
+                padding: EdgeInsets.symmetric(vertical: context.responsive(8)),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -212,11 +297,12 @@ class TransactiondetailsView extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
+                    // 1. Reference ID (use txRef key)
                     _buildDetailRow(
                       context,
-                      imageAsset: "assets/referenceid.png",
+                      imageAsset: "assets/trans_rerence.svg",
                       label: "Reference ID",
-                      value: refId,
+                      value: displayRefId,
                       isRefId: true,
                     ),
                     Divider(
@@ -224,88 +310,79 @@ class TransactiondetailsView extends StatelessWidget {
                       color: Colors.grey.shade100,
                       thickness: 1,
                     ),
+
+                    // 2. Transaction type
                     _buildDetailRow(
                       context,
-                      imageAsset: "assets/datetime.png",
-                      label: "Date & Time",
-                      value: date,
-                    ),
-                    Divider(
-                      height: 1,
-                      color: Colors.grey.shade100,
-                      thickness: 1,
-                    ),
-                    _buildDetailRow(
-                      context,
-                      imageAsset: "assets/moneysent.png",
-                      label: "Payment Source",
-                      value: "Transcorp Wallet",
-                    ),
-                    Divider(
-                      height: 1,
-                      color: Colors.grey.shade100,
-                      thickness: 1,
-                    ),
-                    _buildDetailRow(
-                      context,
-                      imageAsset: "assets/transactiontype.png",
+                      imageAsset: "assets/receipt_transactiontype.svg",
                       label: "Transaction Type",
-                      value: isCredit ? "Income Received" : "Money Spent",
+                      value: displayTxnType,
                     ),
                     Divider(
                       height: 1,
                       color: Colors.grey.shade100,
                       thickness: 1,
-                    ),
-                    _buildDetailRow(
-                      context,
-                      imageAsset: "assets/standardfee.png",
-                      label: "Standard Fee",
-                      value: "-₹ 0.00",
                     ),
 
-                    // Total Settled Footer
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.responsive(20),
-                        vertical: context.responsive(16),
-                      ),
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(24),
-                          bottomRight: Radius.circular(24),
-                        ),
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: primaryYellow.withOpacity(0.3),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Total Settled",
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: context.responsive(14),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                "₹ ${amountValue.toStringAsFixed(2)}",
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: context.responsive(14),
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    // 3. description
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/receipt_description.svg",
+                      label: "Description",
+                      value: displayDescription,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+
+                    // 4. status
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/receipt_status.svg",
+                      label: "Status",
+                      value: displayStatus,
+                      valueColor: statusColor,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+
+                    // 5. credited to
+                    // _buildDetailRow(
+                    //   context,
+                    //   imageAsset: "assets/receipt_creditedto.svg",
+                    //   label: "Credited To",
+                    //   value: displayCreditedTo,
+                    // ),
+                    // Divider(
+                    //   height: 1,
+                    //   color: Colors.grey.shade100,
+                    //   thickness: 1,
+                    // ),
+
+                    // 6. source
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/receipt_source.svg",
+                      label: "Source",
+                      value: displaySource,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade100,
+                      thickness: 1,
+                    ),
+
+                    // 7. Date & time
+                    _buildDetailRow(
+                      context,
+                      imageAsset: "assets/recipt_datetime.svg",
+                      label: "Date & Time",
+                      value: displayDate,
                     ),
                   ],
                 ),
@@ -314,74 +391,17 @@ class TransactiondetailsView extends StatelessWidget {
 
               // Actions
               CustomButton(
-                text: "Share Receipt",
+                text: "Back to Transactions",
                 btncolor: Colors.black,
                 textColor: Colors.white,
                 textsize: context.responsive(14),
-                prefixIcon: const Icon(
-                  Icons.ios_share_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
                 borderRadius: 50,
-                onPressed: () async {
-                  final String text =
-                      '''
-================================
-   TRANSWALLET TRANSACTION  
-================================
-Title         : $name
-Amount        : ${isCredit ? '+' : '-'}₹${amountValue.toStringAsFixed(2)}
-Status        : $statusText
-Txn Reference : $refId
-Date & Time   : $date
-Payment Source: Transcorp Wallet
-================================
-Thank you for using Transwallet!
-'''
-                          .trim();
-                  Clipboard.setData(ClipboardData(text: text));
-                  HapticFeedback.lightImpact();
-                  try {
-                    await Share.share(
-                      text,
-                      subject: 'Transwallet Transaction Details',
-                    );
-                  } catch (_) {
-                    Get.snackbar(
-                      "Receipt Copied",
-                      "Transaction details copied to clipboard!",
-                      snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: Colors.black87,
-                      colorText: Colors.white,
-                      margin: const EdgeInsets.all(16),
-                    );
-                  }
-                },
+                onPressed: () => Get.back(),
               ),
-              SizedBox(height: context.responsive(16)),
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    vertical: context.responsive(16),
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(context.responsive(50)),
-                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    "Back to Transactions",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: context.responsive(14),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+              SizedBox(
+                height:
+                    context.responsive(24) +
+                    MediaQuery.of(context).padding.bottom,
               ),
             ],
           ),
@@ -392,10 +412,12 @@ Thank you for using Transwallet!
 
   Widget _buildDetailRow(
     BuildContext context, {
-    required String imageAsset,
+    String? imageAsset,
+    IconData? icon,
     required String label,
     required String value,
     bool isRefId = false,
+    Color? valueColor,
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -414,12 +436,18 @@ Thank you for using Transwallet!
               shape: BoxShape.circle,
               border: Border.all(color: primaryYellow, width: 1.5),
             ),
-            child: Image.asset(
-              imageAsset,
-              height: context.responsive(20),
-              width: context.responsive(20),
-              fit: BoxFit.contain,
-            ),
+            child: imageAsset != null
+                ? SvgPicture.asset(
+                    imageAsset,
+                    height: context.responsive(20),
+                    width: context.responsive(20),
+                    fit: BoxFit.contain,
+                  )
+                : Icon(
+                    icon ?? Icons.info_outline_rounded,
+                    size: context.responsive(20),
+                    color: valueColor ?? Colors.black87,
+                  ),
           ),
           SizedBox(width: context.responsive(12)),
           Expanded(
@@ -443,7 +471,7 @@ Thank you for using Transwallet!
                             Text(
                               value,
                               style: TextStyle(
-                                color: Colors.black,
+                                color: valueColor ?? Colors.black,
                                 fontSize: context.responsive(13),
                                 fontWeight: FontWeight.w800,
                               ),
@@ -457,7 +485,7 @@ Thank you for using Transwallet!
                           Clipboard.setData(ClipboardData(text: value));
                           Get.snackbar(
                             "Copied",
-                            "Reference ID copied to clipboard",
+                            "$label copied to clipboard",
                             snackPosition: SnackPosition.BOTTOM,
                             backgroundColor: Colors.black87,
                             colorText: Colors.white,
@@ -490,7 +518,7 @@ Thank you for using Transwallet!
                           value,
                           textAlign: TextAlign.right,
                           style: TextStyle(
-                            color: Colors.black,
+                            color: valueColor ?? Colors.black,
                             fontSize: context.responsive(14),
                             fontWeight: FontWeight.w800,
                           ),

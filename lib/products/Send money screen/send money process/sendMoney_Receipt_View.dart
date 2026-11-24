@@ -4,8 +4,6 @@ import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Send%20money%20screen/send%20money%20process/sendMoney_Receipt_Controller.dart';
-import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:transwallet/widgets/custombutton.dart';
 
 class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
@@ -17,18 +15,14 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
       Get.put(SendMoneyReceiptController());
     }
 
-    // Fallback recipient if arguments not passed
-    final recipientName = controller.recipient?['name'] ?? 'Ankit Saini';
     final amountStr = controller.amount % 1 == 0
         ? controller.amount.toInt().toString()
         : controller.amount.toStringAsFixed(2);
-    final formattedDate = DateFormat(
-      'dd MMM yyyy, hh:mm a',
-    ).format(DateTime.now());
+
+    final details = controller.receiptDetails;
 
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -36,21 +30,33 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
             children: [
               SizedBox(height: context.responsive(20)),
 
-              // Checkmark Icon
+              // Status Icon (Success / Failed / Pending)
               Container(
                 padding: EdgeInsets.all(context.responsive(18)),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2ECA71).withOpacity(0.15),
+                  color: controller.isFailed
+                      ? const Color(0xFFC62828).withOpacity(0.15)
+                      : (controller.isPending
+                          ? const Color(0xFFF57C00).withOpacity(0.15)
+                          : const Color(0xFF2ECA71).withOpacity(0.15)),
                   shape: BoxShape.circle,
                 ),
                 child: Container(
                   padding: EdgeInsets.all(context.responsive(10)),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF2ECA71),
+                  decoration: BoxDecoration(
+                    color: controller.isFailed
+                        ? const Color(0xFFC62828)
+                        : (controller.isPending
+                            ? const Color(0xFFF57C00)
+                            : const Color(0xFF2ECA71)),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.check_rounded,
+                    controller.isFailed
+                        ? Icons.close_rounded
+                        : (controller.isPending
+                            ? Icons.hourglass_bottom_rounded
+                            : Icons.check_rounded),
                     color: Colors.white,
                     size: context.responsive(40),
                   ),
@@ -60,7 +66,7 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
               SizedBox(height: context.responsive(20)),
 
               Text(
-                "Money Sent Successfully",
+                controller.statusTitle,
                 style: TextStyle(
                   fontSize: context.responsive(20),
                   fontWeight: FontWeight.w700,
@@ -79,217 +85,131 @@ class SendMoneyReceiptView extends GetView<SendMoneyReceiptController> {
                 ),
               ),
 
-              SizedBox(height: context.responsive(8)),
-
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color.fromRGBO(246, 246, 246, 1),
-                  borderRadius: BorderRadius.circular(context.responsive(20)),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.responsive(7),
-                    vertical: context.responsive(3),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(context.responsive(2)),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF2ECA71),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.check,
-                          color: Colors.white,
-                          size: context.responsive(12),
-                        ),
-                      ),
-                      SizedBox(width: context.responsive(6)),
-                      Text(
-                        "Sent to $recipientName",
-                        style: TextStyle(
-                          fontSize: context.responsive(12),
-                          color: Colors.black,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: context.responsive(40)),
-
-              // Details Card
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.responsive(24),
-                ),
-                child: Container(
-                  padding: EdgeInsets.all(context.responsive(20)),
+              if (controller.recipientDisplayName.isNotEmpty) ...[
+                SizedBox(height: context.responsive(8)),
+                Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: context.responsive(4),
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                    borderRadius: BorderRadius.circular(context.responsive(16)),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: const Color.fromRGBO(246, 246, 246, 1),
+                    borderRadius: BorderRadius.circular(context.responsive(20)),
                   ),
-                  child: Column(
-                    children: [
-                      _buildReferenceRow(
-                        context,
-                        "Reference ID",
-                        controller.providerRef ??
-                            controller.externalTransactionId ??
-                            "C2C${DateTime.now().millisecondsSinceEpoch}",
-                        imageAsset: "assets/referenceid.png",
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.responsive(16),
-                        ),
-                        child: const Divider(
-                          color: Color(0xFFF0F0F0),
-                          height: 1,
-                        ),
-                      ),
-                      _buildIconRow(
-                        context,
-                        "Credited To",
-                        "General Wallet",
-                        imageAsset: "assets/moneysent.png",
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.responsive(16),
-                        ),
-                        child: const Divider(
-                          color: Color(0xFFF0F0F0),
-                          height: 1,
-                        ),
-                      ),
-                      _buildIconRow(
-                        context,
-                        "Payment Using\nUPI",
-                        "ankit@upi",
-                        imageAsset: "assets/bxl_upi.png",
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.responsive(16),
-                        ),
-                        child: const Divider(
-                          color: Color(0xFFF0F0F0),
-                          height: 1,
-                        ),
-                      ),
-                      _buildIconRow(
-                        context,
-                        "Date & Time",
-                        formattedDate,
-                        imageAsset: "assets/datetime.png",
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: context.responsive(32)),
-
-              // Actions
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.responsive(24),
-                ),
-                child: Column(
-                  children: [
-                    CustomButton(
-                      text: "Share Receipt",
-                      btncolor: Colors.black,
-                      textColor: Colors.white,
-                      height: context.responsive(54),
-                      textsize: context.responsive(14),
-                      prefixIcon: Icon(
-                        Icons.ios_share_outlined,
-                        color: Colors.white,
-                        size: context.responsive(20),
-                      ),
-                      borderRadius: context.responsive(50),
-                      onPressed: () async {
-                        final String text =
-                            '''
-================================
-   TRANSWALLET PAYMENT RECEIPT  
-================================
-Recipient     : $recipientName
-Amount        : ₹$amountStr
-Date & Time   : $formattedDate
-Status        : Success
-================================
-Thank you for using Transwallet!
-'''
-                                .trim();
-                        Clipboard.setData(ClipboardData(text: text));
-                        HapticFeedback.lightImpact();
-                        final marginPadding = EdgeInsets.all(
-                          context.responsive(16),
-                        );
-                        try {
-                          await Share.share(
-                            text,
-                            subject: 'Transwallet Payment Receipt',
-                          );
-                        } catch (_) {
-                          Get.snackbar(
-                            "Receipt Copied",
-                            "Receipt details copied to clipboard!",
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: Colors.black87,
-                            colorText: Colors.white,
-                            margin: marginPadding,
-                          );
-                        }
-                      },
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.responsive(10),
+                      vertical: context.responsive(4),
                     ),
-                    SizedBox(height: context.responsive(16)),
-                    GestureDetector(
-                      onTap: () => Get.back(),
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.responsive(16),
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(
-                            context.responsive(50),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(context.responsive(2)),
+                          decoration: BoxDecoration(
+                            color: controller.isFailed
+                                ? const Color(0xFFC62828)
+                                : const Color(0xFF2ECA71),
+                            shape: BoxShape.circle,
                           ),
-                          border: Border.all(color: Colors.black, width: 1.5),
+                          child: Icon(
+                            controller.isFailed ? Icons.close : Icons.check,
+                            color: Colors.white,
+                            size: context.responsive(12),
+                          ),
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          "Back to Transactions",
+                        SizedBox(width: context.responsive(6)),
+                        Text(
+                          "Sent to ${controller.recipientDisplayName}",
                           style: TextStyle(
+                            fontSize: context.responsive(12),
                             color: Colors.black,
-                            fontSize: context.responsive(14),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
+                ),
+              ],
+
+              // Details Card: Renders ONLY data returned by API
+              if (details.isNotEmpty) ...[
+                SizedBox(height: context.responsive(36)),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.responsive(24),
+                  ),
+                  child: Container(
+                    padding: EdgeInsets.all(context.responsive(20)),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: context.responsive(4),
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      borderRadius:
+                          BorderRadius.circular(context.responsive(16)),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < details.length; i++) ...[
+                          if (details[i].isCopyable)
+                            _buildReferenceRow(
+                              context,
+                              details[i].label,
+                              details[i].value,
+                              imageAsset: details[i].imageAsset ??
+                                  "assets/referenceid.png",
+                            )
+                          else
+                            _buildIconRow(
+                              context,
+                              details[i].label,
+                              details[i].value,
+                              imageAsset: details[i].imageAsset,
+                              icon: details[i].icon,
+                            ),
+                          if (i < details.length - 1)
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: context.responsive(16),
+                              ),
+                              child: const Divider(
+                                color: Color(0xFFF0F0F0),
+                                height: 1,
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              SizedBox(height: context.responsive(32)),
+
+              // Action button
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.responsive(24),
+                ),
+                child: CustomButton(
+                  text: "Back to Transactions",
+                  btncolor: Colors.black,
+                  textColor: Colors.white,
+                  height: context.responsive(54),
+                  textsize: context.responsive(14),
+                  borderRadius: context.responsive(50),
+                  onPressed: () => Get.back(),
                 ),
               ),
 
-              SizedBox(height: context.responsive(18)),
+              SizedBox(
+                height: context.responsive(20) +
+                    MediaQuery.of(context).padding.bottom,
+              ),
             ],
           ),
         ),
@@ -335,9 +255,11 @@ Thank you for using Transwallet!
               SizedBox(height: context.responsive(2)),
               Text(
                 value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: Colors.black,
-                  fontSize: context.responsive(11),
+                  fontSize: context.responsive(12),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -349,7 +271,7 @@ Thank you for using Transwallet!
             Clipboard.setData(ClipboardData(text: value));
             Get.snackbar(
               "Copied",
-              "Reference ID copied to clipboard",
+              "$label copied to clipboard",
               snackPosition: SnackPosition.BOTTOM,
               backgroundColor: Colors.black87,
               colorText: Colors.white,
@@ -357,10 +279,13 @@ Thank you for using Transwallet!
               duration: const Duration(seconds: 2),
             );
           },
-          child: Icon(
-            Icons.copy,
-            size: context.responsive(16),
-            color: Colors.grey,
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Icon(
+              Icons.copy,
+              size: context.responsive(16),
+              color: Colors.grey,
+            ),
           ),
         ),
       ],
@@ -393,8 +318,8 @@ Thank you for using Transwallet!
                 )
               : Icon(
                   icon ?? Icons.circle,
-                  size: context.responsive(18),
-                  color: Colors.black,
+                  size: context.responsive(20),
+                  color: Colors.black87,
                 ),
         ),
         SizedBox(width: context.responsive(12)),
@@ -411,13 +336,18 @@ Thank you for using Transwallet!
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              Text(
-                value,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: context.responsive(13),
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: context.responsive(13),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],

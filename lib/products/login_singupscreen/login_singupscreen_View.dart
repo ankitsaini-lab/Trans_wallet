@@ -190,7 +190,7 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                                     Get.to(
                                                       () => const CommonWebViewScreen(
                                                         url:
-                                                            "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=terms",
+                                                            "https://transcorpint.com/ppi-policies-and-tc-mobile?search=terms",
                                                         title:
                                                             "Terms & Conditions",
                                                       ),
@@ -238,7 +238,11 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                     ),
                                   ),
                                 ),
-                                SizedBox(height: context.responsive(20)),
+                                SizedBox(
+                                  height:
+                                      context.responsive(24) +
+                                      MediaQuery.of(context).padding.bottom,
+                                ),
                               ],
                             ),
                           ),

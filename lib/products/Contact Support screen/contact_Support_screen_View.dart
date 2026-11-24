@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -74,10 +75,39 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
                 subtitle: "+91 - 7597182222",
                 note:
                     "Our support team is available from 10 AM to 7 PM to help you on call",
-                copyValue: "+91 - 7597182222",
-                onTap: () {
-                  _copyText(context, "+917597182222", "Helpline number");
-                },
+                onTap: () => _makePhoneCall("+917597182222"),
+                onIconTap: () => _makePhoneCall("+917597182222"),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        _copyText(
+                          context,
+                          "+91 - 7597182222",
+                          "Helpline number",
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.copy_rounded,
+                        color: Color(0xFF64748B),
+                        size: 20,
+                      ),
+                      splashRadius: 20,
+                      tooltip: "Copy number",
+                    ),
+                    IconButton(
+                      onPressed: () => _makePhoneCall("+917597182222"),
+                      icon: const Icon(
+                        Icons.call_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 22,
+                      ),
+                      splashRadius: 20,
+                      tooltip: "Call Helpline",
+                    ),
+                  ],
+                ),
               ),
 
               // 2. Email Us Card
@@ -89,14 +119,39 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
                 title: "Email us",
                 subtitle: "cards@transcorpint.com",
                 note: "Send us an email and we'll respond within 24 hours",
-                copyValue: "cards@transcorpint.com",
-                onTap: () {
-                  _copyText(
-                    context,
-                    "cards@transcorpint.com",
-                    "Support email",
-                  );
-                },
+                onTap: () => _sendEmail("cards@transcorpint.com"),
+                onIconTap: () => _sendEmail("cards@transcorpint.com"),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        _copyText(
+                          context,
+                          "cards@transcorpint.com",
+                          "Support email",
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.copy_rounded,
+                        color: Color(0xFF64748B),
+                        size: 20,
+                      ),
+                      splashRadius: 20,
+                      tooltip: "Copy email",
+                    ),
+                    IconButton(
+                      onPressed: () => _sendEmail("cards@transcorpint.com"),
+                      icon: const Icon(
+                        Icons.mail_rounded,
+                        color: Color(0xFF16A34A),
+                        size: 22,
+                      ),
+                      splashRadius: 20,
+                      tooltip: "Send Email",
+                    ),
+                  ],
+                ),
               ),
 
               // 3. RBI CMS Portal Card
@@ -115,23 +170,7 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
                 ),
               ),
 
-              // 4. Card Closure Card
-              _buildSupportCard(
-                context,
-                iconBgColor: lightprimaryred,
-                icon: Icons.credit_card_off_rounded,
-                iconColor: primaryRed,
-                title: "Card Closure",
-                subtitle: "Request card closure and refund",
-                note:
-                    "Send us an email to request for card closure and receive a refund.",
-                showExternalIcon: true,
-                onTap: () => _launchExternalUrl(
-                  "https://ppi.transcorpint.com/card-closure",
-                ),
-              ),
-
-              // 5. Need More Help Card
+              // 4. Need More Help Card
               Container(
                 width: double.infinity,
                 margin: EdgeInsets.only(
@@ -201,6 +240,8 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
     required String note,
     String? copyValue,
     VoidCallback? onTap,
+    VoidCallback? onIconTap,
+    Widget? trailing,
     bool showExternalIcon = false,
   }) {
     return Container(
@@ -230,20 +271,23 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Rounded icon container
-                    Container(
-                      height: context.responsive(46),
-                      width: context.responsive(46),
-                      decoration: BoxDecoration(
-                        color: iconBgColor,
-                        borderRadius: BorderRadius.circular(
-                          context.responsive(14),
+                    // Rounded icon container (tappable directly)
+                    GestureDetector(
+                      onTap: onIconTap ?? onTap,
+                      child: Container(
+                        height: context.responsive(46),
+                        width: context.responsive(46),
+                        decoration: BoxDecoration(
+                          color: iconBgColor,
+                          borderRadius: BorderRadius.circular(
+                            context.responsive(14),
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        icon,
-                        color: iconColor,
-                        size: context.responsive(22),
+                        child: Icon(
+                          icon,
+                          color: iconColor,
+                          size: context.responsive(22),
+                        ),
                       ),
                     ),
                     SizedBox(width: context.responsive(14)),
@@ -273,7 +317,9 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
                         ],
                       ),
                     ),
-                    if (copyValue != null)
+                    if (trailing != null)
+                      trailing
+                    else if (copyValue != null)
                       IconButton(
                         onPressed: () {
                           _copyText(context, copyValue, title);
@@ -315,6 +361,81 @@ class ContactSupportScreenView extends GetView<ContactSupportScreenController> {
         ),
       ),
     );
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    HapticFeedback.lightImpact();
+    final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    final Uri uri = Uri.parse('tel:$cleanNumber');
+    try {
+      if (Get.isRegistered<AppLockService>()) {
+        AppLockService.to.startExternalFlow(ExternalFlowType.externalBrowser);
+      }
+      final bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        final bool standardLaunched = await launchUrl(uri);
+        if (!standardLaunched) {
+          if (Get.context != null) {
+            _copyText(Get.context!, cleanNumber, "Helpline number");
+          }
+          AppSnackbar.info("Could not open dialer. Number copied to clipboard.");
+        }
+      }
+    } catch (e) {
+      developer.log("Error launching phone call: $e");
+      if (Get.context != null) {
+        _copyText(Get.context!, cleanNumber, "Helpline number");
+      }
+      AppSnackbar.info("Could not open dialer. Number copied to clipboard.");
+    } finally {
+      if (Get.isRegistered<AppLockService>()) {
+        Future.delayed(const Duration(seconds: 2), () {
+          AppLockService.to.finishExternalFlow(ExternalFlowType.externalBrowser);
+        });
+      }
+    }
+  }
+
+  Future<void> _sendEmail(String emailAddress) async {
+    HapticFeedback.lightImpact();
+    final Uri uri = Uri(
+      scheme: 'mailto',
+      path: emailAddress,
+      query: 'subject=Support Request - TransWallet',
+    );
+    try {
+      if (Get.isRegistered<AppLockService>()) {
+        AppLockService.to.startExternalFlow(ExternalFlowType.externalBrowser);
+      }
+      final bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        final bool standardLaunched = await launchUrl(uri);
+        if (!standardLaunched) {
+          if (Get.context != null) {
+            _copyText(Get.context!, emailAddress, "Support email");
+          }
+          AppSnackbar.info("Could not open email app. Email copied to clipboard.");
+        }
+      }
+    } catch (e) {
+      developer.log("Error launching email client: $e");
+      if (Get.context != null) {
+        _copyText(Get.context!, emailAddress, "Support email");
+      }
+      AppSnackbar.info("Could not open email app. Email copied to clipboard.");
+    } finally {
+      if (Get.isRegistered<AppLockService>()) {
+        Future.delayed(const Duration(seconds: 2), () {
+          AppLockService.to.finishExternalFlow(ExternalFlowType.externalBrowser);
+        });
+      }
+    }
   }
 
   void _copyText(BuildContext context, String text, String label) {

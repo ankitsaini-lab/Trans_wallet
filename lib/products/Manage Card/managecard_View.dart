@@ -170,6 +170,8 @@ class ManagecardView extends GetView<ManagecardController> {
                                       "assets/ordernewcard.svg",
                                       true,
                                       maxLimit: 10000,
+                                      isAvailable: !controller.isVirtualCard,
+                                      disabledReason: "Physical card only",
                                     ),
                                     featureTile(
                                       "POS",
@@ -177,6 +179,8 @@ class ManagecardView extends GetView<ManagecardController> {
                                       "assets/pos.svg",
                                       true,
                                       maxLimit: 200000,
+                                      isAvailable: !controller.isVirtualCard,
+                                      disabledReason: "Physical card only",
                                     ),
                                     featureTile(
                                       "ECOM",
@@ -192,6 +196,8 @@ class ManagecardView extends GetView<ManagecardController> {
                                       true,
                                       maxLimit: 200000,
                                       isLast: true,
+                                      isAvailable: !controller.isVirtualCard,
+                                      disabledReason: "Physical card only",
                                     ),
                                   ],
                                 ),

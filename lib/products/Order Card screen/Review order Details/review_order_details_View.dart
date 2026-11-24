@@ -45,19 +45,16 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
                     _buildHorizontalCardTile(),
                     const SizedBox(height: 24),
                     _buildSectionHeader(
@@ -157,12 +154,13 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: _buildProceedButton(context),
-            ),
-          ],
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: _buildProceedButton(context),
         ),
       ),
     );

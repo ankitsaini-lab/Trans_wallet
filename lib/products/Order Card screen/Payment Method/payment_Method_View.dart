@@ -43,41 +43,38 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
         actions: const [NotificationButton(), SizedBox(width: 20)],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-                    _buildCombinedCardAndPricingTile(),
-                    const SizedBox(height: 24),
-                    _buildDeliveryAddressCard(),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "Payment Method",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildPaymentOptions(),
-                    const SizedBox(height: 32),
-                  ],
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              _buildCombinedCardAndPricingTile(),
+              const SizedBox(height: 24),
+              _buildDeliveryAddressCard(),
+              const SizedBox(height: 24),
+              const Text(
+                "Payment Method",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
               ),
-            ),
-            _buildBottomPaymentBar(primaryRed, context),
-          ],
+              const SizedBox(height: 16),
+              _buildPaymentOptions(),
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: _buildBottomPaymentBar(primaryRed, context),
       ),
     );
   }
@@ -463,7 +460,7 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
 
   Widget _buildBottomPaymentBar(Color primaryRed, BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [

@@ -1,42 +1,37 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
-import 'package:transwallet/services/api_service.dart';
-import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:transwallet/utilities/getStorage.dart';
-import 'package:transwallet/services/biometric_service.dart';
-import 'package:transwallet/services/app_lock_service.dart';
-import 'package:transwallet/widgets/constsize.dart';
-import 'package:transwallet/widgets/custombutton.dart';
-import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
-import 'dart:convert';
-import 'dart:developer';
-import 'dart:developer' as developer;
-import 'package:crypto/crypto.dart';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:crypto/crypto.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:payu_checkoutpro_flutter/payu_checkoutpro_flutter.dart';
 import 'package:payu_checkoutpro_flutter/PayUConstantKeys.dart';
-import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
-import 'package:transwallet/widgets/custombutton.dart';
-import 'package:transwallet/utilities/getStorage.dart';
-import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
+import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/custom_numeric_keypad.dart';
+import 'package:transwallet/widgets/custombutton.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
 
 class AddmoneyController extends GetxController
     implements PayUCheckoutProProtocol {
-  var balance = 0.0.obs;
+  // Wallet limits
+  static const double minKycMaxWalletLimit = 10000.0; // ₹10,000 for Min KYC
+  static const double fullKycMaxWalletLimit =
+      200000.0; // ₹2,00,000 for Full KYC
+
+  final RxDouble balance = 0.0.obs;
+  final RxBool isFullKyc = false.obs;
+  final RxBool isPermanentlyBlocked = false.obs;
   late PayUCheckoutProFlutter _payUCheckoutProFlutter;
   String? dynamicMerchantKey;
   String? dynamicMerchantSalt;
@@ -45,8 +40,129 @@ class AddmoneyController extends GetxController
   Map<String, String> apiHashesMap = {};
   Map<String, dynamic> lastPayUMap = {};
 
+  /// Current wallet holding limit based on user's KYC tier
+  double get maxWalletLimit =>
+      isFullKyc.value ? fullKycMaxWalletLimit : minKycMaxWalletLimit;
+
+  /// Maximum amount the user can add without exceeding their wallet holding limit:
+  /// maxAddableAmount = max(0, maxWalletLimit - currentBalance)
+  double get maxAddableAmount {
+    final remaining = maxWalletLimit - balance.value;
+    return remaining > 0 ? remaining : 0.0;
+  }
+
+  /// Whether current wallet balance has already reached or exceeded the holding limit
+  bool get isLimitReached => balance.value >= maxWalletLimit;
+
+  /// Whether currently entered amount exceeds the allowable addition
+  bool get isAmountExceedingLimit => amount > maxAddableAmount;
+
+  /// Whether the user can proceed with adding money
+  bool get canProceed =>
+      amount > 0 &&
+      !isLimitReached &&
+      !isAmountExceedingLimit &&
+      !isProcessing.value &&
+      !isPermanentlyBlocked.value;
+
+  /// Evaluate whether card or user account is permanently blocked
+  void checkBlockedStatus() {
+    final box = GetStorage();
+
+    // 1. Direct explicit flags in storage
+    if (box.read('is_permanently_blocked') == true ||
+        box.read('is_card_permanently_blocked') == true) {
+      isPermanentlyBlocked.value = true;
+      return;
+    }
+
+    // 2. User account status
+    final userStatus = box.read('user_status')?.toString().toUpperCase() ?? '';
+    if (userStatus == 'BLOCKED' ||
+        userStatus == 'PERMANENT_BLOCK' ||
+        userStatus == 'PERMANENTLY_BLOCKED') {
+      isPermanentlyBlocked.value = true;
+      return;
+    }
+
+    // 3. Check user_cards
+    final storedCards = box.read('user_cards');
+    if (storedCards is List && storedCards.isNotEmpty) {
+      for (var c in storedCards) {
+        if (c is Map) {
+          final rawStatus = c['status']?.toString().toUpperCase() ?? '';
+          if (rawStatus == 'BLOCKED' ||
+              rawStatus == 'PERMANENT_BLOCK' ||
+              rawStatus == 'PERMANENTLY_BLOCKED' ||
+              c['isPermanentlyBlocked'] == true) {
+            isPermanentlyBlocked.value = true;
+            return;
+          }
+        }
+      }
+    }
+
+    // 4. Check WalletCardController if active
+    if (Get.isRegistered<WalletCardController>()) {
+      final wcc = Get.find<WalletCardController>();
+      if (wcc.cards.isNotEmpty) {
+        if (wcc.cards.every((c) => c.isPermanentlyBlocked) ||
+            wcc.cards.first.isPermanentlyBlocked) {
+          isPermanentlyBlocked.value = true;
+          return;
+        }
+      }
+    }
+
+    isPermanentlyBlocked.value = false;
+  }
+
+  /// Evaluate user's Full KYC status from storage
+  void checkKycStatus() {
+    final box = GetStorage();
+    final rawStatus = box.read('kyc_status')?.toString().toLowerCase() ?? '';
+    final currentLevel =
+        box.read('kyc_current_level')?.toString().toUpperCase() ?? '';
+
+    final bool completed =
+        box.read('full_kyc_completed') == true ||
+        box.read('is_kyc_completed') == true ||
+        currentLevel == 'FULL' ||
+        rawStatus == 'verified' ||
+        rawStatus == 'completed' ||
+        rawStatus == 'approved' ||
+        rawStatus == 'upgrade_success';
+    isFullKyc.value = completed;
+  }
+
+  /// Format numbers in Indian number format (e.g. 10,000 or 2,00,000)
+  String formatCurrency(double val, {bool showDecimals = false}) {
+    if (val >= 1000) {
+      final intPart = val.toInt();
+      final s = intPart.toString();
+      String formatted;
+      if (s.length <= 3) {
+        formatted = s;
+      } else {
+        final lastThree = s.substring(s.length - 3);
+        final otherNumbers = s.substring(0, s.length - 3);
+        final otherFormatted = otherNumbers.replaceAllMapped(
+          RegExp(r'\B(?=(\d{2})+(?!\d))'),
+          (match) => ",",
+        );
+        formatted = "$otherFormatted,$lastThree";
+      }
+      if (showDecimals && val % 1 != 0) {
+        final dec = (val - intPart).toStringAsFixed(2).substring(1);
+        return "$formatted$dec";
+      }
+      return formatted;
+    }
+    return showDecimals ? val.toStringAsFixed(2) : val.toInt().toString();
+  }
+
   Future<void> fetchWalletBalance() async {
-    final stored = box.read('balance');
+    final stored = box.read('balance') ?? box.read('wallet_balance');
     if (stored is num) {
       balance.value = stored.toDouble();
     }
@@ -58,6 +174,7 @@ class AddmoneyController extends GetxController
             : num.tryParse(res['balance'].toString()) ?? 0;
         balance.value = apiBal.toDouble();
         box.write('balance', balance.value);
+        box.write('wallet_balance', balance.value);
       }
     }
   }
@@ -65,10 +182,23 @@ class AddmoneyController extends GetxController
   @override
   void onInit() {
     super.onInit();
+    checkBlockedStatus();
+    checkKycStatus();
     fetchWalletBalance();
+    _refreshUserData();
     _payUCheckoutProFlutter = PayUCheckoutProFlutter(this);
     if (Get.isRegistered<AppLockService>()) {
       AppLockService.to.setPaymentFlowActive(true);
+    }
+  }
+
+  Future<void> _refreshUserData() async {
+    if (Get.isRegistered<ApiService>()) {
+      try {
+        await ApiService.to.fetchUserProfile();
+        checkBlockedStatus();
+        checkKycStatus();
+      } catch (_) {}
     }
   }
 
@@ -78,6 +208,11 @@ class AddmoneyController extends GetxController
       AppLockService.to.setPaymentFlowActive(false);
     }
     super.onClose();
+  }
+
+  void resetInput() {
+    enteredAmount.value = '0';
+    selectedPreset.value = 0;
   }
 
   var enteredAmount = '0'.obs;
@@ -131,6 +266,15 @@ class AddmoneyController extends GetxController
         enteredAmount.value += '.';
       }
     } else {
+      if (isLimitReached) {
+        if (!isFullKyc.value) {
+          showUpgradeKycDialog();
+        } else {
+          AppSnackbar.error("Wallet limit of ₹2,00,000 reached.");
+        }
+        return;
+      }
+
       if (enteredAmount.value == '0') {
         enteredAmount.value = value;
       } else if (enteredAmount.value.length < 9) {
@@ -144,9 +288,35 @@ class AddmoneyController extends GetxController
     _updateSelectedPreset();
   }
 
-  void setPreset(int amount) {
-    enteredAmount.value = amount.toString();
-    selectedPreset.value = amount;
+  void setPreset(int amountVal) {
+    if (isLimitReached) {
+      if (!isFullKyc.value) {
+        showUpgradeKycDialog(attemptedAmount: amountVal.toDouble());
+      } else {
+        AppSnackbar.error(
+          "Your wallet has reached the maximum limit of ₹2,00,000.",
+        );
+      }
+      return;
+    }
+
+    if (amountVal > maxAddableAmount) {
+      final allowedStr = formatCurrency(maxAddableAmount);
+      if (!isFullKyc.value) {
+        AppSnackbar.error(
+          "Cannot add ₹$amountVal. With your current balance, you can add up to ₹$allowedStr (Min KYC limit: ₹10,000).",
+        );
+        showUpgradeKycDialog(attemptedAmount: amountVal.toDouble());
+      } else {
+        AppSnackbar.error(
+          "Cannot add ₹$amountVal. With your current balance, you can add up to ₹$allowedStr (Full KYC limit: ₹2,00,000).",
+        );
+      }
+      return;
+    }
+
+    enteredAmount.value = amountVal.toString();
+    selectedPreset.value = amountVal;
   }
 
   void _updateSelectedPreset() {
@@ -156,6 +326,214 @@ class AddmoneyController extends GetxController
     } else {
       selectedPreset.value = 0;
     }
+  }
+
+  /// Informative dialog shown when user attempts to exceed Min KYC limits
+  void showUpgradeKycDialog({double? attemptedAmount}) {
+    final allowedStr = formatCurrency(maxAddableAmount);
+    final balStr = formatCurrency(balance.value, showDecimals: true);
+    Get.dialog(
+      Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 60,
+                    width: 60,
+                    decoration: BoxDecoration(
+                      color: primaryLightYellow,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: primaryYellow, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.verified_user_rounded,
+                      color: primaryRed,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Wallet Limit Restricted",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "KYC Status",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            Text(
+                              isFullKyc.value ? "Full KYC" : "Min KYC",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isFullKyc.value
+                                    ? const Color(0xFF2E7D32)
+                                    : const Color(0xFFE65100),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 16, thickness: 0.8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Holding Limit",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            Text(
+                              "₹${formatCurrency(maxWalletLimit)}",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Current Balance",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            Text(
+                              "₹$balStr",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 16, thickness: 0.8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Max You Can Add",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
+                            ),
+                            Text(
+                              "₹$allowedStr",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: primaryRed,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    !isFullKyc.value
+                        ? "Min KYC accounts can hold up to ₹10,000. Upgrade to Full KYC (VKYC) to increase your wallet limit to ₹2,00,000."
+                        : "Your account is limited to a maximum holding balance of ₹2,00,000.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Colors.grey.shade600,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => Get.back(),
+                          child: const Text(
+                            "Got It",
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (!isFullKyc.value) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onPressed: () {
+                              Get.back();
+                              Get.toNamed('/updateKyc');
+                            },
+                            child: const Text(
+                              "Upgrade KYC",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<bool> authenticate() async {
@@ -350,24 +728,35 @@ class AddmoneyController extends GetxController
     }
 
     // Handle SUCCESS state
-    if (Get.isRegistered<ApiService>()) {
+    final String activeTxnRef = resTxnId.isNotEmpty
+        ? resTxnId
+        : (currentTxnRef ?? '');
+
+    if (activeTxnRef.isNotEmpty && Get.isRegistered<ApiService>()) {
       ApiService.to
-          .loadWallet(
-            amount: resAmount,
-            idempotencyKey: resTxnId.isNotEmpty
-                ? resTxnId
-                : "LOAD_${DateTime.now().millisecondsSinceEpoch}",
+          .verifyWalletLoad(
+            activeTxnRef,
+            verificationPayload: {
+              'txnid': activeTxnRef,
+              'amount': resAmount,
+              'status': 'success',
+              'bank_ref_no': bankRefNo,
+              'payuResponse': payu,
+            },
           )
-          .then((loadRes) {
-            print(
-              '[AddMoneyController] /api/v1/wallet/load response: $loadRes',
+          .then((verifyRes) {
+            developer.log(
+              '[AddMoneyController] /api/v1/wallet/loads/$activeTxnRef/verify response: $verifyRes',
             );
             debugPrint(
-              '[AddMoneyController] /api/v1/wallet/load response: $loadRes',
+              '[AddMoneyController] /api/v1/wallet/loads/$activeTxnRef/verify response: $verifyRes',
             );
+            fetchWalletBalance();
           })
           .catchError((e) {
-            debugPrint('[AddMoneyController] /api/v1/wallet/load error: $e');
+            developer.log('[AddMoneyController] verifyWalletLoad error: $e');
+            debugPrint('[AddMoneyController] verifyWalletLoad error: $e');
+            fetchWalletBalance();
           });
     }
 
@@ -455,8 +844,27 @@ class AddmoneyController extends GetxController
   }
 
   Future<void> openPayUCheckout() async {
+    checkBlockedStatus();
+    if (isPermanentlyBlocked.value) {
+      AppSnackbar.error(
+        "Your card is permanently blocked. You cannot add money to this wallet.",
+        title: "Card Blocked",
+      );
+      return;
+    }
+
     if (amount <= 0) {
       AppSnackbar.error("Please enter a valid amount");
+      return;
+    }
+
+    if (isLimitReached || isAmountExceedingLimit) {
+      final allowedStr = formatCurrency(maxAddableAmount);
+      AppSnackbar.error(
+        !isFullKyc.value
+            ? "Cannot add ₹${formatCurrency(amount)}. Maximum allowed addition is ₹$allowedStr (Min KYC limit: ₹10,000)."
+            : "Cannot add ₹${formatCurrency(amount)}. Maximum allowed addition is ₹$allowedStr (Full KYC limit: ₹2,00,000).",
+      );
       return;
     }
 
@@ -632,10 +1040,47 @@ class AddmoneyController extends GetxController
 
   bool isTesting = true;
   Future<void> payNow() async {
+    checkBlockedStatus();
+    if (isPermanentlyBlocked.value) {
+      AppSnackbar.error(
+        "Your card is permanently blocked. You cannot add money to this wallet.",
+        title: "Card Blocked",
+      );
+      return;
+    }
+
     if (amount <= 0) {
       AppSnackbar.error("Please enter a valid amount");
       return;
     }
+
+    if (isLimitReached) {
+      if (!isFullKyc.value) {
+        showUpgradeKycDialog(attemptedAmount: amount);
+      } else {
+        AppSnackbar.error(
+          "Your wallet has reached the maximum limit of ₹2,00,000.",
+        );
+      }
+      return;
+    }
+
+    if (isAmountExceedingLimit) {
+      final allowedStr = formatCurrency(maxAddableAmount);
+      final balStr = formatCurrency(balance.value, showDecimals: true);
+      if (!isFullKyc.value) {
+        AppSnackbar.error(
+          "Max wallet limit is ₹10,000 for Min KYC. With current balance of ₹$balStr, you can add up to ₹$allowedStr. Complete Full KYC for ₹2,00,000 limit.",
+        );
+        showUpgradeKycDialog(attemptedAmount: amount);
+      } else {
+        AppSnackbar.error(
+          "Max wallet limit is ₹2,00,000 for Full KYC. With current balance of ₹$balStr, you can add up to ₹$allowedStr.",
+        );
+      }
+      return;
+    }
+
     await openPayUCheckout();
   }
 
@@ -722,46 +1167,13 @@ class _PaymentReceiptViewState extends State<PaymentReceiptView>
         _isLoading = true;
       });
       final details = await ApiService.to.fetchWalletLoadDetails(ref);
-      log("nathu payment payment>> $details");
+      developer.log("nathu payment payment>> $details");
       if (mounted) {
         setState(() {
           _loadDetails = details;
           _isLoading = false;
         });
       }
-    }
-  }
-
-  void _shareReceipt({
-    required String status,
-    required String txnRef,
-    required String amountStr,
-    required String dateStr,
-    required String modeStr,
-    String? payuTxnId,
-  }) async {
-    final String receiptText =
-        '''
-================================
-   TRANSWALLET PAYMENT RECEIPT  
-================================
-Status        : $status
-Amount        : $amountStr
-Txn Reference : $txnRef
-${payuTxnId != null && payuTxnId.isNotEmpty ? 'PayU Txn ID   : $payuTxnId\n' : ''}Payment Mode  : $modeStr
-Date & Time   : $dateStr
-================================
-Thank you for using Transwallet!
-'''
-            .trim();
-
-    Clipboard.setData(ClipboardData(text: receiptText));
-    HapticFeedback.lightImpact();
-
-    try {
-      await Share.share(receiptText, subject: 'Transwallet Payment Receipt');
-    } catch (_) {
-      AppSnackbar.success("Receipt copied to clipboard!");
     }
   }
 
@@ -1137,88 +1549,26 @@ Thank you for using Transwallet!
                         ),
                         const SizedBox(height: 22),
 
-                        Container(
-                          width: double.infinity,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(32),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFF7A00), Color(0xFFFF9E40)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: orange.withValues(alpha: 0.35),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(32),
-                              onTap: () {
-                                _shareReceipt(
-                                  status: displayStatusStr,
-                                  txnRef: activeTxnRef.isNotEmpty
-                                      ? activeTxnRef
-                                      : 'N/A',
-                                  amountStr: formattedAmountStr,
-                                  dateStr: formattedDate,
-                                  modeStr: paymentModeStr.isNotEmpty
-                                      ? paymentModeStr
-                                      : 'Online Payment',
-                                  payuTxnId: payuTxnId,
-                                );
-                              },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.share_rounded,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Share Receipt',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
                         // ── Continue button ──
                         SizedBox(
                           width: double.infinity,
                           height: 54,
-                          child: OutlinedButton(
+                          child: ElevatedButton(
                             onPressed: () => Get.offAllNamed('/dashboard'),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFFDDDDDD),
-                                width: 1.5,
-                              ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF111111),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(32),
                               ),
-                              backgroundColor: Colors.white,
                             ),
                             child: Text(
                               'Go to Dashboard',
                               style: GoogleFonts.inter(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF1A1A2E),
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -1366,28 +1716,47 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
   bool _hasError = false;
 
   void _keypadPress(String value) {
-    if (_mpin.length < 4 && !_isVerifying) {
-      setState(() {
-        _mpin += value;
-        _hasError = false;
-      });
+    if (_isVerifying) return;
 
-      if (_mpin.length == 4) {
-        _verifyMpin();
+    setState(() {
+      if (_hasError) {
+        _hasError = false;
+        _mpin = "";
       }
+      if (_mpin.length < 4) {
+        _mpin += value;
+      }
+    });
+
+    if (_mpin.length == 4) {
+      _verifyMpin();
     }
   }
 
   void _deletePress() {
-    if (_mpin.isNotEmpty && !_isVerifying) {
-      setState(() {
-        _mpin = _mpin.substring(0, _mpin.length - 1);
-        _hasError = false;
-      });
+    if (_isVerifying) {
+      _isVerifying = false;
     }
+    setState(() {
+      _hasError = false;
+      if (_mpin.isNotEmpty) {
+        _mpin = _mpin.substring(0, _mpin.length - 1);
+      }
+    });
+  }
+
+  void _clearPress() {
+    if (_isVerifying) {
+      _isVerifying = false;
+    }
+    setState(() {
+      _hasError = false;
+      _mpin = "";
+    });
   }
 
   Future<void> _verifyMpin() async {
+    final pinToVerify = _mpin;
     setState(() {
       _isVerifying = true;
       _hasError = false;
@@ -1395,12 +1764,12 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
 
     MpinVerifyResponse res;
     if (Get.isRegistered<ApiService>()) {
-      res = await ApiService.to.verifyMpin(_mpin);
+      res = await ApiService.to.verifyMpin(pinToVerify);
     } else {
       final box = GetStorage();
       final savedMpin =
           box.read<String>('saved_mpin') ?? box.read('mpin')?.toString();
-      final ok = savedMpin != null && savedMpin == _mpin;
+      final ok = savedMpin != null && savedMpin == pinToVerify;
       res = MpinVerifyResponse(
         isSuccess: ok,
         message: ok ? 'MPIN verified' : 'Incorrect MPIN. Please try again.',
@@ -1409,13 +1778,16 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
 
     if (mounted) {
       if (res.isSuccess) {
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.clearMpinLockout();
+        }
         HapticFeedback.mediumImpact();
         Get.back();
         widget.onSuccess();
       } else {
         HapticFeedback.heavyImpact();
         setState(() {
-          _mpin = "";
+          _mpin = pinToVerify;
           _isVerifying = false;
           _hasError = true;
         });
@@ -1501,9 +1873,13 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
                     shape: BoxShape.circle,
                     color: _isVerifying
                         ? primaryRed.withOpacity(0.3)
-                        : (isFilled ? primaryRed : const Color(0xFFECECEC)),
+                        : (isFilled
+                            ? (_hasError ? Colors.red : primaryRed)
+                            : const Color(0xFFECECEC)),
                     border: Border.all(
-                      color: _hasError ? Colors.red : Colors.transparent,
+                      color: _hasError && isFilled
+                          ? Colors.red
+                          : Colors.transparent,
                       width: 2,
                     ),
                   ),
@@ -1534,47 +1910,10 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
             ] else ...[
               const SizedBox(height: 36),
             ],
-            Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildKeypadNum("1"),
-                    _buildKeypadNum("2"),
-                    _buildKeypadNum("3"),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildKeypadNum("4"),
-                    _buildKeypadNum("5"),
-                    _buildKeypadNum("6"),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildKeypadNum("7"),
-                    _buildKeypadNum("8"),
-                    _buildKeypadNum("9"),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    const SizedBox(width: 110),
-                    _buildKeypadNum("0"),
-                    _buildKeypadAction(
-                      icon: Icons.backspace_outlined,
-                      onTap: _deletePress,
-                    ),
-                  ],
-                ),
-              ],
+            CustomNumericKeypad(
+              onDigitTap: _keypadPress,
+              onDeleteTap: _deletePress,
+              onClear: _clearPress,
             ),
             const SizedBox(height: 20),
             TextButton(
@@ -1590,48 +1929,6 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildKeypadNum(String number) {
-    return GestureDetector(
-      onTap: () => _keypadPress(number),
-      child: Container(
-        height: 64,
-        width: Get.width * 0.25,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF9F9F9),
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          number,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildKeypadAction({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 64,
-        width: Get.width * 0.25,
-        decoration: const BoxDecoration(
-          color: Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, color: const Color(0xFF6B7280), size: 24),
       ),
     );
   }

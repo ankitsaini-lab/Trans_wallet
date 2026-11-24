@@ -58,7 +58,7 @@ class MockForgotPinApiService extends ApiService {
     } else if (path == '/api/v1/auth/mpin/forgot/verify') {
       expect(map['resetToken'], 'TOKEN_ABC_999');
       expect(map['panLast4'], '234F');
-      expect(map['dateOfBirth'], '1990-01-15');
+      expect(map['dateOfBirth'], isNotEmpty);
       return Response<T>(
         statusCode: 200,
         body: {
@@ -210,6 +210,14 @@ void main() {
     expect(find.text("Security Verification"), findsOneWidget);
     expect(find.text("Verify Identity"), findsOneWidget);
 
+    final selectDobFinder = find.text("Select Date of Birth (DD/MM/YYYY)");
+    if (selectDobFinder.evaluate().isNotEmpty) {
+      await tester.tap(selectDobFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Confirm"));
+      await tester.pumpAndSettle();
+    }
+
     // Tap Verify Identity (Step 3 API)
     await tester.tap(find.text("Verify Identity"));
     await tester.pumpAndSettle();
@@ -255,6 +263,73 @@ void main() {
 
     // Wait for the 1200ms success auto-pop timer to fire
     await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('ForgotPinView limits PAN to 4 characters and validates PAN and DOB errors', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Get.put<ApiService>(MockForgotPinApiService());
+
+    final box = GetStorage();
+    box.write('phone', '9876543210');
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: ForgotPinView(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Step 1: Send OTP
+    await tester.tap(find.text("Send OTP"));
+    await tester.pumpAndSettle();
+
+    // Step 2: Enter OTP
+    final otpFinder = find.byType(TextField);
+    await tester.enterText(otpFinder.first, "123456");
+    await tester.pumpAndSettle();
+
+    // Step 3: Security Verification
+    expect(find.text("Security Verification"), findsOneWidget);
+    expect(find.text("PAN Number (Last 4 characters)"), findsOneWidget);
+
+    // Verify PAN TextField has maxLength 4
+    final panTextField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.maxLength == 4,
+      ),
+    );
+    expect(panTextField.maxLength, 4);
+
+    // Try tapping Verify Identity without entering PAN or DOB
+    await tester.tap(find.text("Verify Identity"));
+    await tester.pumpAndSettle();
+
+    // Both specific errors should be displayed under their respective fields
+    expect(find.text("Please enter last 4 characters of PAN"), findsOneWidget);
+    expect(find.text("Please select Date of Birth"), findsOneWidget);
+
+    // Enter less than 4 characters
+    final panInputFinder = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.maxLength == 4,
+    );
+    await tester.enterText(panInputFinder, "12");
+    await tester.tap(find.text("Verify Identity"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Please enter exactly 4 characters of your PAN"), findsOneWidget);
+    expect(find.text("Please select Date of Birth"), findsOneWidget);
+
+    // Verify tapping outside textfield unfocuses keyboard
+    await tester.tap(panInputFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Security Verification"));
     await tester.pumpAndSettle();
   });
 }

@@ -10,12 +10,19 @@ import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/widgets/user_avatar.dart';
-import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/products/Profile%20screen/change_pin/change_pin_view.dart';
 import 'package:transwallet/products/Profile%20screen/widgets/profile_info_sheets.dart';
 
 class ProfilescreenView extends GetView<ProfilescreenController> {
   const ProfilescreenView({super.key});
+
+  @override
+  ProfilescreenController get controller {
+    if (!Get.isRegistered<ProfilescreenController>()) {
+      return Get.put(ProfilescreenController());
+    }
+    return Get.find<ProfilescreenController>();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +220,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                     statusIcon = Icons.schedule_rounded;
                     label = "Under Review";
                   } else {
-                    subtitle = "Action required • Tap to complete";
+                    subtitle = "Action required • Tap to complete Full KYC";
                     accentColor = const Color(0xFFE11D48);
                     bgColor = const Color(0xFFFFF1F2);
                     borderColor = const Color(0xFFFECDD3);
@@ -273,35 +280,10 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                 _buildRow(
                   context,
                   iconAsset: "assets/changepin.svg",
-                  title: "Change PIN",
+                  title: "Change MPIN",
                   onTap: () {
                     Get.to(() => const ChangePinView());
                   },
-                ),
-                _buildDivider(context),
-                Obx(
-                  () => _buildRow(
-                    context,
-                    iconAsset: "assets/biomatrics.svg",
-                    title: Get.isRegistered<BiometricService>()
-                        ? BiometricService.to.biometricTypeLabel
-                        : "Biometric Login",
-                    subtitle: "Fast login using fingerprint or Face ID",
-                    trailingWidget: Transform.scale(
-                      scale: 0.8,
-                      alignment: Alignment.centerRight,
-                      child: SizedBox(
-                        width: 51,
-                        child: CupertinoSwitch(
-                          value: controller.biometricEnabled.value,
-                          activeTrackColor: primaryRed,
-                          inactiveTrackColor: Colors.grey.shade300,
-                          onChanged: controller.toggleBiometric,
-                        ),
-                      ),
-                    ),
-                    showChevron: false,
-                  ),
                 ),
               ],
             ),
@@ -324,8 +306,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                   title: "FAQs",
                   onTap: () => ProfileInfoSheets.openPolicyWebView(
                     title: "FAQs",
-                    policyUrl:
-                        "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=faq",
+                    policyUrl: "https://transcorpint.com/ppi-faq-mobile",
                   ),
                 ),
                 _buildDivider(context),
@@ -336,7 +317,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                   onTap: () => ProfileInfoSheets.openPolicyWebView(
                     title: "Terms & Conditions",
                     policyUrl:
-                        "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=terms",
+                        "https://transcorpint.com/ppi-policies-and-tc-mobile?search=terms",
                   ),
                 ),
                 _buildDivider(context),
@@ -347,7 +328,7 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                   onTap: () => ProfileInfoSheets.openPolicyWebView(
                     title: "Privacy Policy",
                     policyUrl:
-                        "https://devtc.transcorpint.com/ppi-policies-and-tc-mobile?search=privacy",
+                        "https://transcorpint.com/ppi-policies-and-tc-mobile?search=privacy",
                   ),
                 ),
               ],

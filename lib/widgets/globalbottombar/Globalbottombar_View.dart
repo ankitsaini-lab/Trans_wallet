@@ -101,20 +101,20 @@ class _GlobalbottombarViewState extends State<GlobalbottombarView>
                     filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color.fromRGBO(255, 255, 255, 0.4),
+                        color: const Color.fromRGBO(255, 255, 255, 0.38),
                         borderRadius: BorderRadius.circular(
                           context.responsive(45),
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
-                            blurRadius: 30,
+                            blurRadius: 80,
                             spreadRadius: -2,
                             offset: const Offset(0, 50),
                           ),
                         ],
                         border: Border.all(
-                          color: const Color.fromRGBO(255, 255, 255, 0.3),
+                          color: const Color.fromRGBO(255, 255, 255, 0.67),
                           width: 1.5,
                         ),
                       ),
@@ -124,7 +124,7 @@ class _GlobalbottombarViewState extends State<GlobalbottombarView>
               ),
 
               Padding(
-                padding: EdgeInsets.all(context.responsive(6)),
+                padding: EdgeInsets.all(context.responsive(10)),
                 child: Obx(
                   () => Row(
                     children: List.generate(_tabs.length, (index) {
@@ -176,11 +176,11 @@ class _LiquidGlassNavItem extends StatelessWidget {
         curve: Curves.easeOutCubic,
         margin: EdgeInsets.symmetric(
           horizontal: context.responsive(1),
-          vertical: context.responsive(4),
+          vertical: context.responsive(6.7),
         ),
         padding: EdgeInsets.symmetric(
           vertical: context.responsive(4),
-          horizontal: context.responsive(4),
+          horizontal: context.responsive(5),
         ),
         decoration: BoxDecoration(
           color: selected

@@ -133,7 +133,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                 text: "Back to Home",
                 btncolor: Colors.black,
                 textsize: context.responsive(14),
-                onPressed: () => Get.offAllNamed("/dashboardscreen"),
+                onPressed: () => Get.offAllNamed("/dashboard"),
               ),
               const SizedBox(height: 20),
             ],

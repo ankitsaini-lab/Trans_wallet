@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:intl/intl.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/Send%20money%20screen/sendMoney_Controller.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
@@ -8,8 +11,8 @@ import 'package:transwallet/widgets/custombutton.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 
 class SendmoneyprocessController extends GetxController {
-  static const double minTransferAmount = 1.0;
-  static const double maxTransferAmount = 10000.0;
+  static const double minTransferAmount = 0.0;
+  static const double maxTransferAmount = double.infinity;
 
   var balance = 0.0.obs;
   var enteredAmount = ''.obs;
@@ -45,10 +48,7 @@ class SendmoneyprocessController extends GetxController {
     return double.tryParse(cleaned.isEmpty ? "0" : cleaned) ?? 0.0;
   }
 
-  bool get canProceed =>
-      amount >= minTransferAmount &&
-      amount <= maxTransferAmount &&
-      !enteredAmount.value.endsWith('.');
+  bool get canProceed => amount > 0 && !enteredAmount.value.endsWith('.');
 
   void setAmount(String value) {
     selectedPreset.value = 0; // Clear preset selection when typing manually
@@ -83,39 +83,60 @@ class SendmoneyprocessController extends GetxController {
     if (current == "0" && value == "0") return;
 
     String candidate = (current == "0") ? value : current + value;
-    String candidateClean = candidate.replaceAll(',', '');
-    double? candidateVal = double.tryParse(candidateClean);
 
-    if (candidateVal != null && candidateVal > maxTransferAmount) {
-      AppSnackbar.warning("Maximum transfer limit is ₹10,000 per transaction");
+    // Limit amount to at most 6 digits before the decimal
+    final String integerPart = candidate.contains(".")
+        ? candidate.split(".")[0]
+        : candidate;
+    final String digitsOnly = integerPart.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length > 6) {
       return;
     }
 
-    if (candidate.length <= 8) {
-      enteredAmount.value = candidate;
-    }
+    enteredAmount.value = candidate;
   }
 
   void setPreset(int value) {
-    if (value < minTransferAmount || value > maxTransferAmount) {
-      AppSnackbar.warning("Amount must be between ₹1 and ₹10,000");
-      return;
-    }
+    if (value.toString().length > 6) return;
     selectedPreset.value = value;
     enteredAmount.value = value.toString();
   }
 
   void proceedToPassword() {
-    if (enteredAmount.value.endsWith('.')) {
-      enteredAmount.value =
-          enteredAmount.value.substring(0, enteredAmount.value.length - 1);
-    }
-    if (amount < minTransferAmount) {
-      AppSnackbar.error("Minimum transfer amount is ₹1");
+    final box = GetStorage();
+    if (box.read('is_blocked') == true ||
+        box.read('is_card_blocked') == true ||
+        box.read('is_frozen') == true) {
+      AppSnackbar.error(
+        "Your card is currently frozen. Transfers are disabled while the card is frozen.",
+        title: "Card Frozen",
+      );
       return;
     }
-    if (amount > maxTransferAmount) {
-      AppSnackbar.error("Maximum transfer limit is ₹10,000 per transaction");
+    if (box.read('is_permanently_blocked') == true ||
+        box.read('is_card_permanently_blocked') == true) {
+      AppSnackbar.error(
+        "Your card is permanently blocked. Send Money is disabled.",
+        title: "Card Blocked",
+      );
+      return;
+    }
+
+    if (enteredAmount.value.endsWith('.')) {
+      enteredAmount.value = enteredAmount.value.substring(
+        0,
+        enteredAmount.value.length - 1,
+      );
+    }
+    if (amount <= 0) {
+      AppSnackbar.error("Please enter a valid amount to send");
+      return;
+    }
+    final String integerPart = enteredAmount.value.contains(".")
+        ? enteredAmount.value.split(".")[0]
+        : enteredAmount.value;
+    if (integerPart.replaceAll(RegExp(r'\D'), '').length > 6) {
+      AppSnackbar.error("Amount cannot exceed 6 digits");
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
@@ -126,6 +147,9 @@ class SendmoneyprocessController extends GetxController {
         'amount': amount,
         'recipient': recipient,
         'note': noteController.text,
+        'paymentMethod': recipient?['paymentMethod'] ?? 'UPI',
+        'paymentSource': recipient?['paymentSource'],
+        'senderUpi': recipient?['senderUpi'],
       },
     );
   }
@@ -179,8 +203,15 @@ class PaymentProcessingScreen extends StatelessWidget {
 
 class PaymentSuccessScreen extends StatefulWidget {
   final double amount;
+  final String? message;
+  final String? title;
 
-  const PaymentSuccessScreen({super.key, required this.amount});
+  const PaymentSuccessScreen({
+    super.key,
+    required this.amount,
+    this.message,
+    this.title,
+  });
 
   @override
   State<PaymentSuccessScreen> createState() => _PaymentSuccessScreenState();
@@ -208,10 +239,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
     _animController.forward();
 
     Future.delayed(const Duration(milliseconds: 2200), () {
-      Get.offNamed(
-        '/payment_after_success',
-        arguments: {'amount': widget.amount},
-      );
+      final args = Get.arguments is Map
+          ? Map<String, dynamic>.from(Get.arguments as Map)
+          : <String, dynamic>{};
+      args['amount'] = widget.amount;
+      Get.offNamed('/payment_after_success', arguments: args);
     });
   }
 
@@ -257,9 +289,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
               ),
             ),
             const SizedBox(height: 36),
-            const Text(
-              "Payment Successful!",
-              style: TextStyle(
+            Text(
+              widget.title ?? "Payment Successful!",
+              style: const TextStyle(
                 fontSize: 24,
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -268,7 +300,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              "₹${widget.amount.toStringAsFixed(2)} added to wallet",
+              widget.message ??
+                  "₹${widget.amount.toStringAsFixed(2)} transferred successfully",
               style: const TextStyle(
                 fontSize: 15,
                 color: Color(0xFF9E9E9E),
@@ -310,33 +343,21 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
   void initState() {
     super.initState();
 
+    final args = Get.arguments is Map ? (Get.arguments as Map) : null;
     final now = DateTime.now();
-    final months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    final day = now.day;
-    final month = months[now.month - 1];
-    final year = now.year;
-    final hour = now.hour > 12
-        ? now.hour - 12
-        : (now.hour == 0 ? 12 : now.hour);
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = now.hour >= 12 ? "PM" : "AM";
-    formattedDateTime = "$day $month $year • $hour:$minute $period";
+    formattedDateTime = DateFormat('dd MMM yyyy • hh:mm a').format(now);
 
-    final rand = DateTime.now().millisecondsSinceEpoch.toString();
-    referenceId = "TXN${rand.substring(rand.length - 8)}";
+    final explicitRef =
+        args?['referenceId'] ??
+        args?['providerRef'] ??
+        args?['externalTransactionId'] ??
+        args?['txnId'];
+    if (explicitRef != null && explicitRef.toString().isNotEmpty) {
+      referenceId = explicitRef.toString();
+    } else {
+      final rand = DateTime.now().millisecondsSinceEpoch.toString();
+      referenceId = "TXN${rand.substring(rand.length - 8)}";
+    }
 
     _animCtrl = AnimationController(
       vsync: this,
@@ -548,7 +569,16 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
                         ),
                         GestureDetector(
                           onTap: () {
-                            Get.toNamed('/payment_processing');
+                            Get.to(
+                              () => PaymentDetailsScreen(
+                                amount: widget.amount,
+                                referenceId: referenceId,
+                                creditedTo: recipient,
+                                paymentUsing: paymentMode,
+                                dateTime: formattedDateTime,
+                                isCredit: false,
+                              ),
+                            );
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -631,11 +661,101 @@ class _PaymentafterSuccessScreenState extends State<PaymentafterSuccessScreen>
 
 class PaymentDetailsScreen extends StatelessWidget {
   final double amount;
+  final String? referenceId;
+  final String? creditedTo;
+  final String? paymentUsing;
+  final String? dateTime;
+  final String? title;
+  final bool isCredit;
 
-  const PaymentDetailsScreen({super.key, required this.amount});
+  const PaymentDetailsScreen({
+    super.key,
+    required this.amount,
+    this.referenceId,
+    this.creditedTo,
+    this.paymentUsing,
+    this.dateTime,
+    this.title,
+    this.isCredit = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final args = Get.arguments is Map ? (Get.arguments as Map) : null;
+
+    final double resolvedAmount = amount > 0
+        ? amount
+        : (args?['amount'] as num?)?.toDouble() ?? 0.0;
+
+    final String refId =
+        referenceId ??
+        args?['referenceId']?.toString() ??
+        args?['providerRef']?.toString() ??
+        args?['externalTransactionId']?.toString() ??
+        args?['txnId']?.toString() ??
+        "C2C${DateTime.now().millisecondsSinceEpoch}";
+
+    final String creditedToStr =
+        creditedTo ??
+        args?['creditedTo']?.toString() ??
+        args?['recipientName']?.toString() ??
+        (args?['recipient'] is Map
+            ? args?['recipient']?['name']?.toString()
+            : null) ??
+        "General Wallet";
+
+    String paymentUsingStr =
+        paymentUsing ??
+        args?['paymentUsing']?.toString() ??
+        args?['paymentMethod']?.toString() ??
+        '';
+
+    if (paymentUsingStr.isEmpty) {
+      final savedUpi =
+          box.read<String>('upi_id') ??
+          box.read<String>('user_vpa') ??
+          box.read<String>('vpa');
+      final name = (box.read<String>('name') ?? '')
+          .trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final phone =
+          (box.read<String>('phone') ??
+                  box.read<String>('mobileNumber') ??
+                  box.read<String>('remembered_phone') ??
+                  '')
+              .replaceAll(RegExp(r'\D'), '');
+
+      if (savedUpi != null && savedUpi.isNotEmpty) {
+        paymentUsingStr = "UPI ($savedUpi)";
+      } else if (name.isNotEmpty) {
+        paymentUsingStr = "UPI ($name@upi)";
+      } else if (phone.isNotEmpty) {
+        final p10 = phone.length > 10
+            ? phone.substring(phone.length - 10)
+            : phone;
+        paymentUsingStr = "UPI ($p10@upi)";
+      } else {
+        paymentUsingStr = "Transcorp Wallet";
+      }
+    }
+
+    final String dateTimeStr =
+        dateTime ??
+        args?['dateTime']?.toString() ??
+        args?['formattedDateTime']?.toString() ??
+        DateFormat('dd MMM yyyy • hh:mm a').format(DateTime.now());
+
+    final bool resolvedIsCredit = isCredit || (args?['isCredit'] == true);
+    final String displayTitle =
+        title ??
+        args?['title']?.toString() ??
+        (resolvedIsCredit ? "Wallet Deposit" : "Money Sent");
+
+    final amountFormatted = resolvedAmount.truncateToDouble() == resolvedAmount
+        ? resolvedAmount.toInt().toString()
+        : resolvedAmount.toStringAsFixed(2);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -707,9 +827,9 @@ class PaymentDetailsScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            "Wallet Deposit",
-                            style: TextStyle(
+                          Text(
+                            displayTitle,
+                            style: const TextStyle(
                               color: Color(0xFF111111),
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
@@ -717,9 +837,11 @@ class PaymentDetailsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "+ ₹${amount.toStringAsFixed(2)}",
-                            style: const TextStyle(
-                              color: Color(0xFF2E7D32),
+                            "${resolvedIsCredit ? '+' : '-'} ₹$amountFormatted",
+                            style: TextStyle(
+                              color: resolvedIsCredit
+                                  ? const Color(0xFF2E7D32)
+                                  : const Color(0xFF111111),
                               fontSize: 28,
                               fontWeight: FontWeight.w900,
                               letterSpacing: -0.5,
@@ -778,27 +900,26 @@ class PaymentDetailsScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          detailRow(
-                            "Reference ID",
-                            "aec68852-f711-4b7d-9e8e-c44bu",
-                          ),
-                          detailRow("Credited To", "General Wallet"),
-                          detailRow("Payment Using", "UPI (janedoe@upi)"),
-                          detailRow("Date & Time", "30 Nov 2024 • 03:53 PM"),
+                          detailRow("Reference ID", refId, copyable: true),
+                          detailRow("Credited To", creditedToStr),
+                          detailRow("Payment Using", paymentUsingStr),
+                          detailRow("Date & Time", dateTimeStr),
                           const Divider(color: Color(0xFFECECEC), height: 32),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                "Total Deposited",
-                                style: TextStyle(
+                              Text(
+                                resolvedIsCredit
+                                    ? "Total Deposited"
+                                    : "Total Amount Sent",
+                                style: const TextStyle(
                                   color: Color(0xFF6B7280),
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
-                                "₹${amount.toStringAsFixed(2)}",
+                                "₹$amountFormatted",
                                 style: const TextStyle(
                                   color: Color(0xFF111111),
                                   fontSize: 16,
@@ -816,17 +937,7 @@ class PaymentDetailsScreen extends StatelessWidget {
               const SizedBox(height: 32),
 
               GestureDetector(
-                onTap: () {
-                  Get.snackbar(
-                    "Success",
-                    "Receipt details shared successfully!",
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: const Color(0xFF111111),
-                    colorText: Colors.white,
-                    borderRadius: 16,
-                    margin: const EdgeInsets.all(16),
-                  );
-                },
+                onTap: () => Get.offAllNamed("/dashboard"),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -836,31 +947,9 @@ class PaymentDetailsScreen extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   child: const Text(
-                    "Share Receipt",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () => Get.offAllNamed("/dashboard"),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFECECEC)),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
                     "Go to Dashboard",
                     style: TextStyle(
-                      color: Color(0xFF111111),
+                      color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -874,7 +963,7 @@ class PaymentDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget detailRow(String title, String value) {
+  Widget detailRow(String title, String value, {bool copyable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -891,14 +980,47 @@ class PaymentDetailsScreen extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Color(0xFF111111),
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF111111),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (copyable) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: value));
+                      HapticFeedback.lightImpact();
+                      Get.snackbar(
+                        "Copied",
+                        "$title copied to clipboard",
+                        snackPosition: SnackPosition.BOTTOM,
+                        backgroundColor: const Color(0xFF111111),
+                        colorText: Colors.white,
+                        borderRadius: 16,
+                        margin: const EdgeInsets.all(16),
+                        duration: const Duration(seconds: 2),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.copy_rounded,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

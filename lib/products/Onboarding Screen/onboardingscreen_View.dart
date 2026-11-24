@@ -97,7 +97,7 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
                         imageAsset: 'assets/step3.png',
                         title: "Security You Can Trust",
                         description:
-                            "Bank-grade 256-bit encryption with RBI-compliant standards and biometric protection for every transaction.",
+                            "Bank-grade 256-bit encryption with RBI-compliant standards and MPIN protection for every transaction.",
                         textBottomPosition: textBottomPosition,
                         titleFontSize: titleFontSize,
                         subtitleFontSize: subtitleFontSize,

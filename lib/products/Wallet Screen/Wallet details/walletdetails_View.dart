@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
 import 'package:transwallet/widgets/notification_button.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:transwallet/products/Notification%20screen/notification_View.dart';
-import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
+import 'package:transwallet/products/Recharge and Bills/theme.dart';
 
-import 'package:transwallet/products/Wallet%20Screen/Wallet%20details/walletdetails_controller.dart';
+import 'package:transwallet/products/Wallet Screen/Wallet details/walletdetails_controller.dart';
 import 'package:transwallet/widgets/constsize.dart';
 
 class WalletdetailsView extends GetView<WalletdetailsController> {
@@ -212,7 +210,7 @@ class WalletdetailsView extends GetView<WalletdetailsController> {
 
   Widget _buildFilterPanel() {
     return Obx(() {
-      final current = controller.selectedFilter.value;
+      final current = controller.selectedFilter.value.toLowerCase().trim();
 
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -220,9 +218,22 @@ class WalletdetailsView extends GetView<WalletdetailsController> {
           children: [
             _buildFilterChip("all", "All", current == "all"),
             const SizedBox(width: 12),
-            _buildFilterChip("income", "Added", current == "income"),
+            _buildFilterChip(
+              "credit",
+              "Credit",
+              current == "credit" ||
+                  current == "received" ||
+                  current == "loaded" ||
+                  current == "income",
+            ),
             const SizedBox(width: 12),
-            _buildFilterChip("expense", "Spent", current == "expense"),
+            _buildFilterChip(
+              "debit",
+              "Debit",
+              current == "debit" ||
+                  current == "spent" ||
+                  current == "expense",
+            ),
           ],
         ),
       );
@@ -258,25 +269,41 @@ class WalletdetailsView extends GetView<WalletdetailsController> {
   Widget transactionList() {
     return Flexible(
       child: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(
+            child: CircularProgressIndicator(color: primaryRed),
+          );
+        }
+
         final list = controller.filteredTransactions;
 
         if (list.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          return RefreshIndicator(
+            onRefresh: controller.fetchWalletTransactions,
+            color: primaryRed,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                Icon(
-                  Icons.receipt_long_rounded,
-                  size: 48,
-                  color: Colors.grey.shade300,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "No transactions found",
-                  style: TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(height: 120),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.receipt_long_rounded,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "No transactions found",
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -284,27 +311,33 @@ class WalletdetailsView extends GetView<WalletdetailsController> {
           );
         }
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFECECEC)),
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: list.length,
-            separatorBuilder: (context, index) => Container(
-              height: 1,
-              color: const Color(0xFFECECEC),
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+        return RefreshIndicator(
+          onRefresh: controller.fetchWalletTransactions,
+          color: primaryRed,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFECECEC)),
             ),
-            itemBuilder: (context, index) {
-              final tx = list[index];
-              return transactionItem(tx);
-            },
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding: EdgeInsets.zero,
+              itemCount: list.length,
+              separatorBuilder: (context, index) => Container(
+                height: 1,
+                color: const Color(0xFFECECEC),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              itemBuilder: (context, index) {
+                final tx = list[index];
+                return transactionItem(tx);
+              },
+            ),
           ),
         );
       }),

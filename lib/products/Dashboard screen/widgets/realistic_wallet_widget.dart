@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:lottie/lottie.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
 import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
+import 'package:transwallet/products/Dashboard screen/dashboardscreen_Controller.dart';
 import 'package:transwallet/products/Dashboard screen/models/wallet_card_model.dart';
+import 'package:transwallet/products/Dashboard screen/widgets/dashboard_skeletons.dart';
 import 'package:transwallet/widgets/premium_visa_card.dart';
+ 
 import 'package:transwallet/widgets/constsize.dart';
 
 class RealisticWalletWidget extends StatefulWidget {
@@ -143,26 +145,11 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
   }
 
   Future<void> _showMpinSheetForBalance() async {
-    if (Get.isRegistered<BiometricService>()) {
-      final bioService = BiometricService.to;
-      if (bioService.isBiometricAvailable &&
-          bioService.isBiometricEnabled.value) {
-        final result = await bioService.authenticate(
-          localizedReason: "Authenticate to view total balance",
-        );
-        if (result.success && mounted) {
-          _revealBalance();
-          return;
-        }
-      }
-    }
-
     Get.bottomSheet(
       MpinVerifySheet(
         onSuccess: _revealBalance,
         title: "Enter MPIN to View Balance",
-        subtitle:
-            "For your security, enter your 4-digit mobile PIN or use biometrics",
+        subtitle: "For your security, enter your 4-digit MPIN",
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -188,11 +175,42 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
 
   String _getFormattedBalance() {
     num bal = 0;
-    if (GetStorage().read('balance') != null) {
+    if (Get.isRegistered<DashboardscreenController>()) {
+      bal = Get.find<DashboardscreenController>().totalBalance.value;
+    } else if (GetStorage().read('balance') != null) {
       final stored = GetStorage().read('balance');
       if (stored is num) bal = stored;
     }
     return "₹ ${bal.toStringAsFixed(2)}";
+  }
+
+  Widget _buildBalanceAmount() {
+    if (Get.isRegistered<DashboardscreenController>()) {
+      // final dashCtrl = Get.find<DashboardscreenController>();
+      // final hasStored = GetStorage().read('balance') != null;
+      // if (!hasStored &&
+      //     dashCtrl.totalBalance.value == 0 &&
+      //     dashCtrl.isDashboardLoading.value) {
+      //   return ShimmerEffect(
+      //     baseColor: Colors.white.withValues(alpha: 0.25),
+      //     highlightColor: Colors.white.withValues(alpha: 0.55),
+      //     child: ShimmerBox(
+      //       width: context.responsive(110),
+      //       height: context.responsive(22),
+      //       borderRadius: BorderRadius.circular(6),
+      //       color: Colors.white.withValues(alpha: 0.35),
+      //     ),
+      //   );
+      // }
+    }
+    return Text(
+      _isBalanceRevealed ? _getFormattedBalance() : "₹ ••••••",
+      style: TextStyle(
+        color: const Color.fromRGBO(255, 255, 255, 1),
+        fontSize: context.responsive(22),
+        fontWeight: FontWeight.w500,
+      ),
+    );
   }
 
   @override
@@ -209,7 +227,31 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
 
           return Obx(() {
             final cards = widget.controller.cards.toList();
-            if (cards.isEmpty) return const SizedBox.shrink();
+            if (cards.isEmpty) {
+              if (widget.controller.isError.value) {
+                return WalletCardsAndBalanceSkeleton(
+                  availableWidth: availableWidth,
+                  cardHeight: cardHeight,
+                  containerHeight: walletContainerHeight,
+                  isError: true,
+                  onRetry: () =>
+                      widget.controller.fetchCardsFromApi(isRetry: true),
+                );
+              }
+              if (widget.controller.isLoading.value ||
+                  (Get.isRegistered<DashboardscreenController>() &&
+                      Get.find<DashboardscreenController>()
+                          .isDashboardLoading
+                          .value)) {
+                return WalletCardsAndBalanceSkeleton(
+                  availableWidth: availableWidth,
+                  cardHeight: cardHeight,
+                  containerHeight: walletContainerHeight,
+                  isError: false,
+                );
+              }
+              return const SizedBox.shrink();
+            }
 
             final int safeIndex = _currentIndex.clamp(0, cards.length - 1);
             final int safePrevIndex = _previousIndex.clamp(0, cards.length - 1);
@@ -343,21 +385,7 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    _isBalanceRevealed
-                                        ? _getFormattedBalance()
-                                        : "₹ ••••••",
-                                    style: TextStyle(
-                                      color: const Color.fromRGBO(
-                                        255,
-                                        255,
-                                        255,
-                                        1,
-                                      ),
-                                      fontSize: context.responsive(22),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                                  _buildBalanceAmount(),
                                   SizedBox(width: context.responsive(8)),
                                   Container(
                                     decoration: const BoxDecoration(
@@ -381,29 +409,6 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                               ),
                             ),
                             SizedBox(height: context.responsive(4)),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.security,
-                                  color: Colors.white54,
-                                  size: context.responsive(12),
-                                ),
-                                SizedBox(width: context.responsive(4)),
-                                Text(
-                                  "Secured by RBI",
-                                  style: TextStyle(
-                                    color: const Color.fromRGBO(
-                                      255,
-                                      255,
-                                      255,
-                                      1,
-                                    ),
-                                    fontSize: context.responsive(10),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),
@@ -433,7 +438,7 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    "More Cards ",
+                                    "Explore More ",
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: context.responsive(12),
@@ -600,6 +605,10 @@ class _RealisticWalletWidgetState extends State<RealisticWalletWidget>
             onLongPress: () {
               if (card.isPermanentlyBlocked) {
                 widget.controller.showPermanentlyBlockedNotice();
+                return;
+              }
+              if (card.isBlocked) {
+                widget.controller.promptUnfreezeCard(index);
                 return;
               }
               if (widget.onCardTap != null) {

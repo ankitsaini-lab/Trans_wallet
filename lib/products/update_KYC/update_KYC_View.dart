@@ -281,7 +281,10 @@ class UpdateKycView extends GetView<UpdateKycController> {
                                   },
                                 );
                               }),
-                              SizedBox(height: context.responsive(10)),
+                              SizedBox(
+                                height: context.responsive(16) +
+                                    MediaQuery.of(context).padding.bottom,
+                              ),
                             ],
                           ),
                         ),

@@ -1219,7 +1219,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               onPressed: () {
-                Get.toNamed('/loginsingup');
+                Get.toNamed('/login_singupview');
               },
             ),
           ),
@@ -1231,7 +1231,10 @@ class _DeveloperScreenState extends State<DeveloperScreen>
 
   Widget _buildAppLockDiagnosticsCard() {
     final bool hasLockService = Get.isRegistered<AppLockService>();
-    final bool appLockEnabled = _storage.read<bool>('app_lock_enabled') ?? true;
+    final bool appLockEnabled = hasLockService
+        ? AppLockService.to.isAppLockEnabled
+        : ((_storage.read<bool>('app_lock_enabled') ?? false) &&
+            (_storage.read<bool>('app_lock_disabled') != true));
     final bool appLockTestMode =
         _storage.read<bool>('app_lock_test_mode') ?? false;
 
@@ -1310,7 +1313,12 @@ class _DeveloperScreenState extends State<DeveloperScreen>
             ),
             value: appLockEnabled,
             onChanged: (val) async {
-              await _storage.write('app_lock_enabled', val);
+              if (hasLockService) {
+                AppLockService.to.setAppLockEnabled(val);
+              } else {
+                await _storage.write('app_lock_enabled', val);
+                await _storage.write('app_lock_disabled', !val);
+              }
               _refreshStorage();
               AppSnackbar.info(val ? "App Lock enabled." : "App Lock disabled.");
             },

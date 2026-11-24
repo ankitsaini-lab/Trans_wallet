@@ -10,11 +10,15 @@ import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/sms_user_consent_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/constsize.dart';
+import 'package:transwallet/widgets/custom_numeric_keypad.dart';
 import 'package:transwallet/widgets/dob_picker.dart';
 import 'package:transwallet/widgets/otp_input_field.dart';
 
 class ForgotPinView extends StatefulWidget {
-  const ForgotPinView({super.key});
+  final VoidCallback? onSuccess;
+  final VoidCallback? onCancel;
+
+  const ForgotPinView({super.key, this.onSuccess, this.onCancel});
 
   @override
   State<ForgotPinView> createState() => _ForgotPinViewState();
@@ -82,7 +86,8 @@ class _ForgotPinViewState extends State<ForgotPinView> {
 
   void _prefillUserData() {
     final box = GetStorage();
-    final String storedPhone = box.read('phone')?.toString() ??
+    final String storedPhone =
+        box.read('phone')?.toString() ??
         box.read('mobileNumber')?.toString() ??
         box.read('remembered_phone')?.toString() ??
         '';
@@ -93,17 +98,19 @@ class _ForgotPinViewState extends State<ForgotPinView> {
       _phoneController.text = clean;
     }
 
-    final String storedPan = box.read('pan')?.toString() ??
-        box.read('panNumber')?.toString() ??
-        '';
+    final String storedPan =
+        box.read('pan')?.toString() ?? box.read('panNumber')?.toString() ?? '';
     if (storedPan.isNotEmpty) {
-      _panController.text = storedPan.toUpperCase();
+      final clean = storedPan.trim().toUpperCase().replaceAll(
+        RegExp(r'\s+'),
+        '',
+      );
+      _panController.text = clean.length >= 4
+          ? clean.substring(clean.length - 4)
+          : clean;
     }
 
-    final String storedDob = box.read('dob')?.toString() ?? '';
-    if (storedDob.isNotEmpty) {
-      _parseStoredDob(storedDob);
-    }
+    // Do not auto-fill DOB - user must manually enter/select their Date of Birth
   }
 
   void _parseStoredDob(String val) {
@@ -148,8 +155,10 @@ class _ForgotPinViewState extends State<ForgotPinView> {
   }
 
   String _getPanLast4() {
-    final clean =
-        _panController.text.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+    final clean = _panController.text.trim().toUpperCase().replaceAll(
+      RegExp(r'\s+'),
+      '',
+    );
     if (clean.length >= 4) {
       return clean.substring(clean.length - 4);
     }
@@ -189,14 +198,37 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     return null;
   }
 
-  String _extractErrorMessage(dynamic body, {String fallback = "Request failed"}) {
+  String _extractErrorMessage(
+    dynamic body, {
+    String fallback = "Request failed",
+  }) {
     final map = _parseResponse(body);
     if (map != null) {
-      if (map['message'] != null && map['message'].toString().isNotEmpty) {
-        return map['message'].toString();
+      final msg =
+          map['message'] ??
+          map['error'] ??
+          map['msg'] ??
+          map['description'] ??
+          map['desc'] ??
+          map['response'] ??
+          map['exception'] ??
+          map['errorMessage'] ??
+          (map['data'] is Map
+              ? (map['data']['message'] ??
+                    map['data']['error'] ??
+                    map['data']['msg'])
+              : null);
+      if (msg != null && msg.toString().trim().isNotEmpty) {
+        return msg.toString().trim();
       }
-      if (map['error'] != null && map['error'].toString().isNotEmpty) {
-        return map['error'].toString();
+    } else if (body is String && body.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          return _extractErrorMessage(decoded, fallback: fallback);
+        }
+      } catch (_) {
+        return body.trim();
       }
     }
     return fallback;
@@ -230,9 +262,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
       developer.log("[Forgot MPIN Step 1] Sending OTP for: $phone");
       final response = await ApiService.to.postRequest<dynamic>(
         '/api/v1/auth/mpin/forgot/otp/send',
-        {
-          "mobileNumber": phone,
-        },
+        {"mobileNumber": phone},
       );
 
       if (!mounted) return;
@@ -349,6 +379,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
   // POST /api/v1/auth/mpin/forgot/verify
   // ==========================================
   Future<void> _verifyIdentity() async {
+    FocusScope.of(context).unfocus();
     setState(() {
       _panError = '';
       _dobError = '';
@@ -357,15 +388,20 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     bool valid = true;
     final pan = _panController.text.trim().toUpperCase();
     if (pan.isEmpty) {
-      setState(() => _panError = 'Please enter PAN number');
+      setState(() => _panError = 'Please enter last 4 characters of PAN');
       valid = false;
-    } else if (pan.length < 4) {
-      setState(() => _panError = 'Enter at least the last 4 characters of your PAN');
+    } else if (pan.length != 4) {
+      setState(
+        () => _panError = 'Please enter exactly 4 characters of your PAN',
+      );
       valid = false;
     }
 
     if (_selectedDob == null || _dobDisplay.isEmpty) {
       setState(() => _dobError = 'Please select Date of Birth');
+      valid = false;
+    } else if (isUnderAge(_selectedDob!)) {
+      setState(() => _dobError = 'You must be at least 18 years old');
       valid = false;
     }
 
@@ -422,12 +458,51 @@ class _ForgotPinViewState extends State<ForgotPinView> {
         }
       }
 
+      final Map<String, dynamic>? bodyMap = _parseResponse(response.body);
+      String? backendDobError;
+      String? backendPanError;
+
+      if (bodyMap != null) {
+        final dynamic errorsObj =
+            bodyMap['errors'] ?? bodyMap['error'] ?? bodyMap['data'];
+        if (errorsObj is Map) {
+          backendDobError = (errorsObj['dateOfBirth'] ?? errorsObj['dob'])
+              ?.toString();
+          backendPanError =
+              (errorsObj['panLast4'] ??
+                      errorsObj['pan'] ??
+                      errorsObj['panNumber'])
+                  ?.toString();
+        }
+      }
+
       final errorMsg = _extractErrorMessage(
         response.body,
         fallback: "PAN or Date of Birth verification failed.",
       );
+
+      final lowerError = errorMsg.toLowerCase();
+      final isDobError =
+          backendDobError != null ||
+          lowerError.contains('dob') ||
+          lowerError.contains('birth') ||
+          lowerError.contains('date');
+      final isPanError = backendPanError != null || lowerError.contains('pan');
+
       setState(() {
-        _panError = errorMsg;
+        if (isDobError && !isPanError) {
+          _dobError = backendDobError ?? errorMsg;
+          _panError = '';
+        } else if (isPanError && !isDobError) {
+          _panError = backendPanError ?? errorMsg;
+          _dobError = '';
+        } else if (isDobError && isPanError) {
+          _dobError = backendDobError ?? errorMsg;
+          _panError = backendPanError ?? errorMsg;
+        } else {
+          // General verification failure without specific field indicator
+          _panError = errorMsg;
+        }
       });
       AppSnackbar.error(errorMsg);
     } catch (e) {
@@ -446,7 +521,15 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     if (_isLoading || _isSuccess) return;
 
     setState(() {
-      _mpinError = '';
+      if (_mpinError.isNotEmpty) {
+        _mpinError = '';
+        if (_mpinSubStage == 1) {
+          _newMpin = '';
+        } else {
+          _confirmMpin = '';
+        }
+      }
+
       if (_mpinSubStage == 1) {
         if (_newMpin.length < 4) {
           _newMpin += digit;
@@ -479,8 +562,27 @@ class _ForgotPinViewState extends State<ForgotPinView> {
       _mpinError = '';
       if (_mpinSubStage == 1 && _newMpin.isNotEmpty) {
         _newMpin = _newMpin.substring(0, _newMpin.length - 1);
-      } else if (_mpinSubStage == 2 && _confirmMpin.isNotEmpty) {
-        _confirmMpin = _confirmMpin.substring(0, _confirmMpin.length - 1);
+      } else if (_mpinSubStage == 2) {
+        if (_confirmMpin.isNotEmpty) {
+          _confirmMpin = _confirmMpin.substring(0, _confirmMpin.length - 1);
+        } else {
+          _mpinSubStage = 1;
+          if (_newMpin.isNotEmpty) {
+            _newMpin = _newMpin.substring(0, _newMpin.length - 1);
+          }
+        }
+      }
+    });
+  }
+
+  void _onKeypadClear() {
+    if (_isLoading || _isSuccess) return;
+    setState(() {
+      _mpinError = '';
+      if (_mpinSubStage == 1) {
+        _newMpin = '';
+      } else {
+        _confirmMpin = '';
       }
     });
   }
@@ -492,7 +594,6 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     if (_confirmMpin != _newMpin) {
       setState(() {
         _mpinError = 'MPINs do not match. Please re-enter.';
-        _confirmMpin = '';
       });
       return;
     }
@@ -537,14 +638,25 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             _isSuccess = true;
           });
 
-          AppSnackbar.success("MPIN reset successfully!");
+          final successMsg = _extractErrorMessage(
+            response.body,
+            fallback: "MPIN reset successfully!",
+          );
+          AppSnackbar.success(successMsg);
 
-          Future.delayed(const Duration(milliseconds: 1200), () {
+          Future.delayed(const Duration(milliseconds: 1000), () {
             if (mounted) {
+              if (widget.onSuccess != null) {
+                widget.onSuccess!();
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop(true);
+                }
+                return;
+              }
               if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(true);
               } else {
-                Get.back();
+                Get.back(result: true);
               }
             }
           });
@@ -559,7 +671,6 @@ class _ForgotPinViewState extends State<ForgotPinView> {
       setState(() {
         _isLoading = false;
         _mpinError = errorMsg;
-        _confirmMpin = '';
       });
       AppSnackbar.error(errorMsg);
     } catch (e) {
@@ -567,31 +678,55 @@ class _ForgotPinViewState extends State<ForgotPinView> {
       setState(() {
         _isLoading = false;
         _mpinError = "Error resetting MPIN: $e";
-        _confirmMpin = '';
       });
       AppSnackbar.error("Error: $e");
     }
   }
 
   Future<void> _pickDob() async {
+    FocusScope.of(context).unfocus();
+    final maxAllowed = getMaxAllowedDob();
+    final initial = (_selectedDob != null && !_selectedDob!.isAfter(maxAllowed))
+        ? _selectedDob
+        : maxAllowed;
     final picked = await showDobPicker(
       context,
-      initialDate: _selectedDob ?? DateTime(1995, 1, 1),
+      initialDate: initial,
     );
     if (picked != null) {
-      setState(() {
-        _selectedDob = picked;
-        _dobDisplay =
-            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-        _dobError = '';
-      });
+      if (isUnderAge(picked)) {
+        setState(() {
+          _selectedDob = null;
+          _dobDisplay = '';
+          _dobError = 'You must be at least 18 years old';
+        });
+        AppSnackbar.error('You must be at least 18 years old');
+      } else {
+        setState(() {
+          _selectedDob = picked;
+          _dobDisplay =
+              '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+          _dobError = '';
+        });
+      }
     }
   }
 
   void _handleBackNavigation() {
     if (_isLoading) return;
     if (_isSuccess) {
-      Get.back();
+      if (widget.onSuccess != null) {
+        widget.onSuccess!();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(true);
+        }
+        return;
+      }
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      } else {
+        Get.back(result: true);
+      }
       return;
     }
 
@@ -612,10 +747,17 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     } else if (_stage == 2) {
       setState(() => _stage = 1);
     } else {
+      if (widget.onCancel != null) {
+        widget.onCancel!();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(false);
+        }
+        return;
+      }
       if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(false);
       } else {
-        Get.back();
+        Get.back(result: false);
       }
     }
   }
@@ -625,7 +767,13 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     return PopScope(
       canPop: _stage == 1 || _isSuccess,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
+        if (didPop) {
+          if (_isSuccess) {
+            widget.onSuccess?.call();
+          } else {
+            widget.onCancel?.call();
+          }
+        } else {
           _handleBackNavigation();
         }
       },
@@ -640,7 +788,11 @@ class _ForgotPinViewState extends State<ForgotPinView> {
           elevation: 0,
           leadingWidth: context.responsive(60),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.black),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
+              color: Colors.black,
+            ),
             onPressed: _handleBackNavigation,
           ),
           title: const Text(
@@ -654,47 +806,59 @@ class _ForgotPinViewState extends State<ForgotPinView> {
           ),
           centerTitle: true,
         ),
-        body: SafeArea(
-          bottom: true,
-          maintainBottomViewPadding: true,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final mediaQuery = MediaQuery.of(context);
-              final double bottomInset = mediaQuery.padding.bottom;
-              final double bottomSafePadding =
-                  bottomInset > 0 ? (bottomInset + 12.0) : 24.0;
-              final bool isCompact = constraints.maxHeight < 680;
-              final double horizontalPadding =
-                  (constraints.maxWidth * 0.07).clamp(16.0, 32.0);
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SafeArea(
+            bottom: true,
+            maintainBottomViewPadding: true,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final mediaQuery = MediaQuery.of(context);
+                final double bottomInset = mediaQuery.padding.bottom;
+                final double bottomSafePadding = bottomInset > 0
+                    ? (bottomInset + 12.0)
+                    : 24.0;
+                final bool isCompact = constraints.maxHeight < 680;
+                final double horizontalPadding = (constraints.maxWidth * 0.07)
+                    .clamp(16.0, 32.0);
 
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        isCompact ? 10.0 : 16.0,
-                        horizontalPadding,
-                        bottomSafePadding,
-                      ),
-                      child: Column(
-                        children: [
-                          if (!_isSuccess) ...[
-                            _buildStepIndicator(isCompact),
-                            SizedBox(height: isCompact ? 16 : 24),
+                return SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPadding,
+                          isCompact ? 10.0 : 16.0,
+                          horizontalPadding,
+                          bottomSafePadding,
+                        ),
+                        child: Column(
+                          children: [
+                            if (!_isSuccess) ...[
+                              _buildStepIndicator(isCompact),
+                              SizedBox(height: isCompact ? 16 : 24),
+                            ],
+                            Expanded(
+                              child: _buildCurrentStageView(
+                                constraints,
+                                isCompact,
+                              ),
+                            ),
                           ],
-                          Expanded(
-                            child: _buildCurrentStageView(constraints, isCompact),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -740,14 +904,14 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             color: isCompleted
                 ? _successGreen
                 : isCurrent
-                    ? _primaryRed
-                    : const Color(0xFFF3F4F6),
+                ? _primaryRed
+                : const Color(0xFFF3F4F6),
             border: Border.all(
               color: isCurrent
                   ? _primaryRed
                   : isCompleted
-                      ? _successGreen
-                      : _borderGrey,
+                  ? _successGreen
+                  : _borderGrey,
               width: 1.5,
             ),
           ),
@@ -824,11 +988,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
           child: Text(
             "Enter your 10-digit mobile number linked to Transwallet to receive a verification code",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: _secondaryText,
-              height: 1.4,
-            ),
+            style: TextStyle(fontSize: 13, color: _secondaryText, height: 1.4),
           ),
         ),
         SizedBox(height: isCompact ? 20 : 28),
@@ -862,11 +1022,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                height: 20,
-                width: 1,
-                color: _borderGrey,
-              ),
+              Container(height: 20, width: 1, color: _borderGrey),
               const SizedBox(width: 10),
               Expanded(
                 child: TextField(
@@ -876,7 +1032,10 @@ class _ForgotPinViewState extends State<ForgotPinView> {
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: const InputDecoration(
                     hintText: "Enter 10-digit mobile number",
-                    hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                    hintStyle: TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 14,
+                    ),
                     border: InputBorder.none,
                     counterText: "",
                   ),
@@ -1079,188 +1238,201 @@ class _ForgotPinViewState extends State<ForgotPinView> {
     );
   }
 
-  // ==========================================
-  // VIEW: Step 3 - Security Verification (PAN & DOB)
-  // ==========================================
   Widget _buildStage3Identity(bool isCompact) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Center(
-          child: Container(
-            padding: EdgeInsets.all(isCompact ? 12 : 16),
-            decoration: BoxDecoration(
-              color: _primaryRed.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.verified_user_rounded,
-              color: _primaryRed,
-              size: isCompact ? 34 : 40,
-            ),
-          ),
-        ),
-        SizedBox(height: isCompact ? 12 : 18),
-        const Center(
-          child: Text(
-            "Security Verification",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: _textColor,
-              letterSpacing: -0.4,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(isCompact ? 12 : 16),
+              decoration: BoxDecoration(
+                color: _primaryRed.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.verified_user_rounded,
+                color: _primaryRed,
+                size: isCompact ? 34 : 40,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 6),
-        const Center(
-          child: Text(
-            "Enter your PAN and Date of Birth details linked to your account to authorize MPIN reset",
-            textAlign: TextAlign.center,
+          SizedBox(height: isCompact ? 12 : 18),
+          const Center(
+            child: Text(
+              "Security Verification",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: _textColor,
+                letterSpacing: -0.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Center(
+            child: Text(
+              "Enter your PAN and Date of Birth details linked to your account to authorize MPIN reset",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: _secondaryText,
+                height: 1.4,
+              ),
+            ),
+          ),
+          SizedBox(height: isCompact ? 20 : 28),
+
+          // PAN Number field
+          const Text(
+            "PAN Number (Last 4 characters)",
             style: TextStyle(
               fontSize: 13,
-              color: _secondaryText,
-              height: 1.4,
+              fontWeight: FontWeight.w700,
+              color: _textColor,
             ),
           ),
-        ),
-        SizedBox(height: isCompact ? 20 : 28),
-
-        // PAN Number field
-        const Text(
-          "PAN Number (or last 4 characters)",
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: _textColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _panError.isNotEmpty ? Colors.red : _borderGrey,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: TextField(
-            controller: _panController,
-            textCapitalization: TextCapitalization.characters,
-            maxLength: 10,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-            ],
-            decoration: const InputDecoration(
-              hintText: "e.g. ABCDE234F or 234F",
-              hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-              border: InputBorder.none,
-              counterText: "",
-            ),
-          ),
-        ),
-        if (_panError.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            _panError,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
-          ),
-        ],
-
-        SizedBox(height: isCompact ? 14 : 18),
-
-        // Date of Birth field
-        const Text(
-          "Date of Birth (as per PAN)",
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: _textColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _pickDob,
-          child: Container(
+          const SizedBox(height: 8),
+          Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF9FAFB),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _dobError.isNotEmpty ? Colors.red : _borderGrey,
+                color: _panError.isNotEmpty ? Colors.red : _borderGrey,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _dobDisplay.isNotEmpty
-                        ? _dobDisplay
-                        : "Select Date of Birth (DD/MM/YYYY)",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _dobDisplay.isNotEmpty
-                          ? _textColor
-                          : const Color(0xFF9CA3AF),
-                      fontWeight: _dobDisplay.isNotEmpty
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  size: 18,
-                  color: _secondaryText,
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: TextField(
+              controller: _panController,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 4,
+              autofocus: false,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                LengthLimitingTextInputFormatter(4),
               ],
+              onChanged: (val) {
+                if (_panError.isNotEmpty) {
+                  setState(() => _panError = '');
+                }
+              },
+              decoration: const InputDecoration(
+                hintText: "e.g. 234F",
+                hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                border: InputBorder.none,
+                counterText: "",
+              ),
             ),
           ),
-        ),
-        if (_dobError.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            _dobError,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
+          if (_panError.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _panError,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+
+          SizedBox(height: isCompact ? 14 : 18),
+
+          // Date of Birth field
+          Row(
+            children: const [
+              Text(
+                "Date of Birth (as per PAN)",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _textColor,
+                ),
+              ),
+               
+            ],
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _pickDob,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _dobError.isNotEmpty ? Colors.red : _borderGrey,
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _dobDisplay.isNotEmpty
+                          ? _dobDisplay
+                          : "Select Date of Birth  ",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _dobDisplay.isNotEmpty
+                            ? _textColor
+                            : const Color(0xFF9CA3AF),
+                        fontWeight: _dobDisplay.isNotEmpty
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 18,
+                    color: _secondaryText,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_dobError.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _dobError,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+
+          const Spacer(),
+          SizedBox(height: isCompact ? 16 : 24),
+
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _verifyIdentity,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primaryRed,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                  : const Text(
+                      "Verify Identity",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
           ),
         ],
-
-        const Spacer(),
-        SizedBox(height: isCompact ? 16 : 24),
-
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _verifyIdentity,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primaryRed,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              elevation: 0,
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
-                : const Text(
-                    "Verify Identity",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -1325,13 +1497,11 @@ class _ForgotPinViewState extends State<ForgotPinView> {
               height: 18,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _mpinError.isNotEmpty
-                    ? Colors.red
-                    : filled
-                        ? _primaryRed
-                        : const Color(0xFFECECEC),
+                color: filled
+                    ? (_mpinError.isNotEmpty ? Colors.red : _primaryRed)
+                    : const Color(0xFFECECEC),
                 border: Border.all(
-                  color: _mpinError.isNotEmpty
+                  color: _mpinError.isNotEmpty && filled
                       ? Colors.red.withValues(alpha: 0.3)
                       : Colors.transparent,
                   width: 2,
@@ -1417,13 +1587,9 @@ class _ForgotPinViewState extends State<ForgotPinView> {
         ),
         const SizedBox(height: 8),
         const Text(
-          "Your new security PIN is ready to use.\nReturning to profile...",
+          "Your new security PIN is ready to use.",
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            color: _secondaryText,
-            height: 1.45,
-          ),
+          style: TextStyle(fontSize: 13, color: _secondaryText, height: 1.45),
         ),
         const SizedBox(height: 24),
         const Spacer(),
@@ -1432,10 +1598,17 @@ class _ForgotPinViewState extends State<ForgotPinView> {
           height: 50,
           child: ElevatedButton(
             onPressed: () {
+              if (widget.onSuccess != null) {
+                widget.onSuccess!();
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop(true);
+                }
+                return;
+              }
               if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(true);
               } else {
-                Get.back();
+                Get.back(result: true);
               }
             },
             style: ElevatedButton.styleFrom(
@@ -1462,119 +1635,11 @@ class _ForgotPinViewState extends State<ForgotPinView> {
 
   // Keypad
   Widget _buildNumericKeypad(double keySize, double spacing) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _keypadRow(['1', '2', '3'], keySize),
-        SizedBox(height: spacing),
-        _keypadRow(['4', '5', '6'], keySize),
-        SizedBox(height: spacing),
-        _keypadRow(['7', '8', '9'], keySize),
-        SizedBox(height: spacing),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            SizedBox(width: keySize, height: keySize),
-            _ForgotPinKeyButton(
-              label: '0',
-              size: keySize,
-              onTap: () => _onKeypadTap('0'),
-            ),
-            _ForgotPinDeleteButton(
-              size: keySize,
-              onTap: _onKeypadDelete,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _keypadRow(List<String> digits, double keySize) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: digits
-          .map(
-            (d) => _ForgotPinKeyButton(
-              label: d,
-              size: keySize,
-              onTap: () => _onKeypadTap(d),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
-
-class _ForgotPinKeyButton extends StatelessWidget {
-  final String label;
-  final double size;
-  final VoidCallback onTap;
-
-  const _ForgotPinKeyButton({
-    required this.label,
-    required this.size,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Material(
-        color: const Color(0xFFF9FAFB),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(size / 2),
-          side: const BorderSide(color: Color(0xFFE5E7EB), width: 1),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(size / 2),
-          onTap: onTap,
-          splashColor: const Color(0xFFED292A).withValues(alpha: 0.15),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: size * 0.38,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF111111),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ForgotPinDeleteButton extends StatelessWidget {
-  final double size;
-  final VoidCallback onTap;
-
-  const _ForgotPinDeleteButton({
-    required this.size,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(size / 2),
-          onTap: onTap,
-          child: Center(
-            child: Icon(
-              Icons.backspace_outlined,
-              size: size * 0.38,
-              color: const Color(0xFF111111),
-            ),
-          ),
-        ),
+    return Center(
+      child: CustomNumericKeypad(
+        onDigitTap: _onKeypadTap,
+        onDeleteTap: _onKeypadDelete,
+        onClear: _onKeypadClear,
       ),
     );
   }

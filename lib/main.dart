@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_view.dart';
 import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_binding.dart';
 import 'package:transwallet/products/History%20screen/historyscreen_View.dart';
+import 'package:transwallet/products/History%20screen/historyscreen_binding.dart';
 import 'package:transwallet/products/History%20screen/transactiondetails_View.dart';
 import 'package:transwallet/products/Manage%20Card/managecard_View.dart';
 import 'package:transwallet/products/Notification%20screen/notification_View.dart';
@@ -18,6 +19,7 @@ import 'package:transwallet/products/Order%20Card%20screen/Payment%20Method/paym
 import 'package:transwallet/products/Order%20Card%20screen/Review%20order%20Details/review_order_details_View.dart';
 import 'package:transwallet/products/Order%20Card%20screen/order%20card%20screen/ordercard_View.dart';
 import 'package:transwallet/products/Profile%20screen/Profilescreen_View.dart';
+import 'package:transwallet/products/Profile%20screen/profilescreen_binding.dart';
 import 'package:transwallet/products/Profile%20screen/change_pin/change_pin_view.dart';
 import 'package:transwallet/products/Profile%20screen/change_pin/forgot_pin_view.dart';
 import 'package:transwallet/products/Profile%20screen/profile%20details/profile_details_view.dart';
@@ -26,6 +28,7 @@ import 'package:transwallet/products/Send%20money%20screen/send%20money%20proces
 import 'package:transwallet/products/Send%20money%20screen/sendMoney_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_Controller.dart';
+import 'package:transwallet/products/Wallet%20Screen/ncmc_topup_view.dart';
 import 'package:transwallet/products/Wallet%20Screen/Wallet%20details/walletdetails_View.dart';
 import 'package:transwallet/products/Wallet%20Screen/walletscreen_View.dart';
 import 'package:transwallet/products/login_singupscreen/create%20Account/createaccount_View.dart';
@@ -61,6 +64,8 @@ import 'package:transwallet/modules/vkyc/views/vkyc_webview_view.dart';
 import 'package:transwallet/widgets/app_lock_overlay.dart';
 import 'package:transwallet/widgets/no_internet_overlay.dart';
 import 'package:transwallet/widgets/server_error_widgets.dart';
+import 'package:flutter/foundation.dart';
+import 'package:transwallet/products/auth/quick_biometric_login_view.dart';
 import 'package:transwallet/products/developer/developer_screen.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -86,10 +91,11 @@ Future<void> main() async {
   final biometricService = Get.put(BiometricService());
   final appLockService = Get.put(AppLockService());
 
-  // AppLockService MUST register its WidgetsBindingObserver synchronously before
-  // runApp(), otherwise it misses lifecycle events if the user backgrounds the app
-  // during the async initialization window. All other services are safe to init lazily.
+  // AppLockService & BiometricService MUST initialize before runApp()
+  // so hardware availability, biometric enrollment, and lifecycle observers
+  // are ready on frame 1 for cold-start and background protection.
   await appLockService.init();
+  await biometricService.init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -101,15 +107,16 @@ Future<void> main() async {
       systemNavigationBarDividerColor: Colors.transparent,
     ),
   );
-  HttpOverrides.global = MyHttpOverrides();
+  if (kDebugMode) {
+    HttpOverrides.global = MyHttpOverrides();
+  }
 
-  // Non-blocking concurrent background initialization of heavy services
+  // Non-blocking concurrent background initialization of heavy network/cloud services
   // This allows the Flutter engine to mount the Splash UI immediately on frame 1
   _initAsyncServices(
     networkService: networkService,
     firebaseService: firebaseService,
     deepLinkService: deepLinkService,
-    biometricService: biometricService,
   );
 
   debugPrint(
@@ -122,14 +129,12 @@ void _initAsyncServices({
   required NetworkService networkService,
   required FirebaseService firebaseService,
   required DeepLinkService deepLinkService,
-  required BiometricService biometricService,
 }) {
   unawaited(
     Future.wait([
       networkService.init(),
       firebaseService.init(),
       deepLinkService.init(),
-      biometricService.init(),
     ]).then((_) {
       debugPrint('✅ [Startup] All background services initialized successfully.');
     }).catchError((e, stack) {
@@ -275,6 +280,7 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/history',
           page: () => const HistoryscreenView(),
+          binding: HistoryscreenBinding(),
           transition: Transition.noTransition,
         ),
         GetPage(name: '/services', page: () => const ServicesMoreScreen()),
@@ -285,9 +291,11 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/profile',
           page: () => const ProfilescreenView(),
+          binding: ProfilescreenBinding(),
           transition: Transition.noTransition,
         ),
         GetPage(name: '/addmoney', page: () => const AddmoneyView()),
+        GetPage(name: '/ncmctopup', page: () => const NcmcTopupView()),
         GetPage(name: '/managecard', page: () => const ManagecardView()),
         GetPage(name: '/ordercard', page: () => const OrdercardView()),
         GetPage(
@@ -323,10 +331,13 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/all_cards', page: () => const AllCardsScreen()),
         GetPage(
           name: '/pdf_viewer',
-          page: () => PdfViewerScreen(
-            pdfUrl: Get.arguments['pdfUrl'],
-            title: Get.arguments['title'],
-          ),
+          page: () {
+            final args = Get.arguments is Map ? (Get.arguments as Map) : const {};
+            return PdfViewerScreen(
+              pdfUrl: args['pdfUrl']?.toString() ?? '',
+              title: args['title']?.toString() ?? 'Document',
+            );
+          },
         ),
         GetPage(name: '/create_mpin', page: () => const CreateMpinScreen()),
         GetPage(name: '/change_pin', page: () => const ChangePinView()),
@@ -336,17 +347,46 @@ class MyApp extends StatelessWidget {
           page: () => const PaymentProcessingScreen(),
         ),
         GetPage(
+          name: '/payment_details',
+          page: () {
+            final args =
+                Get.arguments is Map ? (Get.arguments as Map) : const {};
+            return PaymentDetailsScreen(
+              amount: (args['amount'] as num?)?.toDouble() ??
+                  double.tryParse(args['amount']?.toString() ?? '0') ??
+                  0.0,
+              referenceId: args['referenceId']?.toString(),
+              creditedTo: args['creditedTo']?.toString(),
+              paymentUsing: args['paymentUsing']?.toString(),
+              dateTime: args['dateTime']?.toString(),
+              title: args['title']?.toString(),
+              isCredit: args['isCredit'] == true,
+            );
+          },
+        ),
+        GetPage(
           name: '/payment_after_success',
-          page: () =>
-              PaymentafterSuccessScreen(amount: Get.arguments['amount']),
+          page: () {
+            final args = Get.arguments is Map ? (Get.arguments as Map) : const {};
+            return PaymentafterSuccessScreen(
+              amount: (args['amount'] as num?)?.toDouble() ??
+                  double.tryParse(args['amount']?.toString() ?? '0') ??
+                  0.0,
+            );
+          },
         ),
         GetPage(
           name: '/payment_success',
-          page: () => recharge_success.PaymentSuccessScreen(
-            title: Get.arguments['title'],
-            message: Get.arguments['message'],
-            amount: Get.arguments['amount'],
-          ),
+          page: () {
+            final args = Get.arguments is Map ? (Get.arguments as Map) : const {};
+            return recharge_success.PaymentSuccessScreen(
+              title: args['title']?.toString() ?? 'Payment Successful',
+              message: args['message']?.toString() ?? '',
+              amount: (args['amount'] as num?)?.toDouble() ??
+                  double.tryParse(args['amount']?.toString() ?? '0') ??
+                  0.0,
+            );
+          },
         ),
         GetPage(
           name: '/payment_receipt',
@@ -386,7 +426,11 @@ class MyApp extends StatelessWidget {
         ),
         GetPage(name: '/water_bill', page: () => const WaterBillScreen()),
         GetPage(name: '/tuition_fees', page: () => const TuitionFeesScreen()),
-        GetPage(name: '/profileview', page: () => const ProfilescreenView()),
+        GetPage(
+          name: '/profileview',
+          page: () => const ProfilescreenView(),
+          binding: ProfilescreenBinding(),
+        ),
         GetPage(name: '/developer', page: () => const DeveloperScreen()),
         GetPage(
           name: '/vkyc_test',
@@ -397,6 +441,26 @@ class MyApp extends StatelessWidget {
           name: '/vkyc_webview',
           page: () => const VkycWebviewView(),
           binding: VkycBinding(),
+        ),
+        GetPage(
+          name: '/quick_biometric_login',
+          page: () => const QuickBiometricLoginView(),
+        ),
+        GetPage(
+          name: '/dashboardscreen',
+          page: () => DashboardscreenView(),
+          binding: DashboardscreenBinding(),
+          transition: Transition.noTransition,
+        ),
+        GetPage(
+          name: '/profilescreen',
+          page: () => const ProfilescreenView(),
+          binding: ProfilescreenBinding(),
+          transition: Transition.noTransition,
+        ),
+        GetPage(
+          name: '/loginsingup',
+          page: () => const LoginSingupscreenView(),
         ),
       ],
     );

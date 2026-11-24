@@ -14,6 +14,12 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
   const HistoryscreenView({super.key});
 
   @override
+  HistoryscreenController get controller =>
+      Get.isRegistered<HistoryscreenController>()
+      ? Get.find<HistoryscreenController>()
+      : Get.put(HistoryscreenController());
+
+  @override
   Widget build(BuildContext context) {
     final hour = DateTime.now().hour;
     if (!Get.isRegistered<HistoryscreenController>()) {
@@ -92,8 +98,10 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
       body: SafeArea(
         child: Column(
           children: [
-            SizedBox(height: context.responsive(16)),
+            SizedBox(height: context.responsive(12)),
             _buildSearchPanel(context),
+            _buildDateFilterBar(context),
+            SizedBox(height: context.responsive(4)),
             _buildFilterPanel(context),
             Expanded(
               child: Obx(() {
@@ -130,13 +138,33 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
                                 ),
                                 SizedBox(height: context.responsive(12)),
                                 Text(
-                                  "No transactions found",
+                                  controller.isCustomDateRange
+                                      ? "No transactions in selected date range"
+                                      : "No transactions found",
                                   style: TextStyle(
                                     color: const Color(0xFF6B7280),
                                     fontSize: context.responsive(14),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                                if (controller.isCustomDateRange) ...[
+                                  SizedBox(height: context.responsive(10)),
+                                  TextButton.icon(
+                                    onPressed: controller.resetToDefaultMonth,
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 16,
+                                      color: primaryRed,
+                                    ),
+                                    label: const Text(
+                                      "Reset to Last 1 Month",
+                                      style: TextStyle(
+                                        color: primaryRed,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -186,6 +214,203 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
     );
   }
 
+  Widget _buildDateFilterBar(BuildContext context) {
+    return Obx(() {
+      final fromText = controller.formatDateForDisplay(
+        controller.fromDate.value,
+      );
+      final toText = controller.formatDateForDisplay(controller.toDate.value);
+      final isCustom = controller.isCustomDateRange;
+
+      return Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.responsive(20),
+          vertical: context.responsive(4),
+        ),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.responsive(10),
+            vertical: context.responsive(8),
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAFAFA),
+            borderRadius: BorderRadius.circular(context.responsive(16)),
+            border: Border.all(color: const Color(0xFFEEEEEE), width: 1),
+          ),
+          child: Row(
+            children: [
+              // From Date Pod
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => controller.pickFromDate(context),
+                    borderRadius: BorderRadius.circular(context.responsive(10)),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(10),
+                        vertical: context.responsive(6),
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          context.responsive(10),
+                        ),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calendar_today_outlined,
+                                size: context.responsive(11),
+                                color: primaryRed,
+                              ),
+                              SizedBox(width: context.responsive(4)),
+                              Text(
+                                "From",
+                                style: TextStyle(
+                                  color: const Color(0xFF6B7280),
+                                  fontSize: context.responsive(10),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: context.responsive(3)),
+                          Text(
+                            fromText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: const Color(0xFF111111),
+                              fontSize: context.responsive(12),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Arrow separator
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.responsive(6),
+                ),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  size: context.responsive(14),
+                  color: const Color(0xFF9CA3AF),
+                ),
+              ),
+
+              // To Date Pod
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => controller.pickToDate(context),
+                    borderRadius: BorderRadius.circular(context.responsive(10)),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(10),
+                        vertical: context.responsive(6),
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          context.responsive(10),
+                        ),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.event_available_outlined,
+                                size: context.responsive(11),
+                                color: primaryRed,
+                              ),
+                              SizedBox(width: context.responsive(4)),
+                              Text(
+                                "To",
+                                style: TextStyle(
+                                  color: const Color(0xFF6B7280),
+                                  fontSize: context.responsive(10),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: context.responsive(3)),
+                          Text(
+                            toText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: const Color(0xFF111111),
+                              fontSize: context.responsive(12),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              if (isCustom) ...[
+                SizedBox(width: context.responsive(6)),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: controller.resetToDefaultMonth,
+                    borderRadius: BorderRadius.circular(context.responsive(10)),
+                    child: Container(
+                      width: context.responsive(36),
+                      height: context.responsive(38),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          context.responsive(10),
+                        ),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: context.responsive(18),
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
   Widget _buildSearchPanel(BuildContext context) {
     return Obx(() {
       if (!controller.isSearchActive.value) return const SizedBox.shrink();
@@ -227,45 +452,50 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
     return Obx(() {
       if (!controller.isFilterActive.value) return const SizedBox.shrink();
 
-      final current = controller.selectedFilter.value;
+      final current = controller.selectedFilter.value.toLowerCase().trim();
 
       return Padding(
         padding: EdgeInsets.symmetric(
           horizontal: context.responsive(20),
           vertical: context.responsive(8),
         ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              _buildFilterChip(context, "all", "All", "", current == "all"),
-              SizedBox(width: context.responsive(8)),
-              _buildFilterChip(
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildFilterChip(
                 context,
-                "income",
-                "Income",
+                "all",
+                "All",
+                "",
+                current == "all",
+              ),
+            ),
+            SizedBox(width: context.responsive(8)),
+            Expanded(
+              child: _buildFilterChip(
+                context,
+                "Credit",
+                "Credit",
                 "assets/Income.png",
-                current == "income",
+                current == "credit" ||
+                    current == "received" ||
+                    current == "loaded" ||
+                    current == "income",
               ),
-              SizedBox(width: context.responsive(8)),
-              _buildFilterChip(
+            ),
+            SizedBox(width: context.responsive(8)),
+            Expanded(
+              child: _buildFilterChip(
                 context,
-                "expense",
-                "Expense",
+                "Debit",
+                "Debit",
                 "assets/expense.png",
-                current == "expense",
+                current == "debit" ||
+                    current == "spent" ||
+                    current == "expense",
               ),
-              SizedBox(width: context.responsive(8)),
-              _buildFilterChip(
-                context,
-                "failed",
-                "Failed",
-                "assets/failed.png",
-                current == "failed",
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     });
@@ -279,13 +509,13 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
     bool isSelected,
   ) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => controller.selectedFilter.value = filterVal,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: context.responsive(16),
-          vertical: context.responsive(8),
-        ),
+        height: context.responsive(38),
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: context.responsive(8)),
         decoration: BoxDecoration(
           color: isSelected ? primaryRed : const Color(0xFFF9F9F9),
           borderRadius: BorderRadius.circular(context.responsive(20)),
@@ -293,22 +523,30 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
             color: isSelected ? primaryRed : const Color(0xFFECECEC),
           ),
         ),
-        child: Wrap(
-          spacing: context.responsive(8),
-          alignment: WrapAlignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (imagePath.isNotEmpty)
+            if (imagePath.isNotEmpty) ...[
               Image.asset(
                 imagePath,
-                height: context.responsive(20),
-                width: context.responsive(20),
+                height: context.responsive(18),
+                width: context.responsive(18),
+                fit: BoxFit.contain,
               ),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF6B7280),
-                fontSize: context.responsive(12),
-                fontWeight: FontWeight.bold,
+              SizedBox(width: context.responsive(6)),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : const Color(0xFF6B7280),
+                  fontSize: context.responsive(12),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -495,9 +733,7 @@ class HistoryscreenView extends GetView<HistoryscreenController> {
               style: TextStyle(
                 color: isCredit
                     ? const Color(0xFF2E7D32)
-                    : isFailed
-                    ? const Color(0xFFC62828)
-                    : const Color(0xFF111111),
+                    : const Color(0xFFC62828),
                 fontWeight: FontWeight.w900,
                 fontSize: context.responsive(15),
               ),

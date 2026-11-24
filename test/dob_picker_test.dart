@@ -78,10 +78,10 @@ void main() {
             builder: (context) {
               return ElevatedButton(
                 onPressed: () async {
-                  // Jan 31, 2024 (2024 is a leap year)
+                  // Jan 31, 2004 (2004 is a leap year)
                   selected = await showDobPicker(
                     context,
-                    initialDate: DateTime(2024, 1, 31),
+                    initialDate: DateTime(2004, 1, 31),
                   );
                 },
                 child: const Text('Open Leap DOB'),
@@ -105,12 +105,12 @@ void main() {
     await tester.tap(find.text('Feb'));
     await tester.pumpAndSettle();
 
-    // Since 2024 is leap year, 31st January clamped to 29th February
+    // Since 2004 is leap year, 31st January clamped to 29th February
     await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
 
     expect(selected, isNotNull);
-    expect(selected!.year, 2024);
+    expect(selected!.year, 2004);
     expect(selected!.month, 2);
     expect(selected!.day, 29);
   });
@@ -129,7 +129,7 @@ void main() {
                 onPressed: () async {
                   selected = await showDobPicker(
                     context,
-                    initialDate: DateTime(2024, 2, 29), // Leap year Feb 29
+                    initialDate: DateTime(2004, 2, 29), // Leap year Feb 29
                   );
                 },
                 child: const Text('Open Year DOB'),
@@ -144,7 +144,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Tap Year field to open year picker
-    await tester.tap(find.text('2024'));
+    await tester.tap(find.text('2004'));
     await tester.pumpAndSettle();
 
     expect(find.text('Select Year'), findsOneWidget);
@@ -204,5 +204,46 @@ void main() {
     expect(selected!.year, 2000);
     expect(selected!.month, 4);
     expect(selected!.day, 10);
+  });
+
+  testWidgets('DobPickerSheet enforces 18+ age restriction', (
+    WidgetTester tester,
+  ) async {
+    DateTime? selected;
+    // Date that is 10 years old (under 18)
+    final under18Date = DateTime(DateTime.now().year - 10, 1, 1);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return ElevatedButton(
+                onPressed: () async {
+                  selected = await showDobPicker(
+                    context,
+                    initialDate: under18Date,
+                  );
+                },
+                child: const Text('Open Underage DOB'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Underage DOB'));
+    await tester.pumpAndSettle();
+
+    // Verify 18+ badge is displayed
+    expect(find.text(''), findsOneWidget);
+
+    // Initial date should have been clamped to max allowed (18 years ago)
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+
+    expect(selected, isNotNull);
+    expect(isUnderAge(selected!), isFalse);
   });
 }

@@ -1,14 +1,16 @@
 import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 class SendMoneyPasswordController extends GetxController {
-  static const double minTransferAmount = 1.0;
-  static const double maxTransferAmount = 10000.0;
+  static const double minTransferAmount = 0.0;
+  static const double maxTransferAmount = double.infinity;
 
   final RxString passcode = ''.obs;
   final RxBool isError = false.obs;
@@ -19,6 +21,9 @@ class SendMoneyPasswordController extends GetxController {
   double amount = 0.0;
   Map<String, String>? recipient;
   String note = '';
+  String? paymentMethod;
+  String? paymentSource;
+  String? senderUpi;
 
   bool get canUseBiometric {
     try {
@@ -49,23 +54,44 @@ class SendMoneyPasswordController extends GetxController {
         );
       }
       note = args['note']?.toString() ?? '';
+      paymentMethod = args['paymentMethod']?.toString();
+      paymentSource = args['paymentSource']?.toString() ??
+          args['paymentMode']?.toString();
+      senderUpi = args['senderUpi']?.toString() ??
+          args['upiId']?.toString() ??
+          args['vpa']?.toString();
     }
   }
 
   void addDigit(String digit) {
+    if (digit == 'back') {
+      if (isLoading.value) {
+        isLoading.value = false;
+      }
+      isError.value = false;
+      errorMessage.value = '';
+      if (passcode.value.isNotEmpty) {
+        passcode.value = passcode.value.substring(0, passcode.value.length - 1);
+      }
+      return;
+    }
+
+    if (digit == 'clear') {
+      if (isLoading.value) {
+        isLoading.value = false;
+      }
+      isError.value = false;
+      errorMessage.value = '';
+      passcode.value = '';
+      return;
+    }
+
     if (isLoading.value) return;
 
     if (isError.value) {
       passcode.value = '';
       isError.value = false;
       errorMessage.value = '';
-    }
-
-    if (digit == 'back') {
-      if (passcode.value.isNotEmpty) {
-        passcode.value = passcode.value.substring(0, passcode.value.length - 1);
-      }
-      return;
     }
 
     if (passcode.value.length < 4) {
@@ -81,8 +107,8 @@ class SendMoneyPasswordController extends GetxController {
   Future<void> authenticateWithBiometrics() async {
     if (isLoading.value || !canUseBiometric) return;
 
-    if (amount < minTransferAmount || amount > maxTransferAmount) {
-      AppSnackbar.error("Transfer amount must be between ₹1 and ₹10,000");
+    if (amount <= 0 || amount > 999999.99) {
+      AppSnackbar.error("Amount must be up to 6 digits");
       return;
     }
 
@@ -94,6 +120,36 @@ class SendMoneyPasswordController extends GetxController {
       );
 
       if (result.success) {
+        // ALWAYS verify against the live MPIN API inside so user CANNOT access or send funds if MPIN is locked!
+        final savedMpin = box.read<String>('saved_mpin') ??
+            box.read<String>('remembered_mpin') ??
+            box.read('mpin')?.toString();
+
+        if (savedMpin != null &&
+            savedMpin.isNotEmpty &&
+            Get.isRegistered<ApiService>()) {
+          isLoading.value = true;
+          statusMessage.value = "Verifying security credentials...";
+          try {
+            final mpinRes = await ApiService.to.verifyMpin(savedMpin);
+            if (!mpinRes.isSuccess) {
+              isLoading.value = false;
+              isError.value = true;
+              final msg = mpinRes.message.isNotEmpty
+                  ? mpinRes.message
+                  : "MPIN verification failed. Access denied.";
+              errorMessage.value = msg;
+              AppSnackbar.error(msg);
+              return;
+            }
+          } finally {
+            isLoading.value = false;
+          }
+        }
+
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.clearMpinLockout();
+        }
         await _performTransfer();
       }
     } catch (e) {
@@ -107,11 +163,11 @@ class SendMoneyPasswordController extends GetxController {
     final enteredPin = passcode.value;
     if (enteredPin.length < 4) return;
 
-    if (amount < minTransferAmount || amount > maxTransferAmount) {
+    if (amount <= 0 || amount > 999999.99) {
       isError.value = true;
-      errorMessage.value = "Transfer amount must be between ₹1 and ₹10,000";
-      passcode.value = '';
-      AppSnackbar.error("Transfer amount must be between ₹1 and ₹10,000");
+      errorMessage.value = "Amount must be up to 6 digits";
+      passcode.value = enteredPin;
+      AppSnackbar.error("Amount must be up to 6 digits");
       return;
     }
 
@@ -138,6 +194,9 @@ class SendMoneyPasswordController extends GetxController {
         );
 
         if (res.isSuccess) {
+          if (Get.isRegistered<AppLockService>()) {
+            AppLockService.to.clearMpinLockout();
+          }
           HapticFeedback.mediumImpact();
           await _performTransfer();
           return;
@@ -145,11 +204,9 @@ class SendMoneyPasswordController extends GetxController {
           HapticFeedback.heavyImpact();
           isLoading.value = false;
           isError.value = true;
-          final msg = res.message.isNotEmpty
-              ? res.message
-              : "Incorrect MPIN. Please try again.";
+          final msg = res.message;
           errorMessage.value = msg;
-          passcode.value = '';
+          passcode.value = enteredPin;
           AppSnackbar.error(msg);
           return;
         }
@@ -159,7 +216,7 @@ class SendMoneyPasswordController extends GetxController {
         isLoading.value = false;
         isError.value = true;
         errorMessage.value = "Failed to verify MPIN. Please try again.";
-        passcode.value = '';
+        passcode.value = enteredPin;
         AppSnackbar.error("Failed to verify MPIN. Please try again.");
         return;
       }
@@ -173,15 +230,13 @@ class SendMoneyPasswordController extends GetxController {
       bool isCorrect = false;
       if (savedMpin != null && savedMpin.isNotEmpty) {
         isCorrect = (enteredPin == savedMpin);
-      } else {
-        isCorrect = (enteredPin == "1234" || enteredPin == "0000");
       }
 
       if (!isCorrect) {
         HapticFeedback.heavyImpact();
         isError.value = true;
         errorMessage.value = "Incorrect MPIN. Please try again.";
-        passcode.value = '';
+        passcode.value = enteredPin;
         return;
       }
 
@@ -194,27 +249,18 @@ class SendMoneyPasswordController extends GetxController {
         isLoading.value = false;
         isError.value = true;
         errorMessage.value = "Transfer error. Please try again.";
-        passcode.value = '';
+        passcode.value = enteredPin;
         AppSnackbar.error("Transfer error. Please try again.");
       }
     }
   }
 
   Future<void> _performTransfer() async {
-    if (amount < minTransferAmount) {
+    if (amount <= 0 || amount > 999999.99) {
       isLoading.value = false;
-      AppSnackbar.error("Minimum transfer amount is ₹1");
+      AppSnackbar.error("Amount must be up to 6 digits");
       isError.value = true;
-      errorMessage.value = "Minimum transfer amount is ₹1";
-      passcode.value = '';
-      return;
-    }
-
-    if (amount > maxTransferAmount) {
-      isLoading.value = false;
-      AppSnackbar.error("Maximum transfer limit is ₹10,000 per transaction");
-      isError.value = true;
-      errorMessage.value = "Maximum transfer limit is ₹10,000 per transaction";
+      errorMessage.value = "Amount must be up to 6 digits";
       passcode.value = '';
       return;
     }
@@ -229,6 +275,33 @@ class SendMoneyPasswordController extends GetxController {
       AppSnackbar.error("Invalid recipient phone number");
       isError.value = true;
       errorMessage.value = "Invalid recipient phone number";
+      passcode.value = '';
+      return;
+    }
+
+    final box = GetStorage();
+    if (box.read('is_blocked') == true ||
+        box.read('is_card_blocked') == true ||
+        box.read('is_frozen') == true) {
+      isLoading.value = false;
+      AppSnackbar.error(
+        "Your card is currently frozen. Transfers are disabled while the card is frozen.",
+        title: "Card Frozen",
+      );
+      isError.value = true;
+      errorMessage.value = "Card is frozen. Cannot transfer money.";
+      passcode.value = '';
+      return;
+    }
+    if (box.read('is_permanently_blocked') == true ||
+        box.read('is_card_permanently_blocked') == true) {
+      isLoading.value = false;
+      AppSnackbar.error(
+        "Your card is permanently blocked. Send Money is disabled.",
+        title: "Card Blocked",
+      );
+      isError.value = true;
+      errorMessage.value = "Card is permanently blocked.";
       passcode.value = '';
       return;
     }
@@ -260,8 +333,14 @@ class SendMoneyPasswordController extends GetxController {
             double newBalance = (res['balance'] as num).toDouble();
             box.write('balance', newBalance);
           } else {
-            double currentBalance = (box.read('balance') ?? 1600).toDouble();
-            box.write('balance', currentBalance - amount);
+            final storedBalance = box.read('balance');
+            final double currentBalance = storedBalance is num
+                ? storedBalance.toDouble()
+                : (double.tryParse(storedBalance?.toString() ?? '') ?? 0.0);
+            box.write(
+              'balance',
+              (currentBalance - amount).clamp(0.0, double.infinity),
+            );
           }
 
           // Save recipient to recent_w2w_recipients in GetStorage
@@ -305,6 +384,14 @@ class SendMoneyPasswordController extends GetxController {
                   res['externalTransactionId'] ?? idempotencyKey,
               'transactionType': res['transactionType'] ?? 'C2C',
               'balance': res['balance'],
+              'paymentMethod':
+                  paymentMethod ?? res['paymentMethod'] ?? 'Transcorp Wallet',
+              'paymentSource': paymentSource ?? res['paymentSource'],
+              'senderUpi': senderUpi ?? res['senderUpi'],
+              'apiData': res,
+              'timestamp': res['timestamp'] ?? res['createdAt'] ?? res['date'],
+              'status': res['status'],
+              'description': res['description'] ?? description,
             },
           );
         } else {

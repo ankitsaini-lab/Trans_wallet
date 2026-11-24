@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
+import 'package:transwallet/products/Dashboard%20screen/dashboardscreen_Controller.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/pressable_scale.dart';
 import 'package:transwallet/widgets/globalbottombar/Globalbottombar_View.dart';
 import 'package:transwallet/widgets/constsize.dart';
@@ -126,7 +127,25 @@ class ServicesMoreScreen extends StatelessWidget {
                         title: 'Send Money',
                         subtitle: 'Instant transfer to bank / wallet',
                         color: const Color(0xFF00C853),
-                        onTap: () => Get.toNamed("/sendmoney"),
+                        onTap: () {
+                          if (Get.isRegistered<DashboardscreenController>()) {
+                            final dashCtrl =
+                                Get.find<DashboardscreenController>();
+                            if (dashCtrl.isCardFrozen) {
+                              dashCtrl.showCardFrozenSendMoneyNotice();
+                              return;
+                            }
+                            if (dashCtrl.isCardPermanentlyBlocked) {
+                              dashCtrl.showPermanentlyBlockedSendMoneyNotice();
+                              return;
+                            }
+                            if (!dashCtrl.isFullKycCompleted.value) {
+                              dashCtrl.showFullKycRequiredSendMoneyNotice();
+                              return;
+                            }
+                          }
+                          Get.toNamed("/sendmoney");
+                        },
                       ),
                       _buildServiceCard(
                         icon: Icons.add_rounded,
@@ -134,12 +153,16 @@ class ServicesMoreScreen extends StatelessWidget {
                         subtitle: 'Top-up wallet via UPI / Card',
                         color: const Color(0xFF2979FF),
                         onTap: () {
-                          Get.bottomSheet(
-                            const AddmoneyView(showGeneralWalletOption: false),
-                            isScrollControlled: true,
-                            isDismissible: false,
-                            enableDrag: false,
-                            backgroundColor: Colors.transparent,
+                          if (Get.isRegistered<DashboardscreenController>()) {
+                            final dashCtrl = Get.find<DashboardscreenController>();
+                            if (dashCtrl.isCardPermanentlyBlocked) {
+                              dashCtrl.showPermanentlyBlockedAddMoneyNotice();
+                              return;
+                            }
+                          }
+                          Get.to(
+                            () => const AddmoneyView(showGeneralWalletOption: false),
+                            transition: Transition.rightToLeftWithFade,
                           );
                         },
                       ),

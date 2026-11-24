@@ -7,7 +7,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/services/auth_service.dart';
-import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -20,6 +19,13 @@ import 'package:transwallet/products/login_singupscreen/login_singupscreen_Contr
 import 'widgets/animated_logout_dialog.dart';
 
 class ProfilescreenController extends GetxController {
+  static ProfilescreenController get to {
+    if (!Get.isRegistered<ProfilescreenController>()) {
+      return Get.put(ProfilescreenController());
+    }
+    return Get.find<ProfilescreenController>();
+  }
+
   var selectedIndex = 3.obs;
   var isKycVerified = false.obs;
   var isKycUnderReview = false.obs;
@@ -32,22 +38,32 @@ class ProfilescreenController extends GetxController {
   var userName = "User".obs;
   var userPhone = "".obs;
 
+  void clear() {
+    userName.value = "User";
+    userPhone.value = "";
+    profilePictureUrl.value = "";
+    localImageFile.value = null;
+    isKycVerified.value = false;
+    isKycUnderReview.value = false;
+    biometricEnabled.value = false;
+    appLockEnabled.value = false;
+    isUploadingImage.value = false;
+  }
+
   @override
   void onInit() {
     super.onInit();
     loadUserData();
     profilePictureUrl.value = box.read('profilePictureUrl')?.toString() ?? '';
-    if (Get.isRegistered<BiometricService>()) {
-      biometricEnabled.value = BiometricService.to.isBiometricEnabled.value;
-    } else {
-      biometricEnabled.value = box.read('biometric_enabled') ?? true;
-    }
+    biometricEnabled.value = false;
+    box.write('biometric_enabled', false);
     if (Get.isRegistered<AppLockService>()) {
       appLockTimeout.value = AppLockService.to.appLockTimeoutSeconds;
-      appLockEnabled.value = box.read('app_lock_enabled') ?? false;
+      appLockEnabled.value = AppLockService.to.isAppLockEnabled;
     } else {
       appLockTimeout.value = box.read('app_lock_timeout_seconds') ?? 30;
-      appLockEnabled.value = box.read('app_lock_enabled') ?? false;
+      appLockEnabled.value = (box.read<bool>('app_lock_enabled') ?? false) &&
+          (box.read<bool>('app_lock_disabled') != true);
     }
     loadUserData();
     fetchFromApi();
@@ -55,6 +71,19 @@ class ProfilescreenController extends GetxController {
   }
 
   Future<void> _checkLostData() async {
+    // 1. Check if fast-restore from Splash recovered the image
+    final recoveredPath = box.read<String>('recovered_camera_image');
+    if (recoveredPath != null && recoveredPath.isNotEmpty) {
+      box.remove('recovered_camera_image');
+      final file = File(recoveredPath);
+      if (await file.exists()) {
+        log("[Profile] Uploading recovered camera image from Splash: $recoveredPath");
+        await _processAndUploadFile(XFile(recoveredPath));
+        return;
+      }
+    }
+
+    // 2. Direct retrieveLostData check as secondary safeguard
     if (!Platform.isAndroid) return;
     try {
       final picker = ImagePicker();
@@ -64,6 +93,10 @@ class ProfilescreenController extends GetxController {
         log("[Profile] Recovered lost image from camera: ${response.file!.path}");
         box.remove('pending_camera_upload');
         await _processAndUploadFile(response.file!);
+      } else if (response.files != null && response.files!.isNotEmpty) {
+        log("[Profile] Recovered lost image from camera: ${response.files!.first.path}");
+        box.remove('pending_camera_upload');
+        await _processAndUploadFile(response.files!.first);
       } else if (response.exception != null) {
         log("[Profile] LostDataResponse exception: ${response.exception}");
       }
@@ -160,6 +193,9 @@ class ProfilescreenController extends GetxController {
 
     if (source == null) return;
 
+    // Allow bottomsheet modal transition to finish cleanly before camera activity launches
+    await Future.delayed(const Duration(milliseconds: 200));
+
     isUploadingImage.value = true;
     if (Get.isRegistered<AppLockService>()) {
       AppLockService.to.setPickingMedia(true);
@@ -204,9 +240,10 @@ class ProfilescreenController extends GetxController {
         }
       }
 
+      // Free Flutter image caches before external camera/gallery app launches to avoid Android Low Memory Killer (LMK)
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
       if (source == ImageSource.camera) {
-        PaintingBinding.instance.imageCache.clear();
-        PaintingBinding.instance.imageCache.clearLiveImages();
         box.write('pending_camera_upload', 'profile');
       }
 
@@ -217,9 +254,9 @@ class ProfilescreenController extends GetxController {
         // Do NOT pass preferredCameraDevice: CameraDevice.front as it crashes MIUI/OEM camera intents
         pickedFile = await picker.pickImage(
           source: source,
-          maxWidth: 800,
-          maxHeight: 800,
-          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 80,
         );
       } on PlatformException catch (e) {
         log("ImagePicker PlatformException: ${e.code} - ${e.message}");
@@ -289,9 +326,9 @@ class ProfilescreenController extends GetxController {
     }
 
     final fileSize = await localFile.length();
-    const maxSizeBytes = 2 * 1024 * 1024;
+    const maxSizeBytes = 5 * 1024 * 1024;
     if (fileSize > maxSizeBytes) {
-      AppSnackbar.error("Image size exceeds maximum limit of 2MB");
+      AppSnackbar.error("Image size exceeds maximum limit of 5MB");
       return;
     }
 
@@ -372,23 +409,14 @@ class ProfilescreenController extends GetxController {
   }
 
   Future<void> toggleBiometric(bool val) async {
-    if (Get.isRegistered<BiometricService>()) {
-      final success = await BiometricService.to.setBiometricEnabled(
-        val,
-        verifyBeforeEnable: val,
-      );
-      if (success) {
-        biometricEnabled.value = val;
-      }
-    } else {
-      biometricEnabled.value = val;
-      box.write('biometric_enabled', val);
-    }
+    biometricEnabled.value = false;
+    box.write('biometric_enabled', false);
   }
 
   void toggleAppLock(bool val) {
     appLockEnabled.value = val;
     box.write('app_lock_enabled', val);
+    box.write('app_lock_disabled', !val);
     if (Get.isRegistered<AppLockService>()) {
       AppLockService.to.setAppLockEnabled(val);
     }
@@ -482,20 +510,12 @@ class ProfilescreenController extends GetxController {
   }
 
   Future<void> performLogout() async {
+    if (Get.isRegistered<AuthService>() && AuthService.to.isLoggingOut) return;
     if (Get.isRegistered<AuthService>()) {
-      await AuthService.to.logout();
+      await AuthService.to.logout(navigateToLogin: true);
+    } else {
+      Get.offAllNamed('/login_singupview');
     }
-    if (Get.isRegistered<AppLockService>()) {
-      AppLockService.to.setAppLockEnabled(false);
-      AppLockService.to.isLocked.value = false;
-      AppLockService.to.biometricFailedAttempts.value = 0;
-    }
-    box.write('app_lock_enabled', false);
-    box.write('pending_app_lock_prompt', true);
-    if (Get.isRegistered<LoginSingupscreenController>()) {
-      Get.find<LoginSingupscreenController>().closeOtpPopupOnly();
-    }
-    Get.offAllNamed('/login_singupview');
   }
 
   void _showPermissionDeniedDialog({

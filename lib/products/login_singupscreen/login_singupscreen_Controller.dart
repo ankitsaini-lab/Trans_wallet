@@ -12,6 +12,7 @@ import 'package:transwallet/models/send_otp_model.dart';
 import 'package:transwallet/models/privacy_policy_model.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/services/biometric_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/widgets/otp_input_field.dart';
 import 'package:transwallet/services/sms_user_consent_service.dart';
@@ -124,6 +125,36 @@ class LoginSingupscreenController extends GetxController {
         phone.value = finalPhone;
       }
     }
+
+    phoneController.addListener(() {
+      final entered = phoneController.text.trim();
+      phone.value = entered;
+      final remembered =
+          box.read<String>('remembered_phone') ?? box.read<String>('phone');
+      if (remembered != null &&
+          remembered.isNotEmpty &&
+          entered.isNotEmpty &&
+          entered != remembered) {
+        if (mpinController.text.isNotEmpty) {
+          mpinController.clear();
+          mpin.value = '';
+        }
+        box.remove('saved_mpin');
+        box.remove('remembered_mpin');
+        box.remove('has_mpin');
+        box.remove('mpin_set');
+        box.remove('user_cards');
+        box.remove('wallet_products');
+        box.remove('balance');
+        box.remove('wallet_balance');
+        box.remove('profilePictureUrl');
+        box.remove('kyc_status');
+        box.remove('full_kyc_completed');
+        box.remove('min_kyc_completed');
+        box.remove('is_permanently_blocked');
+      }
+    });
+
     phoneFocusNode.addListener(() {
       isPhoneFocused.value = phoneFocusNode.hasFocus;
       if (!phoneFocusNode.hasFocus && scrollController.hasClients) {
@@ -157,8 +188,17 @@ class LoginSingupscreenController extends GetxController {
 
     final service = BiometricService.to;
     if (!service.isBiometricAvailable) {
-      AppSnackbar.error(
-        "Biometric authentication is not available on this device.",
+      AppSnackbar.info(
+        "Biometric authentication is not supported or enrolled on this device.",
+        title: "Biometrics Unavailable",
+      );
+      return;
+    }
+
+    if (!service.isBiometricEnabled.value) {
+      AppSnackbar.info(
+        "Biometric authentication is disabled. Please enable it in Profile Settings.",
+        title: "Biometrics Disabled",
       );
       return;
     }
@@ -339,6 +379,11 @@ class LoginSingupscreenController extends GetxController {
             body['success'] != false;
 
         if (isSuccess) {
+          // Clear all cached state and storage keys from previous account before saving new session
+          if (Get.isRegistered<AuthService>()) {
+            await AuthService.to.clearAllUserDataAndCache(keepRememberedPhone: false);
+          }
+
           final data = body['data'];
           String? accessToken;
           String? refreshToken;
@@ -404,10 +449,18 @@ class LoginSingupscreenController extends GetxController {
           box.write('remembered_mpin', enteredMpin);
           box.write('phone', enteredPhone);
           box.write('remembered_phone', enteredPhone);
-          box.write('biometric_quick_login_enabled', true);
-          box.write('biometric_enabled', true);
           box.write('is_logged_in', true);
-          box.write('pending_app_lock_prompt', true);
+          final bool wasAppLockActive =
+              (box.read<bool>('app_lock_enabled') == true) &&
+              (box.read<bool>('app_lock_disabled') != true);
+          box.write('app_lock_enabled', wasAppLockActive);
+          if (!wasAppLockActive) {
+            box.write('app_lock_disabled', true);
+          }
+          if (Get.isRegistered<AppLockService>()) {
+            AppLockService.to.setAppLockEnabled(wasAppLockActive);
+            AppLockService.to.clearColdStart();
+          }
           closeOtpPopupOnly();
 
           // Register device token with backend on successful login response
@@ -701,6 +754,11 @@ class LoginSingupscreenController extends GetxController {
               "[OTP Verify] Flow is LOGIN -> Validating token and redirecting to /dashboard",
             );
 
+            // Clear all cached state and storage keys from previous account before saving new session
+            if (Get.isRegistered<AuthService>()) {
+              await AuthService.to.clearAllUserDataAndCache(keepRememberedPhone: false);
+            }
+
             String? accessToken;
             String? refreshToken;
             String? tokenType;
@@ -753,6 +811,9 @@ class LoginSingupscreenController extends GetxController {
             box.write('is_logged_in', true);
             box.write('has_mpin', true);
             box.write('mpin_set', true);
+            if (Get.isRegistered<AppLockService>()) {
+              AppLockService.to.clearColdStart();
+            }
             box.write('phone', enteredPhone);
 
             if (Get.isRegistered<AuthService>()) {
@@ -771,7 +832,17 @@ class LoginSingupscreenController extends GetxController {
             }
 
             box.write('is_logged_in', true);
-            box.write('pending_app_lock_prompt', true);
+            final bool wasAppLockActive =
+                (box.read<bool>('app_lock_enabled') == true) &&
+                (box.read<bool>('app_lock_disabled') != true);
+            box.write('app_lock_enabled', wasAppLockActive);
+            if (!wasAppLockActive) {
+              box.write('app_lock_disabled', true);
+            }
+            if (Get.isRegistered<AppLockService>()) {
+              AppLockService.to.setAppLockEnabled(wasAppLockActive);
+              AppLockService.to.clearColdStart();
+            }
             closeOtpPopupOnly();
 
             // Register device token with backend on successful login response
@@ -785,16 +856,34 @@ class LoginSingupscreenController extends GetxController {
             log(
               "[OTP Verify] Flow is REGISTER -> Saving registrationToken and redirecting to /createaccountview",
             );
+            if (Get.isRegistered<AuthService>()) {
+              await AuthService.to.clearAllUserDataAndCache(keepRememberedPhone: false);
+            }
             box.write('otpFlow', 'REGISTER');
+            box.write('registration_in_progress', true);
+            box.write('is_logged_in', false);
+            box.remove('accessToken');
+            box.remove('auth_token');
+            box.remove('token');
+            box.remove('refreshToken');
+            box.remove('refresh_token');
+            box.remove('has_mpin');
+            box.remove('mpin_set');
+            box.remove('saved_mpin');
             box.write('phone', enteredPhone);
 
-            if (data != null) {
-              final regToken =
-                  data['registrationToken'] ??
-                  data['token'] ??
-                  data['authToken'];
-              if (regToken != null && regToken.toString().isNotEmpty) {
-                box.write('registrationToken', regToken.toString());
+            dynamic regToken = data?['registrationToken'] ??
+                data?['token'] ??
+                data?['authToken'] ??
+                parsedBody['registrationToken'] ??
+                parsedBody['token'];
+            if (regToken != null) {
+              if (regToken is Map) {
+                regToken = regToken['token'] ?? regToken['registrationToken'];
+              }
+              final regStr = regToken.toString().trim();
+              if (regStr.isNotEmpty && regStr != 'null' && regStr != '{}') {
+                box.write('registrationToken', regStr);
               }
             }
 

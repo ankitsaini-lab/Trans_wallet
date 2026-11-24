@@ -1,13 +1,17 @@
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:transwallet/products/Manage Card/managecard_Controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/services/api_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/app_bar_back_button.dart';
@@ -31,9 +35,34 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
   int? _apiStatusCode;
   double _loadingProgress = 0.0;
   bool _isPageLoading = true;
-  bool _showNativeView = false;
+  final bool _showNativeView = false;
   bool _showCvv = false;
   InAppWebViewController? _webViewController;
+  bool _isCallbackHandled = false;
+
+  void _closePopup() {
+    if (!mounted) return;
+    try {
+      _webViewController?.stopLoading();
+    } catch (_) {}
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else if (Get.isDialogOpen ?? false) {
+          Get.back();
+        } else {
+          Get.back();
+        }
+      } catch (e) {
+        developer.log('[CardDetailsPopup] Error closing popup: $e');
+        try {
+          Get.back();
+        } catch (_) {}
+      }
+    });
+  }
 
   void _copyCardNumber() {
     final numStr =
@@ -56,10 +85,29 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
   @override
   void initState() {
     super.initState();
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.customWebview);
+    }
     _fetchWidgetSession();
   }
 
+  @override
+  void dispose() {
+    try {
+      _webViewController?.stopLoading();
+      _webViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri("about:blank")),
+      );
+      _webViewController = null;
+    } catch (_) {}
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.finishExternalFlow(ExternalFlowType.customWebview);
+    }
+    super.dispose();
+  }
+
   Future<void> _fetchWidgetSession() async {
+    _isCallbackHandled = false;
     final status = widget.card['status']?.toString().toUpperCase() ?? '';
     final bool isPermBlocked =
         status == 'BLOCKED' ||
@@ -77,15 +125,17 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
     }
 
     if (Get.isRegistered<ApiService>()) {
-      setState(() {
-        _isLoadingSession = true;
-        _hasWebViewError = false;
-        _apiErrorMessage = null;
-        _apiErrorCode = null;
-        _apiStatusCode = null;
-        _isPageLoading = true;
-        _loadingProgress = 0.0;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingSession = true;
+          _hasWebViewError = false;
+          _apiErrorMessage = null;
+          _apiErrorCode = null;
+          _apiStatusCode = null;
+          _isPageLoading = true;
+          _loadingProgress = 0.0;
+        });
+      }
 
       final kitNumber =
           widget.card['kitNumber']?.toString() ?? widget.card['id']?.toString();
@@ -93,6 +143,7 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
       final res = await ApiService.to.fetchCardWidgetSession(
         widgetType: "CARD_DETAILS",
         kitNumber: kitNumber,
+        callbackUrl: "transwallet://card-details/return",
       );
 
       if (mounted) {
@@ -136,92 +187,193 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
     final lowerUrl = urlString.toLowerCase();
     final uri = Uri.tryParse(urlString);
 
-    final isCallback =
-        lowerUrl.contains('callback') ||
-        lowerUrl.contains('success') ||
-        lowerUrl.contains('cancel') ||
-        lowerUrl.contains('failure') ||
-        lowerUrl.contains('failed') ||
+    // Custom scheme deep links
+    final bool isCustomScheme =
+        lowerUrl.startsWith('transwallet://') ||
+        lowerUrl.startsWith('ppiapp://') ||
+        lowerUrl.startsWith('yappay://') ||
+        lowerUrl.startsWith('app://') ||
+        lowerUrl.startsWith('intent://');
+
+    // HTTP/HTTPS callback or return patterns
+    final bool isCallbackPattern =
+        (urlString != _widgetUrl) &&
+        (lowerUrl.contains('card-widget/return') ||
+            lowerUrl.contains('card-details/return') ||
+            lowerUrl.contains('card-details/close') ||
+            lowerUrl.contains('card-details/cancel') ||
+            lowerUrl.contains('card-details/success') ||
+            lowerUrl.contains('reset-pin') ||
+            lowerUrl.contains('card-pin') ||
+            lowerUrl.contains('set-pin') ||
+            lowerUrl.contains('callback') ||
+            lowerUrl.contains('return_url'));
+
+    if (!isCustomScheme && !isCallbackPattern) {
+      return false;
+    }
+
+    developer.log(
+      '[Card Details DeepLink/Callback] Intercepted URL: $urlString',
+    );
+
+    if (_isCallbackHandled) {
+      return true;
+    }
+    _isCallbackHandled = true;
+
+    final String? status =
+        uri?.queryParameters['status'] ??
+        uri?.queryParameters['result'] ??
+        uri?.queryParameters['event'] ??
+        uri?.queryParameters['action'] ??
+        uri?.queryParameters['code'];
+
+    final String? message =
+        uri?.queryParameters['message'] ??
+        uri?.queryParameters['msg'] ??
+        uri?.queryParameters['desc'] ??
+        uri?.queryParameters['description'];
+
+    // 1. Reset / Set PIN trigger from card details widget
+    if (lowerUrl.contains('reset-pin') ||
+        lowerUrl.contains('card-pin') ||
+        lowerUrl.contains('set-pin') ||
+        status?.toLowerCase().contains('reset') == true ||
+        status?.toLowerCase().contains('pin') == true) {
+      developer.log(
+        '[Card Details Callback] Triggering Reset PIN flow from card details',
+      );
+      _closePopup();
+      Future.microtask(() {
+        if (Get.isRegistered<ManagecardController>()) {
+          final ctrl = Get.find<ManagecardController>();
+          if (ctrl.cardData.isEmpty && widget.card.isNotEmpty) {
+            ctrl.cardData.addAll(Map<String, dynamic>.from(widget.card));
+          }
+          ctrl.showResetPinDialog();
+        } else {
+          final ctrl = Get.put(ManagecardController());
+          if (widget.card.isNotEmpty) {
+            ctrl.cardData.addAll(Map<String, dynamic>.from(widget.card));
+          }
+          ctrl.showResetPinDialog();
+        }
+      });
+      return true;
+    }
+
+    // 2. Cancellation or Close
+    if (lowerUrl.contains('cancel') ||
         lowerUrl.contains('close') ||
         lowerUrl.contains('finish') ||
         lowerUrl.contains('done') ||
-        lowerUrl.contains('redirect') ||
-        lowerUrl.contains('return_url') ||
-        lowerUrl.startsWith('transwallet://') ||
-        lowerUrl.startsWith('app://') ||
-        lowerUrl.startsWith('yappay://');
-
-    if (isCallback) {
-      developer.log(
-        '[Card Widget Callback Managed] Intercepted URL: $urlString',
-      );
-
-      final String? status =
-          uri?.queryParameters['status'] ??
-          uri?.queryParameters['result'] ??
-          uri?.queryParameters['event'] ??
-          uri?.queryParameters['action'] ??
-          uri?.queryParameters['code'];
-
-      final String? message =
-          uri?.queryParameters['message'] ??
-          uri?.queryParameters['msg'] ??
-          uri?.queryParameters['desc'];
-
-      if (lowerUrl.contains('success') ||
-          status?.toLowerCase() == 'success' ||
-          status == '200' ||
-          status == '00') {
-        developer.log('[Card Widget Callback] Status: SUCCESS - $message');
-        AppSnackbar.showSuccess(
-          title: 'Card Details',
-          message: message ?? 'Card widget session executed successfully.',
-        );
-      } else if (lowerUrl.contains('cancel') ||
-          lowerUrl.contains('close') ||
-          status?.toLowerCase() == 'cancel' ||
-          status?.toLowerCase() == 'close') {
-        developer.log('[Card Widget Callback] Action: CANCEL/CLOSE');
-      } else if (lowerUrl.contains('fail') ||
-          lowerUrl.contains('error') ||
-          status?.toLowerCase() == 'failed' ||
-          status?.toLowerCase() == 'error') {
-        developer.log('[Card Widget Callback] Status: FAILED - $message');
-        AppSnackbar.showError(
-          title: 'Card Widget Error',
-          message: message ?? 'Card widget session failed or was declined.',
-        );
+        status?.toLowerCase() == 'cancel' ||
+        status?.toLowerCase() == 'close') {
+      developer.log('[Card Details Callback] Action: CANCEL/CLOSE');
+      _closePopup();
+      if (lowerUrl.contains('done') || lowerUrl.contains('finish')) {
+        AppSnackbar.info(message ?? 'Card details session closed.');
       }
-
-      if (lowerUrl.startsWith('transwallet://') ||
-          lowerUrl.startsWith('app://') ||
-          lowerUrl.startsWith('yappay://') ||
-          lowerUrl.startsWith('intent://')) {
-        return true;
-      }
+      return true;
     }
-    return false;
+
+    // 3. Error or Failure
+    if (lowerUrl.contains('fail') ||
+        lowerUrl.contains('error') ||
+        status?.toLowerCase() == 'failed' ||
+        status?.toLowerCase() == 'error' ||
+        status?.toLowerCase() == 'rejected') {
+      developer.log('[Card Details Callback] Status: FAILED - $message');
+      _closePopup();
+      AppSnackbar.error(
+        message ?? 'Card widget session failed or was declined.',
+      );
+      return true;
+    }
+
+    // 4. Success or Successful return
+    if (lowerUrl.contains('success') ||
+        status?.toLowerCase() == 'success' ||
+        status == '200' ||
+        status == '00') {
+      developer.log('[Card Details Callback] Status: SUCCESS - $message');
+      _closePopup();
+      AppSnackbar.success(message ?? 'Card details verified successfully.');
+      return true;
+    }
+
+    // 5. General custom scheme fallback
+    developer.log(
+      '[Card Details Callback] Fallback custom scheme handled: $urlString',
+    );
+    _closePopup();
+    return true;
   }
 
   void _processCallbackData(dynamic data) {
     developer.log('[Card Widget Session JS Callback Data] $data');
+    if (data == null) return;
+
+    String? status;
+    String? action;
+    String? msg;
+
     if (data is Map) {
       final mapData = Map<String, dynamic>.from(data);
-      final status =
-          mapData['status']?.toString() ?? mapData['event']?.toString();
-      final msg = mapData['message']?.toString();
-      if (status?.toLowerCase() == 'success' || status == '200') {
-        AppSnackbar.showSuccess(
-          title: 'Card Details',
-          message: msg ?? 'Widget operation completed successfully.',
-        );
-      } else if (status?.toLowerCase() == 'failed' ||
-          status?.toLowerCase() == 'error') {
-        AppSnackbar.showError(
-          title: 'Card Widget Error',
-          message: msg ?? 'Widget operation failed.',
-        );
+      status =
+          mapData['status']?.toString() ??
+          mapData['event']?.toString() ??
+          mapData['result']?.toString() ??
+          mapData['code']?.toString();
+      action = mapData['action']?.toString();
+      msg =
+          mapData['message']?.toString() ??
+          mapData['msg']?.toString() ??
+          mapData['desc']?.toString();
+    } else if (data is String) {
+      final lower = data.toLowerCase();
+      if (lower.contains('reset-pin') ||
+          lower.contains('reset_pin') ||
+          lower.contains('card-pin') ||
+          lower.contains('set_pin')) {
+        _handleCallbackUrl('transwallet://reset-pin');
+        return;
       }
+      if (lower.contains('close') || lower.contains('cancel')) {
+        _handleCallbackUrl('transwallet://card-details/close');
+        return;
+      }
+      if (lower.contains('success') || lower.contains('200')) {
+        _handleCallbackUrl('transwallet://card-details/success');
+        return;
+      }
+      if (lower.contains('fail') || lower.contains('error')) {
+        _handleCallbackUrl('transwallet://card-details/fail');
+        return;
+      }
+      msg = data;
+    }
+
+    final lowerStatus = status?.toLowerCase() ?? '';
+    final lowerAction = action?.toLowerCase() ?? '';
+
+    if (lowerStatus.contains('reset') ||
+        lowerAction.contains('reset') ||
+        lowerAction.contains('pin')) {
+      _handleCallbackUrl('transwallet://reset-pin');
+    } else if (lowerStatus == 'close' ||
+        lowerStatus == 'cancel' ||
+        lowerAction == 'close' ||
+        lowerAction == 'cancel') {
+      _handleCallbackUrl('transwallet://card-details/close');
+    } else if (lowerStatus == 'success' ||
+        lowerStatus == '200' ||
+        lowerStatus == '00') {
+      _handleCallbackUrl('transwallet://card-details/success');
+    } else if (lowerStatus == 'failed' || lowerStatus == 'error') {
+      final encodedMsg = Uri.encodeComponent(msg ?? 'Operation failed');
+      _handleCallbackUrl('transwallet://card-details/fail?message=$encodedMsg');
     }
   }
 
@@ -251,42 +403,40 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
           ),
         ),
         actions: [
-          // if (_widgetUrl != null && !_hasWebViewError) ...[
-          //   if (!_showNativeView)
-          //     IconButton(
-          //       icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
-          //       tooltip: "Reload",
-          //       onPressed: () {
-          //         _webViewController?.reload();
-          //       },
-          //     ),
-          // ],
-          TextButton(
-            onPressed: () {
-              Get.toNamed('/managecard', arguments: cardData);
-            },
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: context.responsive(8),
-                right: context.responsive(8),
-              ),
-              child: Container(
-                padding: EdgeInsets.all(context.responsive(8)),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color.fromRGBO(0, 0, 0, 0.05),
-                    width: 1.0,
-                  ),
-                  color: const Color.fromRGBO(255, 255, 255, 1),
+          if (_widgetUrl != null && !_hasWebViewError)
+            // IconButton(
+            //   icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+            //   tooltip: "Reload",
+            //   onPressed: () {
+            //     _webViewController?.reload();
+            //   },
+            // ),
+            TextButton(
+              onPressed: () {
+                Get.toNamed('/managecard', arguments: cardData);
+              },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: context.responsive(8),
+                  right: context.responsive(8),
                 ),
-                child: SvgPicture.asset(
-                  "assets/managecard.svg",
-                  height: context.responsive(22),
+                child: Container(
+                  padding: EdgeInsets.all(context.responsive(8)),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color.fromRGBO(0, 0, 0, 0.05),
+                      width: 1.0,
+                    ),
+                    color: const Color.fromRGBO(255, 255, 255, 1),
+                  ),
+                  child: SvgPicture.asset(
+                    "assets/managecard.svg",
+                    height: context.responsive(22),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       body: SafeArea(child: _buildBody()),
@@ -410,14 +560,28 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
         Positioned.fill(
           child: InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(_widgetUrl!)),
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<VerticalDragGestureRecognizer>(
+                () => VerticalDragGestureRecognizer(),
+              ),
+              Factory<HorizontalDragGestureRecognizer>(
+                () => HorizontalDragGestureRecognizer(),
+              ),
+              Factory<ScaleGestureRecognizer>(() => ScaleGestureRecognizer()),
+            },
             initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
               domStorageEnabled: true,
               transparentBackground: true,
               useShouldOverrideUrlLoading: true,
+              useOnRenderProcessGone: true,
               supportMultipleWindows: true,
               allowsInlineMediaPlayback: true,
               useHybridComposition: true,
+              allowFileAccessFromFileURLs: true,
+              allowUniversalAccessFromFileURLs: true,
+              mediaPlaybackRequiresUserGesture: false,
+              clearCache: false,
             ),
             onWebViewCreated: (controller) {
               _webViewController = controller;
@@ -441,6 +605,31 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
                   }
                 },
               );
+              controller.addJavaScriptHandler(
+                handlerName: 'WidgetCallback',
+                callback: (args) {
+                  developer.log('[Card Widget JS WidgetCallback] Data: $args');
+                  if (args.isNotEmpty) {
+                    _processCallbackData(args.first);
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'CardWidget',
+                callback: (args) {
+                  developer.log('[Card Widget JS CardWidget] Data: $args');
+                  if (args.isNotEmpty) {
+                    _processCallbackData(args.first);
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'CardPinCallback',
+                callback: (args) {
+                  developer.log('[Card Widget JS CardPinCallback] Data: $args');
+                  _handleCallbackUrl('transwallet://reset-pin');
+                },
+              );
             },
             onProgressChanged: (controller, progress) {
               if (mounted) {
@@ -452,8 +641,26 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
                 });
               }
             },
+            onRenderProcessGone: (controller, detail) async {
+              developer.log(
+                '[Card Widget WebView] Render process gone (didCrash: ${detail.didCrash})',
+              );
+              if (mounted) {
+                setState(() {
+                  _hasWebViewError = true;
+                  _apiErrorMessage =
+                      'Card display session was closed by the system. Please tap to reload.';
+                });
+              }
+            },
             onReceivedError: (controller, request, error) {
-              developer.log('[Card Widget WebView Error] ${error.description}');
+              final urlString = request.url.toString();
+              developer.log(
+                '[Card Widget WebView Error] $urlString -> ${error.description}',
+              );
+              if (_handleCallbackUrl(urlString)) {
+                return;
+              }
               if (request.isForMainFrame ?? true) {
                 if (mounted) {
                   setState(() {
@@ -464,9 +671,13 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
               }
             },
             onReceivedHttpError: (controller, request, response) {
+              final urlString = request.url.toString();
               developer.log(
-                '[Card Widget WebView HTTP Error] ${response.statusCode}',
+                '[Card Widget WebView HTTP Error] $urlString -> ${response.statusCode}',
               );
+              if (_handleCallbackUrl(urlString)) {
+                return;
+              }
               if ((request.isForMainFrame ?? true) &&
                   response.statusCode != null &&
                   response.statusCode! >= 400) {
@@ -495,23 +706,72 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
               return NavigationActionPolicy.ALLOW;
             },
             onLoadStart: (controller, url) {
-              if (mounted) {
-                setState(() => _isPageLoading = true);
-              }
               if (url != null) {
                 final urlString = url.toString();
                 developer.log('[Card Widget Load Start] => $urlString');
-                _handleCallbackUrl(urlString);
+                if (_handleCallbackUrl(urlString)) {
+                  return;
+                }
+              }
+              if (mounted) {
+                setState(() => _isPageLoading = true);
               }
             },
-            onLoadStop: (controller, url) {
+            onLoadStop: (controller, url) async {
               if (mounted) {
                 setState(() => _isPageLoading = false);
               }
               if (url != null) {
                 final urlString = url.toString();
                 developer.log('[Card Widget Load Stop] => $urlString');
-                _handleCallbackUrl(urlString);
+                if (_handleCallbackUrl(urlString)) {
+                  return;
+                }
+              }
+              try {
+                await controller.evaluateJavascript(
+                  source: """
+                  (function() {
+                    var viewport = document.querySelector('meta[name="viewport"]');
+                    if (!viewport) {
+                      viewport = document.createElement('meta');
+                      viewport.name = 'viewport';
+                      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                      document.getElementsByTagName('head')[0].appendChild(viewport);
+                    }
+
+                    // PostMessage cross-origin bridge for card widget events
+                    window.addEventListener('message', function(event) {
+                      if (event && event.data) {
+                        var dataStr = typeof event.data === 'string' ? event.data : JSON.stringify(event.data);
+                        if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                          window.flutter_inappwebview.callHandler('cardCallback', dataStr);
+                          window.flutter_inappwebview.callHandler('WidgetCallback', dataStr);
+                          window.flutter_inappwebview.callHandler('CardWidget', dataStr);
+                        }
+                        var lower = dataStr.toLowerCase();
+                        if (lower.indexOf('reset-pin') !== -1 || lower.indexOf('reset_pin') !== -1 || lower.indexOf('card-pin') !== -1 || lower.indexOf('set_pin') !== -1) {
+                          window.location.href = 'transwallet://reset-pin';
+                        } else if (lower.indexOf('close') !== -1 || lower.indexOf('cancel') !== -1 || lower.indexOf('dismiss') !== -1) {
+                          window.location.href = 'transwallet://card-details/close';
+                        } else if (lower.indexOf('success') !== -1 || lower.indexOf('200') !== -1) {
+                          window.location.href = 'transwallet://card-details/success';
+                        }
+                      }
+                    });
+
+                    window.addEventListener('focusin', function(e) {
+                      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+                        setTimeout(function() {
+                          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 250);
+                      }
+                    });
+                  })();
+                  """,
+                );
+              } catch (e) {
+                developer.log('[Card Widget JS Inject Error] $e');
               }
             },
             onReceivedServerTrustAuthRequest: (controller, challenge) async {

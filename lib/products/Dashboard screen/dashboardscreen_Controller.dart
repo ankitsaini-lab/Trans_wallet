@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:developer';
 import 'dart:math' as math;
 
@@ -5,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:transwallet/products/Manage%20Card/managecard_Controller.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
@@ -12,12 +15,16 @@ import 'package:transwallet/widgets/premium_visa_card.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/products/Dashboard screen/controllers/wallet_card_controller.dart';
 import 'package:transwallet/utilities/string_extensions.dart';
 import 'package:transwallet/modules/vkyc/widgets/vkyc_success_dialog.dart';
 import 'package:transwallet/products/Dashboard screen/widgets/card_popups.dart';
 
 class DashboardscreenController extends GetxController {
+  static DashboardscreenController get to =>
+      Get.find<DashboardscreenController>();
+
   RxBool isFlipped = false.obs;
   RxBool isVisible = false.obs;
 
@@ -32,6 +39,7 @@ class DashboardscreenController extends GetxController {
   bool _isWalletBalanceLoading = false;
 
   Future<void> loadWalletBalance({bool force = false}) async {
+    if (!_canFetchData) return;
     if (GetStorage().hasData('balance')) {
       final stored = GetStorage().read('balance');
       if (stored is num) {
@@ -57,12 +65,522 @@ class DashboardscreenController extends GetxController {
   final RxList<Map<String, dynamic>> recentTransactions =
       <Map<String, dynamic>>[].obs;
   final RxBool isTransactionsLoading = false.obs;
+  final RxBool isTransactionsError = false.obs;
+  final RxString transactionsErrorMessage = ''.obs;
   final RxBool isDashboardLoading = false.obs;
 
   final RxString userName = ''.obs;
   final RxString profilePictureUrl = ''.obs;
   final RxBool isFullKycCompleted = false.obs;
   final RxBool isKycUnderReview = false.obs;
+  final RxBool isPermanentlyBlocked = false.obs;
+  final RxBool isCardFrozenObs = false.obs;
+
+  /// Clears in-memory dashboard observables to prevent cross-account data leakage
+  void clearAllDashboardState() {
+    totalBalance.value = 0;
+    _isWalletBalanceLoading = false;
+    recentTransactions.clear();
+    userName.value = '';
+    profilePictureUrl.value = '';
+    isFullKycCompleted.value = false;
+    isKycUnderReview.value = false;
+    isPermanentlyBlocked.value = false;
+    isCardFrozenObs.value = false;
+    totalIncome.value = 0.0;
+    totalExpenses.value = 0.0;
+    totalSavings.value = 0.0;
+    selectedAnalyticsMonth.value = '';
+    weeklyAnalytics.clear();
+    selectedAnalyticsWeek.value = -1;
+    weeklyTransactionsList.clear();
+    weekIncome.value = 0.0;
+    weekExpenses.value = 0.0;
+    weekSavings.value = 0.0;
+    isTransactionsLoading.value = false;
+    isTransactionsError.value = false;
+    transactionsErrorMessage.value = '';
+    isAnalyticsError.value = false;
+    analyticsErrorMessage.value = '';
+    isDashboardLoading.value = false;
+    isAnalyticsLoading.value = false;
+    isWeeklyTxLoading.value = false;
+  }
+
+  /// Checks if any card or the user account is permanently blocked
+  bool _computeIsPermanentlyBlocked() {
+    final box = GetStorage();
+
+    // 1. Direct explicit flags in storage
+    if (box.read('is_permanently_blocked') == true ||
+        box.read('is_card_permanently_blocked') == true) {
+      return true;
+    }
+
+    // 2. Check user account status
+    final userStatus = box.read('user_status')?.toString().toUpperCase() ?? '';
+    if (userStatus == 'BLOCKED' ||
+        userStatus == 'PERMANENT_BLOCK' ||
+        userStatus == 'PERMANENTLY_BLOCKED') {
+      return true;
+    }
+
+    // 3. Check WalletCardController if active
+    if (Get.isRegistered<WalletCardController>()) {
+      final wcc = Get.find<WalletCardController>();
+      if (wcc.cards.isNotEmpty) {
+        if (wcc.cards.every((c) => c.isPermanentlyBlocked) ||
+            wcc.cards.first.isPermanentlyBlocked) {
+          return true;
+        }
+      }
+    }
+
+    // 4. Check user_cards stored list
+    final storedCards = box.read('user_cards');
+    if (storedCards is List && storedCards.isNotEmpty) {
+      for (var c in storedCards) {
+        if (c is Map) {
+          final rawStatus = c['status']?.toString().toUpperCase() ?? '';
+          if (rawStatus == 'BLOCKED' ||
+              rawStatus == 'PERMANENT_BLOCK' ||
+              rawStatus == 'PERMANENTLY_BLOCKED' ||
+              c['isPermanentlyBlocked'] == true) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void checkCardBlockedStatus() {
+    isPermanentlyBlocked.value = _computeIsPermanentlyBlocked();
+    isCardFrozenObs.value = _computeIsCardFrozen();
+  }
+
+  bool get isCardPermanentlyBlocked =>
+      isPermanentlyBlocked.value || _computeIsPermanentlyBlocked();
+
+  bool get isCardFrozen =>
+      isCardFrozenObs.value || _computeIsCardFrozen();
+
+  /// Checks if the active card or any user card is frozen/temporarily blocked
+  bool _computeIsCardFrozen() {
+    if (_computeIsPermanentlyBlocked()) {
+      return false;
+    }
+
+    final box = GetStorage();
+
+    // 1. Direct explicit flags in storage
+    if (box.read('is_blocked') == true ||
+        box.read('is_card_blocked') == true ||
+        box.read('is_frozen') == true) {
+      return true;
+    }
+
+    // 2. Check WalletCardController if active
+    if (Get.isRegistered<WalletCardController>()) {
+      final wcc = Get.find<WalletCardController>();
+      if (wcc.cards.isNotEmpty) {
+        if (wcc.cards.any((c) => c.isBlocked && !c.isPermanentlyBlocked)) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Check ManagecardController if active
+    if (Get.isRegistered<ManagecardController>()) {
+      final mc = Get.find<ManagecardController>();
+      if (mc.isCardBlocked.value && !mc.isCardPermanentlyBlocked.value) {
+        return true;
+      }
+    }
+
+    // 4. Check user_cards stored list
+    final storedCards = box.read('user_cards');
+    if (storedCards is List && storedCards.isNotEmpty) {
+      for (var c in storedCards) {
+        if (c is Map) {
+          final rawStatus = c['status']?.toString().toUpperCase() ?? '';
+          final bool isPerm = rawStatus == 'BLOCKED' ||
+              rawStatus == 'PERMANENT_BLOCK' ||
+              rawStatus == 'PERMANENTLY_BLOCKED' ||
+              c['isPermanentlyBlocked'] == true;
+          final bool isFrozen = !isPerm &&
+              (rawStatus == 'LOCKED' ||
+                  rawStatus == 'FROZEN' ||
+                  c['isBlocked'] == true);
+          if (isFrozen) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void showPermanentlyBlockedAddMoneyNotice({String? message}) {
+    HapticFeedback.heavyImpact();
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.block_rounded,
+                  color: Colors.red,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                "Card Permanently Blocked",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message ??
+                    "Your card is permanently blocked. Adding money is disabled for this wallet. If you need assistance or a replacement card, please contact support.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    "Got it",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  void showFullKycRequiredSendMoneyNotice() {
+    HapticFeedback.mediumImpact();
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF3C7),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_person_rounded,
+                  color: Color(0xFFD97706),
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                "Full KYC Required",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "In accordance with RBI regulations, Send Money (Wallet-to-Wallet transfer) is available exclusively for Full KYC verified accounts. Please complete your Full KYC to unlock money transfers.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Get.back();
+                    Get.toNamed("/updateKyc");
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE53935),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    "Complete Full KYC",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  child: Text(
+                    "Maybe Later",
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF64748B),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  void showCardFrozenSendMoneyNotice() {
+    HapticFeedback.heavyImpact();
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEFF6FF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.ac_unit_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                "Card is Frozen",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Your card is currently frozen. Send Money (Wallet-to-Wallet transfer) is temporarily disabled while your card is frozen.\n\nPlease unfreeze your card to resume transfers.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Get.back();
+                    Get.toNamed("/managecard");
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    "Manage Card / Unfreeze",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  child: Text(
+                    "Cancel",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  void showPermanentlyBlockedSendMoneyNotice() {
+    HapticFeedback.heavyImpact();
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.block_rounded,
+                  color: Colors.red,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                "Card Permanently Blocked",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Your card is permanently blocked. Send Money is disabled for this account. If you need assistance, please contact support.",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Get.back();
+                    Get.toNamed("/contactsupport");
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    "Contact Support",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  child: Text(
+                    "Cancel",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: true,
+    );
+  }
 
   void loadUserData() {
     final box = GetStorage();
@@ -86,9 +604,25 @@ class DashboardscreenController extends GetxController {
         rawStatus == 'approved';
     isFullKycCompleted.value = completed;
     isKycUnderReview.value = false;
+    checkCardBlockedStatus();
+  }
+
+  bool get _canFetchData {
+    final box = GetStorage();
+    final bool loggedIn = (box.read<bool>('is_logged_in') ?? false) &&
+        (box.read<String>('accessToken') != null ||
+            box.read<String>('auth_token') != null);
+    final bool isLoggingOut =
+        (Get.isRegistered<AuthService>() && AuthService.to.isLoggingOut) ||
+        (Get.isRegistered<ApiService>() && ApiService.to.isLoggingOut);
+    return loggedIn && !isLoggingOut;
   }
 
   Future<void> refreshDashboardData({bool force = false}) async {
+    if (!_canFetchData) {
+      developer.log('[DashboardController] Suppressing refreshDashboardData: user logged out or logging out');
+      return;
+    }
     if (isDashboardLoading.value && !force) return;
     isDashboardLoading.value = true;
     loadUserData();
@@ -126,8 +660,10 @@ class DashboardscreenController extends GetxController {
   final RxList<Map<String, dynamic>> weeklyAnalytics =
       <Map<String, dynamic>>[].obs;
   final RxBool isAnalyticsLoading = false.obs;
+  final RxBool isAnalyticsError = false.obs;
+  final RxString analyticsErrorMessage = ''.obs;
 
-  final RxString selectedAnalyticsMetric = 'Expenses'.obs;
+  final RxString selectedAnalyticsMetric = 'Debit'.obs;
 
   // Selected week index on the Spending Analytics chart (0: W1, 1: W2, 2: W3, 3: W4, -1: none)
   final RxInt selectedAnalyticsWeek = (-1).obs;
@@ -211,6 +747,7 @@ class DashboardscreenController extends GetxController {
   }
 
   Future<void> loadTransactionsForWeek(int weekIndex) async {
+    if (!_canFetchData) return;
     isWeeklyTxLoading.value = true;
     weeklyTransactionsList.clear();
 
@@ -277,12 +814,12 @@ class DashboardscreenController extends GetxController {
                   calcExp += amt.toDouble();
               }
 
-              DateTime rawDate = DateTime.now();
-              if (item['time'] != null) {
-                try {
-                  rawDate = DateTime.parse(item['time'].toString());
-                } catch (_) {}
-              }
+              final timeRaw = item['time'] ??
+                  item['createdAt'] ??
+                  item['transactionDate'] ??
+                  item['timestamp'] ??
+                  item['date'];
+              final DateTime rawDate = _parseDateTime(timeRaw);
 
               String title = "Transaction";
               if (item['otherPartyName'] != null &&
@@ -313,9 +850,20 @@ class DashboardscreenController extends GetxController {
                 "isCredit": isCredit,
                 "isFailed": isFailed,
                 "txRef": item['txRef'],
+                "externalTransactionId": item['externalTransactionId'] ??
+                    item['externalTxnId'] ??
+                    item['txRef'] ??
+                    item['transactionId'] ??
+                    item['id'] ??
+                    '',
+                "description": item['description'] ??
+                    item['narration'] ??
+                    item['remarks'] ??
+                    title,
                 "status": status,
                 "yourWallet": item['yourWallet'],
                 "time": item['time']?.toString() ?? rawDate.toIso8601String(),
+                "rawItem": item,
               });
             }
           }
@@ -404,9 +952,13 @@ class DashboardscreenController extends GetxController {
     return selectedAnalyticsMonth.value;
   }
 
-  Future<void> fetchTransactionAnalytics({String? month}) async {
-    if (!Get.isRegistered<ApiService>()) return;
-    isAnalyticsLoading.value = true;
+  Future<void> fetchTransactionAnalytics({String? month, bool isRetry = false}) async {
+    if (!_canFetchData || !Get.isRegistered<ApiService>()) return;
+    if (weeklyAnalytics.isEmpty || isRetry) {
+      isAnalyticsLoading.value = true;
+    }
+    isAnalyticsError.value = false;
+    analyticsErrorMessage.value = '';
     selectedAnalyticsWeek.value = -1;
     try {
       final res = await ApiService.to.fetchTransactionAnalytics(month: month);
@@ -433,9 +985,9 @@ class DashboardscreenController extends GetxController {
 
           // Auto-select the metric that has data so user never sees a flat line when income exists
           if (totalExpenses.value == 0 && totalIncome.value > 0) {
-            selectedAnalyticsMetric.value = 'Income';
+            selectedAnalyticsMetric.value = 'Credit';
           } else if (totalExpenses.value > 0) {
-            selectedAnalyticsMetric.value = 'Expenses';
+            selectedAnalyticsMetric.value = 'Debit';
           }
         }
 
@@ -458,6 +1010,10 @@ class DashboardscreenController extends GetxController {
       }
     } catch (e) {
       log('Error fetching transaction analytics: $e');
+      if (weeklyAnalytics.isEmpty) {
+        isAnalyticsError.value = true;
+        analyticsErrorMessage.value = 'Failed to load analytics';
+      }
     } finally {
       isAnalyticsLoading.value = false;
     }
@@ -554,9 +1110,13 @@ class DashboardscreenController extends GetxController {
     }
   }
 
-  Future<void> fetchRecentTransactions() async {
-    if (!Get.isRegistered<ApiService>()) return;
-    isTransactionsLoading.value = true;
+  Future<void> fetchRecentTransactions({bool isRetry = false}) async {
+    if (!_canFetchData || !Get.isRegistered<ApiService>()) return;
+    if (recentTransactions.isEmpty || isRetry) {
+      isTransactionsLoading.value = true;
+    }
+    isTransactionsError.value = false;
+    transactionsErrorMessage.value = '';
     try {
       final res = await ApiService.to.fetchTransactions(
         pageNumber: 0,
@@ -565,9 +1125,6 @@ class DashboardscreenController extends GetxController {
       if (res != null && res['items'] is List) {
         final List items = res['items'];
         final List<Map<String, dynamic>> parsedList = [];
-
-        double calcIncome = 0.0;
-        double calcExpenses = 0.0;
 
         for (var item in items) {
           if (item is Map) {
@@ -582,20 +1139,12 @@ class DashboardscreenController extends GetxController {
                 ? item['amount']
                 : num.tryParse(item['amount']?.toString() ?? '0') ?? 0;
 
-            if (!isFailed) {
-              if (isCredit) {
-                calcIncome += amt.toDouble();
-              } else {
-                calcExpenses += amt.toDouble();
-              }
-            }
-
-            DateTime rawDate = DateTime.now();
-            if (item['time'] != null) {
-              try {
-                rawDate = DateTime.parse(item['time'].toString());
-              } catch (_) {}
-            }
+            final timeRaw = item['time'] ??
+                item['createdAt'] ??
+                item['transactionDate'] ??
+                item['timestamp'] ??
+                item['date'];
+            final DateTime rawDate = _parseDateTime(timeRaw);
 
             String title = "Transaction";
             if (item['otherPartyName'] != null &&
@@ -625,8 +1174,19 @@ class DashboardscreenController extends GetxController {
               "isCredit": isCredit,
               "isFailed": isFailed,
               "txRef": item['txRef'],
+              "externalTransactionId": item['externalTransactionId'] ??
+                  item['externalTxnId'] ??
+                  item['txRef'] ??
+                  item['transactionId'] ??
+                  item['id'] ??
+                  '',
+              "description": item['description'] ??
+                  item['narration'] ??
+                  item['remarks'] ??
+                  title,
               "status": status,
               "yourWallet": item['yourWallet'],
+              "rawItem": item,
             });
           }
         }
@@ -642,12 +1202,56 @@ class DashboardscreenController extends GetxController {
       log(
         'Error fetching recent transactions in DashboardscreenController: $e',
       );
+      if (recentTransactions.isEmpty) {
+        isTransactionsError.value = true;
+        transactionsErrorMessage.value = 'Failed to load transactions';
+      }
     } finally {
       isTransactionsLoading.value = false;
     }
   }
 
+  DateTime _parseDateTime(dynamic timeVal) {
+    if (timeVal == null) return DateTime.now();
+    if (timeVal is DateTime) return timeVal.toLocal();
+
+    final str = timeVal.toString().trim();
+    if (str.isEmpty) return DateTime.now();
+
+    final numVal = int.tryParse(str);
+    if (numVal != null) {
+      if (str.length == 10) {
+        return DateTime.fromMillisecondsSinceEpoch(numVal * 1000).toLocal();
+      }
+      return DateTime.fromMillisecondsSinceEpoch(numVal).toLocal();
+    }
+
+    try {
+      final parsed = DateTime.parse(str);
+      DateTime localDate = parsed.toLocal();
+
+      if (DateTime.now().timeZoneOffset == Duration.zero) {
+        final offsetRegex = RegExp(r'([+-])(\d{2}):?(\d{2})$');
+        final match = offsetRegex.firstMatch(str);
+        if (match != null) {
+          final sign = match.group(1) == '-' ? -1 : 1;
+          final hours = int.parse(match.group(2)!);
+          final minutes = int.parse(match.group(3)!);
+          final offset = Duration(hours: hours, minutes: minutes) * sign;
+          localDate = parsed.add(offset);
+        } else if (str.endsWith('Z')) {
+          localDate = parsed.add(const Duration(hours: 5, minutes: 30));
+        }
+      }
+
+      return localDate;
+    } catch (_) {
+      return DateTime.now();
+    }
+  }
+
   String _formatShortDate(DateTime dt) {
+    final localDt = dt.toLocal();
     const months = [
       'Jan',
       'Feb',
@@ -662,16 +1266,24 @@ class DashboardscreenController extends GetxController {
       'Nov',
       'Dec',
     ];
-    final month = months[dt.month - 1];
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
-    final minute = dt.minute.toString().padLeft(2, '0');
-    return '${dt.day} $month, $hour:$minute $ampm';
+    final month = months[localDt.month - 1];
+    final hour = localDt.hour > 12
+        ? localDt.hour - 12
+        : (localDt.hour == 0 ? 12 : localDt.hour);
+    final ampm = localDt.hour >= 12 ? 'PM' : 'AM';
+    final minute = localDt.minute.toString().padLeft(2, '0');
+    return '${localDt.day} $month, ${hour.toString().padLeft(2, '0')}:$minute $ampm';
   }
 
   @override
   void onInit() {
     super.onInit();
+    if (!_canFetchData) {
+      developer.log(
+        '[DashboardController] Suppressing onInit data fetch (canFetchData is false)',
+      );
+      return;
+    }
     loadUserData();
     refreshDashboardData();
   }
@@ -679,11 +1291,28 @@ class DashboardscreenController extends GetxController {
   @override
   void onReady() {
     super.onReady();
+    if (!_canFetchData) return;
+    _checkColdStartAppLock();
     _checkAppLockPrompt();
     _checkVkycSuccessPrompt();
   }
 
+  void _checkColdStartAppLock() {
+    if (Get.isRegistered<AppLockService>()) {
+      final lockService = AppLockService.to;
+      if (lockService.canAppLock) {
+        if (!lockService.isLocked.value && lockService.isColdStart) {
+          developer.log(
+            '[Dashboard] Enforcing cold start lock on dashboard entry.',
+          );
+          lockService.lockForColdStart();
+        }
+      }
+    }
+  }
+
   void _checkVkycSuccessPrompt() {
+    if (!_canFetchData) return;
     final box = GetStorage();
     final bool isVkycPending = box.read('pending_vkyc_success_dialog') == true;
     final bool isVkycArg =
@@ -738,34 +1367,12 @@ class DashboardscreenController extends GetxController {
     showVkycSuccessPopup();
   }
 
+  void checkAppLockPrompt() => _checkAppLockPrompt();
+
   void _checkAppLockPrompt() {
     final box = GetStorage();
-    final bool shouldPrompt = box.read('pending_app_lock_prompt') ?? false;
-    final bool isAppLockActive = box.read('app_lock_enabled') ?? false;
-
-    if (shouldPrompt && !isAppLockActive) {
-      // If VKYC success dialog is pending, let VKYC dialog take precedence
-      final bool isVkycPending =
-          box.read('pending_vkyc_success_dialog') == true ||
-          (Get.arguments is Map && Get.arguments['showVkycSuccess'] == true);
-      if (isVkycPending) return;
-
-      // Add a 1.4s delay so login success message and dashboard transition settle cleanly
-      Future.delayed(const Duration(milliseconds: 1400), () {
-        if (!Get.isRegistered<AppLockService>()) return;
-        final stillShouldPrompt = box.read('pending_app_lock_prompt') ?? false;
-        final stillActive = box.read('app_lock_enabled') ?? false;
-        if (!stillShouldPrompt || stillActive) return;
-
-        // Ensure no other dialog is currently open
-        if (Get.isDialogOpen ?? false) return;
-
-        if (Get.context != null) {
-          box.write('pending_app_lock_prompt', false);
-          AppLockService.to.showEnableAppLockDialog(Get.context!);
-        }
-      });
-    }
+    box.write('pending_app_lock_prompt', false);
+    box.write('pending_biometric_app_lock_prompt', false);
   }
 
   @override
@@ -1242,6 +1849,18 @@ class DashboardscreenController extends GetxController {
                       btncolor: Colors.white,
                       textColor: Colors.black,
                       onPressed: () {
+                        if (isCardFrozen) {
+                          showCardFrozenSendMoneyNotice();
+                          return;
+                        }
+                        if (isCardPermanentlyBlocked) {
+                          showPermanentlyBlockedSendMoneyNotice();
+                          return;
+                        }
+                        if (!isFullKycCompleted.value) {
+                          showFullKycRequiredSendMoneyNotice();
+                          return;
+                        }
                         Get.toNamed("/sendmoney");
                       },
                     ),
@@ -1256,12 +1875,13 @@ class DashboardscreenController extends GetxController {
                       btncolor: Colors.white,
                       textColor: Colors.black,
                       onPressed: () {
-                        Get.bottomSheet(
-                          const AddmoneyView(showGeneralWalletOption: false),
-                          isScrollControlled: true,
-                          isDismissible: false,
-                          enableDrag: false,
-                          backgroundColor: Colors.transparent,
+                        if (isCardPermanentlyBlocked) {
+                          showPermanentlyBlockedAddMoneyNotice();
+                          return;
+                        }
+                        Get.to(
+                          () => const AddmoneyView(showGeneralWalletOption: false),
+                          transition: Transition.rightToLeftWithFade,
                         );
                       },
                     ),

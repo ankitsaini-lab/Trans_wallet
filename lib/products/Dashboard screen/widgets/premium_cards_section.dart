@@ -29,6 +29,10 @@ class _PremiumCardsSectionState extends State<PremiumCardsSection> {
       _walletController.showPermanentlyBlockedNotice();
       return;
     }
+    if (cardModel.isBlocked) {
+      _walletController.promptUnfreezeCard(index);
+      return;
+    }
 
     final cardMap = {
       "id": cardModel.id,
@@ -44,6 +48,14 @@ class _PremiumCardsSectionState extends State<PremiumCardsSection> {
       "colors": [cardModel.primaryColor, cardModel.secondaryColor],
       "label": cardModel.type,
       "brand": cardModel.brand,
+      "cardType": cardModel.type.toUpperCase().contains('PHYSICAL')
+          ? 'PHYSICAL'
+          : 'VIRTUAL',
+      "type": cardModel.type.toUpperCase().contains('PHYSICAL')
+          ? 'PHYSICAL'
+          : 'VIRTUAL',
+      "isVirtual": !cardModel.type.toUpperCase().contains('PHYSICAL'),
+      "isPhysical": cardModel.type.toUpperCase().contains('PHYSICAL'),
     };
 
     Get.bottomSheet(

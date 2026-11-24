@@ -6,8 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:transwallet/services/api_service.dart';
-import 'package:transwallet/services/auth_service.dart';
+import 'package:transwallet/products/Dashboard screen/widgets/mpin_verify_sheet.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 /// Error categories for biometric authentication
@@ -57,36 +56,23 @@ class BiometricService extends GetxService {
   final RxBool isHardwareSupported = false.obs;
   final RxBool canCheckBiometrics = false.obs;
   final RxList<BiometricType> availableBiometrics = <BiometricType>[].obs;
-  final RxBool isBiometricEnabled = true.obs;
+  final RxBool isBiometricEnabled = false.obs;
   final RxBool isAuthenticating = false.obs;
   final RxString deviceId = ''.obs;
 
   /// Synchronizes in-memory reactive state with persistent storage
   void syncBiometricState() {
-    final enabled = _storage.read<bool>(_keyBiometricEnabled) ?? false;
-    final quickLogin = _storage.read<bool>(_keyBiometricQuickLogin) ?? false;
-    isBiometricEnabled.value = enabled || quickLogin;
+    isBiometricEnabled.value = false;
+    _storage.write(_keyBiometricEnabled, false);
+    _storage.write(_keyBiometricQuickLogin, false);
+    _storage.write('pending_biometric_app_lock_prompt', false);
   }
 
   /// Checks if biometric setup has been completed and enabled by user
-  bool get isBiometricSetup {
-    final enabled = _storage.read<bool>(_keyBiometricEnabled) ?? false;
-    final quickLogin = _storage.read<bool>(_keyBiometricQuickLogin) ?? false;
-    final isEnabledInStorage = enabled || quickLogin;
-    if (isBiometricEnabled.value != isEnabledInStorage) {
-      isBiometricEnabled.value = isEnabledInStorage;
-    }
-    return isEnabledInStorage;
-  }
+  bool get isBiometricSetup => false;
 
   /// Returns true if biometric quick login is enabled by user
-  bool get isBiometricQuickLoginEnabled {
-    final enabled =
-        _storage.read<bool>(_keyBiometricQuickLogin) ??
-        _storage.read<bool>(_keyBiometricEnabled) ??
-        false;
-    return enabled;
-  }
+  bool get isBiometricQuickLoginEnabled => false;
 
   /// Returns true if user has remembered phone or user identifier
   bool get hasRememberedUser {
@@ -99,18 +85,13 @@ class BiometricService extends GetxService {
   }
 
   /// Returns true if biometric quick login can be performed on launch
-  bool get canQuickLogin =>
-      isBiometricAvailable &&
-      isBiometricSetup &&
-      isBiometricQuickLoginEnabled &&
-      hasRememberedUser;
+  bool get canQuickLogin => false;
 
   /// Checks if hardware exists and at least one biometric is enrolled
-  bool get isBiometricAvailable =>
-      isHardwareSupported.value && canCheckBiometrics.value;
+  bool get isBiometricAvailable => false;
 
   /// Checks if biometrics can be used for login (available + enabled by user)
-  bool get canLoginWithBiometrics => isBiometricAvailable && isBiometricSetup;
+  bool get canLoginWithBiometrics => false;
 
   /// Checks if Face ID / Face recognition is available
   bool get hasFaceId =>
@@ -275,35 +256,45 @@ class BiometricService extends GetxService {
     _storage.write(_keyEnrolledBiometricsHash, currentHash);
   }
 
-  /// Toggle biometric setting with optional native verification before enabling
+  /// User-friendly notifications when biometrics cannot be used
+  void notifyBiometricDisabled() {
+    HapticFeedback.lightImpact();
+    AppSnackbar.info(
+      'Biometric authentication is disabled. Please enable it in Profile Settings.',
+      title: 'Biometrics Disabled',
+    );
+  }
+
+  void notifyBiometricUnavailable() {
+    HapticFeedback.lightImpact();
+    AppSnackbar.info(
+      'Biometric authentication is not supported or enrolled on this device.',
+      title: 'Biometrics Unavailable',
+    );
+  }
+
+  /// Prompts user to confirm their MPIN before changing biometric or security settings
+  Future<bool> promptMpinConfirmation({
+    String title = "Confirm MPIN",
+    String subtitle = "Enter your 4-digit MPIN for confirmation",
+  }) async {
+    return await MpinVerifySheet.show(
+      title: title,
+      subtitle: subtitle,
+    );
+  }
+
+  /// Toggle biometric setting with mandatory MPIN verification before enabling
   Future<bool> setBiometricEnabled(
     bool enabled, {
     bool verifyBeforeEnable = true,
   }) async {
-    if (enabled && verifyBeforeEnable) {
-      if (!isBiometricAvailable) {
-        AppSnackbar.error(
-          'Biometrics is not available or not enrolled on this device',
-        );
-        return false;
-      }
-
-      final result = await authenticate(
-        localizedReason: 'Scan to enable $biometricTypeLabel authentication',
-      );
-      if (!result.success) {
-        if (!result.isCanceled && result.errorMessage != null) {
-          AppSnackbar.error(result.errorMessage!);
-        }
-        return false;
-      }
-    }
-
-    isBiometricEnabled.value = enabled;
-    await _storage.write(_keyBiometricEnabled, enabled);
-    await _storage.write(_keyBiometricQuickLogin, enabled);
-    developer.log('[BiometricService] Biometric enabled set to: $enabled');
-    return true;
+    isBiometricEnabled.value = false;
+    await _storage.write(_keyBiometricEnabled, false);
+    await _storage.write(_keyBiometricQuickLogin, false);
+    await _storage.write('pending_biometric_app_lock_prompt', false);
+    developer.log('[BiometricService] Biometrics permanently disabled.');
+    return false;
   }
 
   /// Prompts user with a Transwallet-themed dialog to enable biometric login after MPIN creation or setup
@@ -311,254 +302,23 @@ class BiometricService extends GetxService {
     BuildContext context, {
     VoidCallback? onComplete,
   }) async {
-    await checkBiometricSupport();
-
-    if (!isBiometricAvailable) {
-      onComplete?.call();
-      return;
-    }
-
-    final String label = biometricTypeLabel;
-    final IconData icon = biometricIcon;
-
-    if (!context.mounted) return;
-
-    const Color primaryRedColor = Color(0xFFED292A);
-    const Color textColor = Color(0xFF111111);
-    const Color secondaryText = Color(0xFF6B7280);
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 12,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: primaryRedColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: primaryRedColor.withValues(alpha: 0.25),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primaryRedColor.withValues(alpha: 0.15),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Icon(icon, size: 36, color: primaryRedColor),
-                ),
-                const SizedBox(height: 20),
-
-                // Title
-                Text(
-                  "Enable $label Login?",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: textColor,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Description
-                Text(
-                  "Use $label for quick, seamless, and secure access to Transwallet without entering your 4-digit MPIN every time.",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    color: secondaryText,
-                    height: 1.45,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Feature Highlights Badge Container
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFECECEC)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.shield_outlined,
-                        color: primaryRedColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          "Bank-grade security with instant biometric unlock",
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Enable Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryRedColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      shadowColor: primaryRedColor.withValues(alpha: 0.3),
-                    ),
-                    icon: Icon(icon, size: 20),
-                    label: Text(
-                      "Enable $label",
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      final success = await setBiometricEnabled(
-                        true,
-                        verifyBeforeEnable: true,
-                      );
-                      if (success) {
-                        AppSnackbar.success("$label enabled successfully");
-                      }
-                      onComplete?.call();
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Skip Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: secondaryText,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      "Skip for Now",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await setBiometricEnabled(
-                        false,
-                        verifyBeforeEnable: false,
-                      );
-                      onComplete?.call();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    await _storage.write('pending_app_lock_prompt', false);
+    await _storage.write('pending_biometric_app_lock_prompt', false);
+    onComplete?.call();
+    return;
   }
 
   /// Authenticates using native BiometricPrompt (Android) / LocalAuthentication (iOS)
   Future<BiometricAuthResult> authenticate({
-    required String localizedReason,
+    String localizedReason = 'Please authenticate to proceed',
     bool biometricOnly = true,
+    bool checkEnabled = true,
   }) async {
-    if (isAuthenticating.value) {
-      developer.log('[BiometricService] Authentication already in progress');
-      return const BiometricAuthResult(
-        success: false,
-        errorMessage: 'Authentication already in progress',
-        errorType: BiometricErrorType.unknown,
-      );
-    }
-
-    try {
-      isAuthenticating.value = true;
-
-      // Re-verify support
-      final supported = await _auth.isDeviceSupported();
-      final canCheck = await _auth.canCheckBiometrics;
-
-      if (!supported || !canCheck) {
-        return const BiometricAuthResult(
-          success: false,
-          errorMessage:
-              'Biometric authentication is not supported or set up on this device.',
-          errorType: BiometricErrorType.notAvailable,
-        );
-      }
-
-      final authenticated = await _auth.authenticate(
-        localizedReason: localizedReason,
-        biometricOnly: biometricOnly,
-      );
-
-      if (authenticated) {
-        developer.log('[BiometricService] Authentication successful');
-        return const BiometricAuthResult(success: true);
-      } else {
-        developer.log('[BiometricService] Authentication canceled or failed');
-        return const BiometricAuthResult(
-          success: false,
-          errorType: BiometricErrorType.canceled,
-        );
-      }
-    } on PlatformException catch (e) {
-      developer.log(
-        '[BiometricService] PlatformException: ${e.code} - ${e.message}',
-      );
-      return _mapPlatformException(e);
-    } catch (e) {
-      developer.log('[BiometricService] Unexpected error: $e');
-      return BiometricAuthResult(
-        success: false,
-        errorMessage: 'An unexpected biometric error occurred: $e',
-        errorType: BiometricErrorType.unknown,
-      );
-    } finally {
-      isAuthenticating.value = false;
-    }
+    return const BiometricAuthResult(
+      success: false,
+      errorMessage: 'Biometric authentication is disabled.',
+      errorType: BiometricErrorType.notAvailable,
+    );
   }
 
   /// Cancels any currently active biometric authentication session
@@ -570,258 +330,12 @@ class BiometricService extends GetxService {
     }
   }
 
-  /// Maps native platform exception codes to user-friendly diagnostics
-  BiometricAuthResult _mapPlatformException(PlatformException e) {
-    final code = e.code.toLowerCase();
-    if (code.contains('notenrolled')) {
-      return const BiometricAuthResult(
-        success: false,
-        errorMessage:
-            'No biometric credentials enrolled. Please register your fingerprint or Face ID in device settings.',
-        errorType: BiometricErrorType.notEnrolled,
-      );
-    } else if (code.contains('passcodenotset')) {
-      return const BiometricAuthResult(
-        success: false,
-        errorMessage:
-            'Device passcode or screen lock is not set. Please set a screen lock first.',
-        errorType: BiometricErrorType.passcodeNotSet,
-      );
-    } else if (code.contains('notavailable')) {
-      return const BiometricAuthResult(
-        success: false,
-        errorMessage: 'Biometric hardware is currently not available.',
-        errorType: BiometricErrorType.notAvailable,
-      );
-    } else if (code.contains('permanentlylockedout')) {
-      return const BiometricAuthResult(
-        success: false,
-        errorMessage:
-            'Biometric authentication locked out permanently. Please unlock with your device PIN or password.',
-        errorType: BiometricErrorType.permanentlyLockedOut,
-      );
-    } else if (code.contains('lockedout')) {
-      return const BiometricAuthResult(
-        success: false,
-        errorMessage:
-            'Biometric authentication temporarily locked due to multiple failed attempts. Try again in 30 seconds.',
-        errorType: BiometricErrorType.lockedOut,
-      );
-    } else if (code.contains('cancel')) {
-      return const BiometricAuthResult(
-        success: false,
-        errorType: BiometricErrorType.canceled,
-      );
-    } else {
-      return BiometricAuthResult(
-        success: false,
-        errorMessage: e.message ?? 'Biometric verification failed',
-        errorType: BiometricErrorType.unknown,
-      );
-    }
-  }
-
   /// High-level method: Performs biometric authentication and logs the user in.
-  /// 1. Prompts user with native biometric scanner (Face ID / Touch ID / Fingerprint).
-  /// 2. Executes API login call if endpoint or stored MPIN credentials are available.
   Future<bool> authenticateAndLogin({
     String? mobileNumber,
     String? apiEndpoint,
     Map<String, dynamic>? customPayload,
   }) async {
-    final phone = mobileNumber ?? _storage.read<String>('phone');
-
-    // 1. Perform native biometric prompt (Face ID / Touch ID / Fingerprint)
-    final result = await authenticate(
-      localizedReason:
-          'Log in with $biometricTypeLabel to access your Transwallet',
-    );
-
-    if (!result.success) {
-      if (!result.isCanceled && result.errorMessage != null) {
-        AppSnackbar.error(result.errorMessage!);
-      }
-      return false;
-    }
-
-    // 2. Custom API endpoint if provided
-    if (apiEndpoint != null && apiEndpoint.isNotEmpty) {
-      try {
-        final payload =
-            customPayload ?? {'phone': phone, 'biometricVerified': true};
-        final response = await ApiService.to.postRequest<Map<String, dynamic>>(
-          apiEndpoint,
-          payload,
-        );
-        if (response.status.isOk && response.body != null) {
-          final body = response.body!;
-          if (body['success'] == true || body['code'] == 'OK') {
-            final data = body['data'];
-            if (data is Map) {
-              final token =
-                  data['accessToken']?.toString() ?? data['token']?.toString();
-              if (token != null) {
-                await AuthService.to.saveSession(
-                  token: token,
-                  refreshToken: data['refreshToken']?.toString(),
-                  tokenType: data['tokenType']?.toString() ?? 'Bearer',
-                  expiresIn: data['expiresIn'],
-                  userId: phone ?? 'user',
-                );
-              }
-            }
-            if (Get.isRegistered<ApiService>()) {
-              ApiService.to.registerDeviceToken();
-            }
-            AppSnackbar.success('Biometric login successful');
-            Get.offAllNamed('/dashboard');
-            return true;
-          }
-        }
-        AppSnackbar.error('Server error. Please try again after some time.');
-        return false;
-      } catch (e) {
-        developer.log('[BiometricService] Custom API error: $e');
-        AppSnackbar.error('Server error. Please try again after some time.');
-        return false;
-      }
-    }
-
-    // 3. Authenticate returning user session using saved MPIN & stored mobile number
-    final rawPhone =
-        mobileNumber ??
-        _storage.read<String>('remembered_phone') ??
-        _storage.read<String>('phone') ??
-        _storage.read<String>('mobileNumber') ??
-        _storage.read<String>('user_id') ??
-        '';
-
-    // Clean phone number to 10 digits for API if needed
-    String cleanPhone = rawPhone
-        .replaceAll('+91', '')
-        .replaceAll(' ', '')
-        .replaceAll('-', '')
-        .trim();
-    if (cleanPhone.length > 10) {
-      cleanPhone = cleanPhone.substring(cleanPhone.length - 10);
-    }
-
-    final savedPhone = cleanPhone.isNotEmpty ? cleanPhone : rawPhone;
-    final savedMpin =
-        _storage.read<String>('saved_mpin') ??
-        _storage.read<String>('remembered_mpin') ??
-        _storage.read<String>('mpin');
-
-    if (savedPhone.isNotEmpty && savedMpin != null && savedMpin.isNotEmpty) {
-      try {
-        developer.log(
-          '[BiometricService] Calling /api/v1/auth/mpin/login with phone: $savedPhone',
-        );
-        final response = await ApiService.to.postRequest<Map<String, dynamic>>(
-          '/api/v1/auth/mpin/login',
-          {"mobileNumber": savedPhone, "mpin": savedMpin},
-        );
-
-        if (response.status.isOk && response.body != null) {
-          final body = response.body!;
-          final bool isSuccess =
-              body['success'] == true || body['code'] == 'OK';
-
-          if (isSuccess) {
-            final data = body['data'];
-            if (data is Map) {
-              final accessToken =
-                  data['accessToken']?.toString() ??
-                  data['token']?.toString() ??
-                  data['authToken']?.toString();
-              final refreshToken = data['refreshToken']?.toString();
-              final tokenType = data['tokenType']?.toString() ?? 'Bearer';
-              final expiresIn = data['expiresIn'];
-
-              // Extract user details
-              final Map userMap = (data['user'] is Map)
-                  ? (data['user'] as Map)
-                  : data;
-              final String extractedName =
-                  userMap['name']?.toString() ??
-                  userMap['fullName']?.toString() ??
-                  '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'
-                      .trim();
-
-              if (extractedName.isNotEmpty) {
-                _storage.write('name', extractedName);
-                _storage.write('remembered_name', extractedName);
-              }
-              if (userMap['email'] != null) {
-                _storage.write('email', userMap['email']);
-              }
-              if (userMap['profilePictureUrl'] != null) {
-                _storage.write(
-                  'profilePictureUrl',
-                  userMap['profilePictureUrl'],
-                );
-              }
-
-              if (accessToken != null && accessToken.isNotEmpty) {
-                _storage.write('accessToken', accessToken);
-                _storage.write('auth_token', accessToken);
-                _storage.write('token', accessToken);
-              }
-              if (refreshToken != null && refreshToken.isNotEmpty) {
-                _storage.write('refreshToken', refreshToken);
-                _storage.write('refresh_token', refreshToken);
-              }
-              if (tokenType.isNotEmpty) _storage.write('tokenType', tokenType);
-              if (expiresIn != null) _storage.write('expiresIn', expiresIn);
-
-              await AuthService.to.saveSession(
-                token: accessToken ?? '',
-                refreshToken: refreshToken,
-                tokenType: tokenType,
-                expiresIn: expiresIn,
-                userId: savedPhone,
-                userData: Map<String, dynamic>.from(userMap),
-              );
-            }
-
-            _storage.write('phone', savedPhone);
-            _storage.write('remembered_phone', savedPhone);
-            _storage.write('saved_mpin', savedMpin);
-            _storage.write('remembered_mpin', savedMpin);
-            _storage.write('is_logged_in', true);
-            if (Get.isRegistered<ApiService>()) {
-              ApiService.to.registerDeviceToken();
-            }
-            AppSnackbar.success('Biometric login successful');
-            Get.offAllNamed('/dashboard');
-            return true;
-          } else {
-            final errorMsg =
-                body['message']?.toString() ??
-                body['error']?.toString() ??
-                "Biometric authentication failed";
-            AppSnackbar.error(errorMsg);
-            return false;
-          }
-        }
-      } catch (e) {
-        developer.log('[BiometricService] MPIN re-auth failed: $e');
-      }
-    }
-
-    // Fallback: If native biometric scan succeeded on trusted device, restore session locally
-    if (savedPhone.isNotEmpty) {
-      _storage.write('phone', savedPhone);
-      _storage.write('remembered_phone', savedPhone);
-      _storage.write('is_logged_in', true);
-      AppSnackbar.success('Biometric login successful');
-      Get.offAllNamed('/dashboard');
-      return true;
-    }
-
-    AppSnackbar.warning(
-      'Please log in once with mobile number/MPIN to enable biometric login.',
-    );
     return false;
   }
 }

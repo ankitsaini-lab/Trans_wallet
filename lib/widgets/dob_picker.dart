@@ -1,14 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-Future<DateTime?> showDobPicker(BuildContext context, {DateTime? initialDate}) {
+Future<DateTime?> showDobPicker(
+  BuildContext context, {
+  DateTime? initialDate,
+  int minAge = 18,
+}) {
   return showModalBottomSheet<DateTime>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black54,
-    builder: (_) => DobPickerSheet(initialDate: initialDate),
+    builder: (_) => DobPickerSheet(initialDate: initialDate, minAge: minAge),
   );
+}
+
+/// Checks if a given [dob] makes the user under [minAge] years old (default: 18).
+bool isUnderAge(DateTime dob, {int minAge = 18}) {
+  final now = DateTime.now();
+  int age = now.year - dob.year;
+  if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
+    age--;
+  }
+  return age < minAge;
+}
+
+/// Returns the latest allowed date of birth to satisfy the [minAge] requirement (default: 18).
+DateTime getMaxAllowedDob({int minAge = 18}) {
+  final now = DateTime.now();
+  final targetYear = now.year - minAge;
+  final maxDays = DateTime(targetYear, now.month + 1, 0).day;
+  final targetDay = now.day > maxDays ? maxDays : now.day;
+  return DateTime(targetYear, now.month, targetDay);
 }
 
 const Color _kPrimaryRed = Color(0xFFE53935);
@@ -47,8 +70,9 @@ const int _kMinYear = 1900;
 
 class DobPickerSheet extends StatefulWidget {
   final DateTime? initialDate;
+  final int minAge;
 
-  const DobPickerSheet({super.key, this.initialDate});
+  const DobPickerSheet({super.key, this.initialDate, this.minAge = 18});
 
   @override
   State<DobPickerSheet> createState() => _DobPickerSheetState();
@@ -56,6 +80,7 @@ class DobPickerSheet extends StatefulWidget {
 
 class _DobPickerSheetState extends State<DobPickerSheet> {
   late final DateTime _today;
+  late final DateTime _maxDate;
   late int _selectedYear;
   late int _selectedMonth;
   late int _selectedDay;
@@ -65,10 +90,11 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
     super.initState();
     final now = DateTime.now();
     _today = DateTime(now.year, now.month, now.day);
+    _maxDate = getMaxAllowedDob(minAge: widget.minAge);
 
     if (widget.initialDate != null) {
       final initial = widget.initialDate!;
-      if (!initial.isAfter(_today) && initial.year >= _kMinYear) {
+      if (!initial.isAfter(_maxDate) && initial.year >= _kMinYear) {
         _selectedYear = initial.year;
         _selectedMonth = initial.month;
         _selectedDay = initial.day;
@@ -83,10 +109,9 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
   }
 
   void _setDefaultDate() {
-    final defaultYear = (_today.year - 18).clamp(_kMinYear, _today.year);
-    _selectedYear = defaultYear;
-    _selectedMonth = 1;
-    _selectedDay = 1;
+    _selectedYear = _maxDate.year;
+    _selectedMonth = _maxDate.month;
+    _selectedDay = _maxDate.day;
   }
 
   void _clampDaySafely() {
@@ -98,9 +123,9 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
       _selectedDay = 1;
     }
 
-    if (_selectedYear == _today.year && _selectedMonth == _today.month) {
-      if (_selectedDay > _today.day) {
-        _selectedDay = _today.day;
+    if (_selectedYear == _maxDate.year && _selectedMonth == _maxDate.month) {
+      if (_selectedDay > _maxDate.day) {
+        _selectedDay = _maxDate.day;
       }
     }
   }
@@ -111,8 +136,11 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
   }
 
   bool get _canGoNextMonth {
-    if (_selectedYear < _today.year) return true;
-    return _selectedMonth < _today.month;
+    if (_selectedYear < _maxDate.year) return true;
+    if (_selectedYear == _maxDate.year) {
+      return _selectedMonth < _maxDate.month;
+    }
+    return false;
   }
 
   void _previousMonth() {
@@ -152,8 +180,8 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
       builder: (_) => _MonthSelectionSheet(
         selectedYear: _selectedYear,
         selectedMonth: _selectedMonth,
-        maxYear: _today.year,
-        maxMonth: _today.month,
+        maxYear: _maxDate.year,
+        maxMonth: _maxDate.month,
       ),
     );
 
@@ -174,7 +202,7 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
       builder: (_) => _YearSelectionSheet(
         selectedYear: _selectedYear,
         minYear: _kMinYear,
-        maxYear: _today.year,
+        maxYear: _maxDate.year,
       ),
     );
 
@@ -182,8 +210,8 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
       setState(() {
         _selectedYear = pickedYear;
 
-        if (_selectedYear == _today.year && _selectedMonth > _today.month) {
-          _selectedMonth = _today.month;
+        if (_selectedYear == _maxDate.year && _selectedMonth > _maxDate.month) {
+          _selectedMonth = _maxDate.month;
         }
         _clampDaySafely();
       });
@@ -191,8 +219,11 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
   }
 
   void _onConfirm() {
-    HapticFeedback.mediumImpact();
     final result = DateTime(_selectedYear, _selectedMonth, _selectedDay);
+    if (result.isAfter(_maxDate)) {
+      return;
+    }
+    HapticFeedback.mediumImpact();
     Navigator.of(context).pop(result);
   }
 
@@ -238,18 +269,22 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          "Date of Birth",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: _kTextDark,
-                            letterSpacing: -0.3,
-                          ),
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              "Date of Birth",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: _kTextDark,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 3),
-                        Text(
+                        const SizedBox(height: 3),
+                        const Text(
                           "Select your date of birth",
                           style: TextStyle(
                             fontSize: 13,
@@ -359,6 +394,7 @@ class _DobPickerSheetState extends State<DobPickerSheet> {
                         month: _selectedMonth,
                         selectedDay: _selectedDay,
                         today: _today,
+                        maxDate: _maxDate,
                         onDaySelected: (day) {
                           HapticFeedback.selectionClick();
                           setState(() {
@@ -474,6 +510,7 @@ class _CalendarDayGrid extends StatelessWidget {
   final int month;
   final int selectedDay;
   final DateTime today;
+  final DateTime maxDate;
   final ValueChanged<int> onDaySelected;
 
   const _CalendarDayGrid({
@@ -481,6 +518,7 @@ class _CalendarDayGrid extends StatelessWidget {
     required this.month,
     required this.selectedDay,
     required this.today,
+    required this.maxDate,
     required this.onDaySelected,
   });
 
@@ -531,16 +569,16 @@ class _CalendarDayGrid extends StatelessWidget {
             final isSelected = day == selectedDay;
 
             final bool isFuture =
-                (year == today.year &&
-                    month == today.month &&
-                    day > today.day) ||
-                (year == today.year && month > today.month) ||
-                (year > today.year);
+                (year == maxDate.year &&
+                    month == maxDate.month &&
+                    day > maxDate.day) ||
+                (year == maxDate.year && month > maxDate.month) ||
+                (year > maxDate.year);
 
-            final bool isToday =
-                (year == today.year &&
-                month == today.month &&
-                day == today.day);
+            final bool isMaxDate =
+                (year == maxDate.year &&
+                month == maxDate.month &&
+                day == maxDate.day);
 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -550,11 +588,11 @@ class _CalendarDayGrid extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? _kPrimaryRed
-                      : isToday
+                      : isMaxDate
                       ? const Color(0xFFFEE2E2)
                       : Colors.transparent,
                   shape: BoxShape.circle,
-                  border: isToday && !isSelected
+                  border: isMaxDate && !isSelected
                       ? Border.all(color: _kPrimaryRed, width: 1.2)
                       : null,
                   boxShadow: isSelected
@@ -579,7 +617,7 @@ class _CalendarDayGrid extends StatelessWidget {
                           ? Colors.white
                           : isFuture
                           ? _kTextDisabled
-                          : isToday
+                          : isMaxDate
                           ? _kPrimaryRed
                           : _kTextDark,
                     ),

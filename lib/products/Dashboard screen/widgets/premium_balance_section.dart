@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/utilities/getStorage.dart';
-import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/products/Dashboard%20screen/widgets/mpin_verify_sheet.dart';
 
@@ -60,24 +59,11 @@ class _PremiumBalanceSectionState extends State<PremiumBalanceSection> {
   }
 
   Future<void> _showMpinSheet() async {
-    if (Get.isRegistered<BiometricService>()) {
-      final bioService = BiometricService.to;
-      if (bioService.isBiometricAvailable && bioService.isBiometricEnabled.value) {
-        final result = await bioService.authenticate(
-          localizedReason: "Authenticate to view total balance",
-        );
-        if (result.success && mounted) {
-          _reveal();
-          return;
-        }
-      }
-    }
-
     Get.bottomSheet(
       MpinVerifySheet(
         onSuccess: _reveal,
         title: "Enter MPIN to View Balance",
-        subtitle: "For your security, enter your 4-digit mobile PIN or use biometrics",
+        subtitle: "For your security, enter your 4-digit MPIN",
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

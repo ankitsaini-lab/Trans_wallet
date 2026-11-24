@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:transwallet/services/api_service.dart';
-import 'package:transwallet/services/auth_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
@@ -19,17 +19,25 @@ class QuickBiometricLoginController extends GetxController {
   final RxString userPhone = ''.obs;
   final RxString userName = ''.obs;
 
+  bool get isBiometricEnabled {
+    if (Get.isRegistered<BiometricService>()) {
+      return BiometricService.to.isBiometricEnabled.value;
+    }
+    return false;
+  }
+
+  bool get isBiometricAvailable {
+    if (Get.isRegistered<BiometricService>()) {
+      return BiometricService.to.isBiometricAvailable;
+    }
+    return false;
+  }
+
   @override
   void onInit() {
     super.onInit();
     _loadUserInfo();
-  }
-
-  @override
-  void onReady() {
-    super.onReady();
-    // Auto-trigger biometric authentication on screen load
-    triggerBiometricLogin();
+    showMpinKeypad.value = true;
   }
 
   void _loadUserInfo() {
@@ -77,6 +85,26 @@ class QuickBiometricLoginController extends GetxController {
     }
 
     final biometricService = BiometricService.to;
+    if (!biometricService.isBiometricAvailable) {
+      HapticFeedback.lightImpact();
+      AppSnackbar.info(
+        "Biometric authentication is not supported or enrolled on this device.",
+        title: "Biometrics Unavailable",
+      );
+      switchToMpin();
+      return;
+    }
+
+    if (!biometricService.isBiometricEnabled.value) {
+      HapticFeedback.lightImpact();
+      AppSnackbar.info(
+        "Biometric authentication is disabled. Please enable it in Profile Settings.",
+        title: "Biometrics Disabled",
+      );
+      switchToMpin();
+      return;
+    }
+
     if (!biometricService.canQuickLogin) {
       switchToMpin();
       return;
@@ -106,6 +134,22 @@ class QuickBiometricLoginController extends GetxController {
   }
 
   void switchToBiometrics() {
+    if (!isBiometricAvailable) {
+      HapticFeedback.lightImpact();
+      AppSnackbar.info(
+        "Biometric authentication is not supported or enrolled on this device.",
+        title: "Biometrics Unavailable",
+      );
+      return;
+    }
+    if (!isBiometricEnabled) {
+      HapticFeedback.lightImpact();
+      AppSnackbar.info(
+        "Biometric authentication is disabled. Please enable it in Profile Settings.",
+        title: "Biometrics Disabled",
+      );
+      return;
+    }
     showMpinKeypad.value = false;
     _resetPin();
     triggerBiometricLogin();
@@ -119,9 +163,14 @@ class QuickBiometricLoginController extends GetxController {
 
   void onKeyTap(String digit) {
     if (isVerifyingMpin.value) return;
+
+    if (pinError.value.isNotEmpty) {
+      pinError.value = '';
+      enteredPin.value = '';
+    }
+
     if (enteredPin.value.length >= 4) return;
 
-    pinError.value = '';
     HapticFeedback.lightImpact();
     enteredPin.value += digit;
 
@@ -131,15 +180,26 @@ class QuickBiometricLoginController extends GetxController {
   }
 
   void onDeleteKey() {
-    if (isVerifyingMpin.value) return;
+    if (isVerifyingMpin.value) {
+      isVerifyingMpin.value = false;
+    }
+    HapticFeedback.lightImpact();
+    pinError.value = '';
     if (enteredPin.value.isNotEmpty) {
-      HapticFeedback.lightImpact();
-      pinError.value = '';
       enteredPin.value = enteredPin.value.substring(
         0,
         enteredPin.value.length - 1,
       );
     }
+  }
+
+  void clearPin() {
+    if (isVerifyingMpin.value) {
+      isVerifyingMpin.value = false;
+    }
+    HapticFeedback.mediumImpact();
+    pinError.value = '';
+    enteredPin.value = '';
   }
 
   Future<void> verifyMpin(String pinToVerify) async {
@@ -151,14 +211,16 @@ class QuickBiometricLoginController extends GetxController {
           mobileNumber: userPhone.value,
         );
         if (res.isSuccess) {
+          if (Get.isRegistered<AppLockService>()) {
+            AppLockService.to.clearMpinLockout();
+          }
           await _onMpinLoginSuccess();
           return;
         } else {
           HapticFeedback.heavyImpact();
-          pinError.value = res.message.isNotEmpty
-              ? res.message
-              : 'Incorrect MPIN. Please try again.';
-          enteredPin.value = '';
+          final msg = res.message;
+          pinError.value = msg;
+          enteredPin.value = pinToVerify;
           return;
         }
       }
@@ -167,17 +229,20 @@ class QuickBiometricLoginController extends GetxController {
       final savedMpin = _storage.read<String>('saved_mpin') ??
           _storage.read('mpin')?.toString();
       if (savedMpin != null && savedMpin == pinToVerify) {
+        if (Get.isRegistered<AppLockService>()) {
+          AppLockService.to.clearMpinLockout();
+        }
         await _onMpinLoginSuccess();
         return;
       }
 
       HapticFeedback.heavyImpact();
       pinError.value = 'Incorrect MPIN. Please try again.';
-      enteredPin.value = '';
+      enteredPin.value = pinToVerify;
     } catch (e) {
       developer.log('[QuickBiometricLoginController] MPIN error: $e');
       pinError.value = 'MPIN verification failed.';
-      enteredPin.value = '';
+      enteredPin.value = pinToVerify;
     } finally {
       isVerifyingMpin.value = false;
     }
@@ -186,7 +251,17 @@ class QuickBiometricLoginController extends GetxController {
   Future<void> _onMpinLoginSuccess() async {
     HapticFeedback.mediumImpact();
     _storage.write('is_logged_in', true);
-    _storage.write('pending_app_lock_prompt', true);
+    final bool wasAppLockActive =
+        (_storage.read<bool>('app_lock_enabled') == true) &&
+        (_storage.read<bool>('app_lock_disabled') != true);
+    _storage.write('app_lock_enabled', wasAppLockActive);
+    if (!wasAppLockActive) {
+      _storage.write('app_lock_disabled', true);
+    }
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.setAppLockEnabled(wasAppLockActive);
+      AppLockService.to.clearColdStart();
+    }
     if (Get.isRegistered<ApiService>()) {
       ApiService.to.registerDeviceToken();
     }

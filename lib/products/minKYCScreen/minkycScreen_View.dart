@@ -11,7 +11,9 @@ class MinkycscreenView extends GetView<MinkycscreenController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.lazyPut(() => MinkycscreenController());
+    if (!Get.isRegistered<MinkycscreenController>()) {
+      Get.put(MinkycscreenController());
+    }
 
     return Scaffold(
       backgroundColor: lightprimaryred, // Dark background
@@ -82,15 +84,17 @@ class MinkycscreenView extends GetView<MinkycscreenController> {
                 decoration: const BoxDecoration(color: Colors.white),
                 child: SafeArea(
                   top: false,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.responsive(24),
-                      vertical: context.responsive(24),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.responsive(24),
+                        vertical: context.responsive(24),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                         // "Verify your identity" centered
                         Center(
                           child: Text(
@@ -247,8 +251,10 @@ class MinkycscreenView extends GetView<MinkycscreenController> {
                             ),
                           ),
                         ),
-                        height10,
-                        // const SizedBox(height: 10),
+                        SizedBox(
+                          height: context.responsive(14) +
+                              (MediaQuery.of(context).padding.bottom > 0 ? 0 : 8),
+                        ),
                       ],
                     ),
                   ),
@@ -256,6 +262,7 @@ class MinkycscreenView extends GetView<MinkycscreenController> {
               ),
             ),
           ),
+        ),
         ],
       ),
     );

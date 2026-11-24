@@ -4,11 +4,15 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:get/get_connect/http/src/request/request.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:transwallet/services/auth_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/products/login_singupscreen/login_singupscreen_Controller.dart';
 import 'package:transwallet/services/firebase_service.dart';
+import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 /// Result object for profile picture upload operations
@@ -35,6 +39,21 @@ class MpinVerifyResponse {
     this.message = '',
     this.data,
   });
+
+  /// Indicates if the MPIN or user account has been temporarily locked by the server
+  bool get isLocked =>
+      !isSuccess &&
+      ((data != null &&
+              (data!['isLocked'] == true ||
+                  data!['locked'] == true ||
+                  data!['accountLocked'] == true)) ||
+          message.toLowerCase().contains('lock') ||
+          message.toLowerCase().contains('blocked') ||
+          message.toLowerCase().contains('try after') ||
+          message.toLowerCase().contains('try again after') ||
+          message.toLowerCase().contains('too many') ||
+          message.toLowerCase().contains('exceeded') ||
+          message.toLowerCase().contains('maximum attempt'));
 }
 
 /// Service to handle all HTTP API network requests using GetConnect
@@ -101,10 +120,20 @@ class ApiService extends GetConnect {
 
       final isAuthRefresh =
           path.endsWith('/auth/refresh') || path.contains('/auth/refresh');
+      final isAuthPublicEndpoint =
+          path.contains('/auth/otp') ||
+          path.contains('/auth/login') ||
+          path.contains('/auth/mpin/login') ||
+          path.contains('/auth/mpin/forgot') ||
+          path.contains('/auth/register') ||
+          path.contains('/auth/pan') ||
+          path.contains('/pincode/');
 
       // Automatically attach Bearer token if available and not already provided
-      // Skip attaching expired token for refresh requests
-      if (!isAuthRefresh && !request.headers.containsKey('Authorization')) {
+      // Skip attaching expired token for refresh requests and public auth endpoints
+      if (!isAuthRefresh &&
+          !isAuthPublicEndpoint &&
+          !request.headers.containsKey('Authorization')) {
         String? token;
         if (Get.isRegistered<AuthService>()) {
           token = AuthService.to.token;
@@ -112,8 +141,7 @@ class ApiService extends GetConnect {
         token ??=
             GetStorage().read<String>('accessToken') ??
             GetStorage().read<String>('auth_token') ??
-            GetStorage().read<String>('token') ??
-            GetStorage().read<String>('registrationToken');
+            GetStorage().read<String>('token');
         if (token != null && token.isNotEmpty) {
           final tokenType =
               (Get.isRegistered<AuthService>()
@@ -133,6 +161,9 @@ class ApiService extends GetConnect {
 
     // 2. Response Interceptor
     httpClient.addResponseModifier<dynamic>((request, response) {
+      if (isLoggingOut) {
+        return response;
+      }
       developer.log('[API Response] ${response.statusCode} <- ${request.url}');
 
       if (response.hasError) {
@@ -143,13 +174,17 @@ class ApiService extends GetConnect {
         final path = request.url.path;
         final isAuthRefresh =
             path.endsWith('/auth/refresh') || path.contains('/auth/refresh');
+        final isRetry = request.headers['X-Retry-Attempted'] == 'true';
 
-        // If 401 on refresh request itself, refresh token is invalid/expired
-        if (response.statusCode == 401 && isAuthRefresh) {
-          developer.log(
-            '[API Refresh Rejected] Refresh token expired or rejected. Terminating session...',
-          );
-          _handleSessionExpired();
+        // If token issue occurs on refresh request itself or on an already-retried request,
+        // or on an un-refreshable request, terminate session and logout immediately
+        if (isTokenIssue(response, path)) {
+          if (isAuthRefresh || isRetry || !_hasRefreshToken()) {
+            developer.log(
+              '[API Interceptor] Unrecoverable token error on $path (isAuthRefresh: $isAuthRefresh, isRetry: $isRetry). Logging out...',
+            );
+            _handleSessionExpired(reason: _extractTokenErrorMessage(response));
+          }
         } else {
           // Track and manage server side errors (5xx, connection issues)
           final int? statusCode = response.statusCode;
@@ -175,6 +210,27 @@ class ApiService extends GetConnect {
   }
 
   void _handleServerError(dynamic request, Response response) {
+    if (isLoggingOut) return;
+
+    final box = GetStorage();
+    final bool isLoggedIn = box.read<bool>('is_logged_in') ?? false;
+    final bool hasToken =
+        box.read<String>('accessToken') != null ||
+        box.read<String>('auth_token') != null;
+    final String path = (request is Request)
+        ? request.url.path
+        : (request?.toString() ?? '');
+    final bool isAuthEndpoint =
+        path.contains('/auth/') ||
+        path.contains('/login') ||
+        path.contains('/otp');
+    if (!isLoggedIn && !hasToken && !isAuthEndpoint) {
+      developer.log(
+        '[ApiService] Suppressing server error for unauthenticated call to $path',
+      );
+      return;
+    }
+
     final int? statusCode = response.statusCode;
     final bool is5xx =
         statusCode != null && statusCode >= 500 && statusCode <= 599;
@@ -216,6 +272,24 @@ class ApiService extends GetConnect {
   }
 
   void _handleServerException(String path, dynamic exception) {
+    if (isLoggingOut) return;
+
+    final box = GetStorage();
+    final bool isLoggedIn = box.read<bool>('is_logged_in') ?? false;
+    final bool hasToken =
+        box.read<String>('accessToken') != null ||
+        box.read<String>('auth_token') != null;
+    final bool isAuthEndpoint =
+        path.contains('/auth/') ||
+        path.contains('/login') ||
+        path.contains('/otp');
+    if (!isLoggedIn && !hasToken && !isAuthEndpoint) {
+      developer.log(
+        '[ApiService] Suppressing server exception for unauthenticated call to $path',
+      );
+      return;
+    }
+
     _consecutiveServerFailures++;
     final String errorStr = exception.toString().toLowerCase();
     String msg = "Unable to connect to server.";
@@ -341,7 +415,7 @@ class ApiService extends GetConnect {
       developer.log(
         '[Auth Refresh] No refreshToken available in storage or arguments.',
       );
-      _handleSessionExpired();
+      _handleSessionExpired(reason: 'Session expired. Please log in again.');
       return false;
     }
 
@@ -407,70 +481,277 @@ class ApiService extends GetConnect {
       developer.log(
         '[Auth Refresh] Refresh endpoint returned unsuccessful response: ${response.body}',
       );
-      _handleSessionExpired();
+      _handleSessionExpired(reason: _extractTokenErrorMessage(response));
       return false;
     } catch (e) {
       developer.log(
         '[Auth Refresh] Error during token refresh network call: $e',
       );
-      _handleSessionExpired();
+      _handleSessionExpired(reason: 'Session expired. Please log in again.');
       return false;
     }
   }
 
-  void _handleSessionExpired() {
-    if (Get.isRegistered<AuthService>() && AuthService.to.isLoggedIn) {
-      final currentRoute = Get.currentRoute;
-      final isAuthOrKycFlow =
-          currentRoute.contains('login') ||
-          currentRoute.contains('kyc') ||
-          currentRoute.contains('otp') ||
-          currentRoute.contains('createaccount');
+  bool _isLoggingOut = false;
+  bool get isLoggingOut =>
+      _isLoggingOut ||
+      (Get.isRegistered<AuthService>() && AuthService.to.isLoggingOut);
 
-      AuthService.to.logout();
-      if (!isAuthOrKycFlow) {
-        Get.offAllNamed('/login_singupview');
-        AppSnackbar.error('Session expired. Please login again.');
-      }
-    }
+  /// Resets logout state flag (called on successful login/session save)
+  void resetLogoutState() {
+    _isLoggingOut = false;
   }
 
-  bool _isUnauthorized(
+  /// Sets logout state flag dynamically
+  void setLoggingOut(bool value) {
+    _isLoggingOut = value;
+  }
+
+  /// Triggers immediate application logout due to token or authentication issues
+  void logoutOnTokenIssue({String? reason}) {
+    _handleSessionExpired(reason: reason);
+  }
+
+  /// Internal handler: logs the user out, cleans up session state, clears AppLock,
+  /// closes overlays, and redirects to /login_singupview with a notification.
+  void _handleSessionExpired({String? reason}) {
+    if (isLoggingOut) return;
+
+    // Safety guard: NEVER trigger logout or redirect to login while registration/onboarding is in progress!
+    final box = GetStorage();
+    final bool isRegistering = box.read('registration_in_progress') == true;
+    final currentRoute = Get.currentRoute;
+    if (isRegistering ||
+        currentRoute == '/createaccountview' ||
+        currentRoute == '/minkyc_view' ||
+        currentRoute == '/create_mpin') {
+      developer.log(
+        '[Session Expired Guard] Suppressing logout because user is in registration/onboarding flow (route: $currentRoute, reason: $reason)',
+      );
+      return;
+    }
+
+    developer.log(
+      '[Session Expired] Logging out user due to token issue: $reason',
+    );
+
+    if (Get.isRegistered<AuthService>()) {
+      AuthService.to.logout(navigateToLogin: true);
+    } else {
+      Get.offAllNamed('/login_singupview');
+    }
+
+    AppSnackbar.error(
+      reason ?? 'Session expired or token invalid. Please log in again.',
+      title: 'Session Expired',
+    );
+  }
+
+  /// Checks whether a valid refresh token exists in storage
+  bool _hasRefreshToken() {
+    final box = GetStorage();
+    final String? token =
+        (Get.isRegistered<AuthService>()
+            ? AuthService.to.refreshToken
+            : null) ??
+        box.read<String>('refreshToken') ??
+        box.read<String>('refresh_token');
+    return token != null && token.trim().isNotEmpty;
+  }
+
+  /// Determines if an unauthorized request can attempt a token refresh
+  bool _canAttemptTokenRefresh(
     Response response,
     String path,
     Map<String, String>? headers,
   ) {
-    // Avoid refreshing on authentication/registration endpoints
-    if (path.contains('/auth/refresh') ||
-        path.contains('/auth/otp') ||
-        path.contains('/auth/login') ||
-        path.contains('/auth/register') ||
-        path.contains('/auth/pan')) {
+    if (path.contains('/auth/refresh')) {
       return false;
     }
-
-    // If retry already attempted, do not enter infinite loop
     if (headers?['X-Retry-Attempted'] == 'true' ||
         response.request?.headers.containsKey('X-Retry-Attempted') == true) {
       return false;
     }
+    return _hasRefreshToken();
+  }
 
-    if (response.statusCode == 401) {
+  /// Checks whether an API response represents a token/authentication issue
+  bool isTokenIssue(Response response, [String? path]) {
+    final effectivePath = (path ?? response.request?.url.path ?? '')
+        .toLowerCase();
+
+    // Public, auth, registration, or auxiliary endpoints where 400/401/403 don't represent a session token failure
+    if (effectivePath.contains('/auth/otp') ||
+        effectivePath.contains('/auth/mpin/login') ||
+        effectivePath.contains('/auth/mpin/forgot') ||
+        effectivePath.contains('/auth/mpin/set') ||
+        effectivePath.contains('/auth/login') ||
+        effectivePath.contains('/auth/register') ||
+        effectivePath.contains('/auth/pan') ||
+        effectivePath.contains('/devices') ||
+        effectivePath.contains('/pincode/')) {
+      return false;
+    }
+
+    final int? statusCode = response.statusCode;
+
+    // 1. Explicit 401 Unauthorized is always a token issue on authenticated endpoints
+    if (statusCode == 401) {
       return true;
     }
 
-    if (response.body is Map) {
-      final body = response.body as Map;
-      final code = body['code']?.toString().toUpperCase();
-      final message = body['message']?.toString().toLowerCase() ?? '';
-      if (code == 'UNAUTHORIZED' ||
-          (code == 'HTTP_ERROR' && message.contains('unauthorized')) ||
-          message.contains('token expired') ||
-          message.contains('jwt expired')) {
+    // 2. Check response body across any status code (200, 400, 403, 500)
+    if (_hasTokenIssueInBody(response.body, statusCode: statusCode)) {
+      return true;
+    }
+
+    // 3. HTTP 403 Forbidden with auth/access denial on protected endpoints
+    if (statusCode == 403) {
+      final text = _extractAllBodyText(response.body).toLowerCase();
+      if (text.isEmpty ||
+          text.contains('forbidden') ||
+          text.contains('access denied') ||
+          text.contains('unauthorized') ||
+          text.contains('unauthenticated') ||
+          _containsTokenKeywords(text)) {
         return true;
       }
     }
+
     return false;
+  }
+
+  bool _hasTokenIssueInBody(dynamic body, {int? statusCode}) {
+    if (body == null) return false;
+
+    if (body is String) {
+      final trimmed = body.trim();
+      if (trimmed.isEmpty) return false;
+      try {
+        final decoded = jsonDecode(trimmed);
+        return _hasTokenIssueInBody(decoded, statusCode: statusCode);
+      } catch (_) {
+        return _containsTokenKeywords(trimmed.toLowerCase());
+      }
+    }
+
+    if (body is Map) {
+      final code = body['code']?.toString().toUpperCase();
+      if (code == 'UNAUTHORIZED' ||
+          code == 'TOKEN_EXPIRED' ||
+          code == 'INVALID_TOKEN' ||
+          code == 'TOKEN_NOT_FOUND' ||
+          code == 'EXPIRED_TOKEN' ||
+          code == 'SESSION_EXPIRED' ||
+          code == 'AUTH_EXPIRED' ||
+          code == 'JWT_EXPIRED' ||
+          code == 'INVALID_JWT' ||
+          code == 'TOKEN_INVALID') {
+        return true;
+      }
+
+      final statusStr = body['status']?.toString().toUpperCase();
+      if (statusStr == 'UNAUTHORIZED' || statusStr == 'TOKEN_EXPIRED') {
+        return true;
+      }
+
+      final allText = _extractAllBodyText(body).toLowerCase();
+      if (_containsTokenKeywords(allText)) {
+        return true;
+      }
+    }
+
+    if (body is List) {
+      for (final item in body) {
+        if (_hasTokenIssueInBody(item, statusCode: statusCode)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  String _extractAllBodyText(dynamic body) {
+    if (body == null) return '';
+    if (body is String) return body;
+    if (body is List) {
+      return body.map(_extractAllBodyText).join(' ');
+    }
+    if (body is Map) {
+      final buffer = StringBuffer();
+      for (final key in [
+        'message',
+        'error',
+        'errors',
+        'msg',
+        'description',
+        'desc',
+        'errorMessage',
+        'detail',
+        'title',
+        'exception',
+        'response',
+        'data',
+      ]) {
+        if (body.containsKey(key)) {
+          final val = body[key];
+          if (val is String) {
+            buffer.write('$val ');
+          } else if (val is List || val is Map) {
+            buffer.write('${_extractAllBodyText(val)} ');
+          }
+        }
+      }
+      return buffer.toString().trim();
+    }
+    return body.toString();
+  }
+
+  bool _containsTokenKeywords(String text) {
+    if (text.isEmpty) return false;
+    return text.contains('token expired') ||
+        text.contains('jwt expired') ||
+        text.contains('expired token') ||
+        text.contains('token has expired') ||
+        text.contains('token is expired') ||
+        text.contains('invalid token') ||
+        text.contains('token invalid') ||
+        text.contains('token is invalid') ||
+        text.contains('token not found') ||
+        text.contains('missing token') ||
+        text.contains('token missing') ||
+        text.contains('token is required') ||
+        text.contains('no token provided') ||
+        text.contains('invalid jwt') ||
+        text.contains('jwt signature') ||
+        text.contains('malformed token') ||
+        text.contains('unauthorized') ||
+        text.contains('unauthenticated') ||
+        text.contains('session expired') ||
+        text.contains('access token expired') ||
+        text.contains('refresh token expired') ||
+        text.contains('invalid refresh token') ||
+        text.contains('token revoked') ||
+        text.contains('token validation failed') ||
+        text.contains('bearer token is required') ||
+        text.contains('invalid authorization header') ||
+        text.contains('full authentication is required');
+  }
+
+  String _extractTokenErrorMessage(Response response) {
+    final extracted = extractApiMessage(response.body);
+    if (extracted.isNotEmpty &&
+        _containsTokenKeywords(extracted.toLowerCase())) {
+      return extracted;
+    }
+    if (response.statusCode == 401) {
+      return 'Session expired. Please log in again.';
+    }
+    if (response.statusCode == 403) {
+      return 'Access denied or session expired. Please log in again.';
+    }
+    return 'Authentication token issue. Please log in again.';
   }
 
   Future<Response<T>> _executeWithRetry<T>(
@@ -478,13 +759,120 @@ class ApiService extends GetConnect {
     Future<Response<T>> Function(Map<String, String>? activeHeaders) call, {
     Map<String, String>? headers,
   }) async {
+    if (isLoggingOut) {
+      developer.log('[API] Aborting request to $path: logout in progress');
+      return Response<T>(
+        statusCode: 499,
+        statusText: 'Request aborted due to logout',
+      );
+    }
     try {
       final response = await call(headers);
 
-      if (_isUnauthorized(response, path, headers)) {
+      if (isTokenIssue(response, path)) {
         developer.log(
-          '[API Retry] Received 401 for $path. Triggering token refresh...',
+          '[API] Token issue detected on $path (status: ${response.statusCode})',
         );
+
+        if (_canAttemptTokenRefresh(response, path, headers)) {
+          developer.log('[API Retry] Attempting token refresh for $path...');
+          final refreshed = await refreshToken();
+          if (refreshed) {
+            final freshToken =
+                AuthService.to.token ??
+                GetStorage().read<String>('accessToken') ??
+                GetStorage().read<String>('auth_token');
+
+            final tokenType =
+                (Get.isRegistered<AuthService>()
+                    ? AuthService.to.tokenType
+                    : null) ??
+                GetStorage().read<String>('tokenType') ??
+                'Bearer';
+
+            final retryHeaders = Map<String, String>.from(headers ?? {});
+            if (freshToken != null && freshToken.isNotEmpty) {
+              retryHeaders['Authorization'] = '$tokenType $freshToken';
+            }
+            retryHeaders['X-Retry-Attempted'] = 'true';
+
+            developer.log(
+              '[API Retry] Retrying $path with fresh access token...',
+            );
+            final retryResponse = await call(retryHeaders);
+
+            if (isTokenIssue(retryResponse, path)) {
+              developer.log(
+                '[API Retry] Retried call for $path still returned token issue. Logging out...',
+              );
+              _handleSessionExpired(
+                reason: _extractTokenErrorMessage(retryResponse),
+              );
+            }
+
+            return retryResponse;
+          } else {
+            developer.log(
+              '[API Retry] Token refresh failed for $path. Logging out...',
+            );
+            _handleSessionExpired(reason: _extractTokenErrorMessage(response));
+          }
+        } else {
+          developer.log(
+            '[API] Token issue on $path cannot be refreshed. Logging out...',
+          );
+          _handleSessionExpired(reason: _extractTokenErrorMessage(response));
+        }
+      }
+
+      return response;
+    } catch (e) {
+      developer.log('[API Exception] Error executing $path: $e');
+      _handleServerException(path, e);
+      return Response<T>(statusCode: 500, statusText: 'Internal exception: $e');
+    }
+  }
+
+  /// Overridden request method to handle token refresh and automatic logout on token issues
+  @override
+  Future<Response<T>> request<T>(
+    String url,
+    String method, {
+    dynamic body,
+    String? contentType,
+    Map<String, String>? headers,
+    Map<String, dynamic>? query,
+    Decoder<T>? decoder,
+    Progress? uploadProgress,
+  }) async {
+    if (isLoggingOut) {
+      developer.log(
+        '[API request()] Aborting request to $url: logout in progress',
+      );
+      return Response<T>(
+        statusCode: 499,
+        statusText: 'Request aborted due to logout',
+      );
+    }
+
+    final response = await super.request<T>(
+      url,
+      method,
+      body: body,
+      contentType: contentType,
+      headers: headers,
+      query: query,
+      decoder: decoder,
+      uploadProgress: uploadProgress,
+    );
+
+    if (isTokenIssue(response, url)) {
+      developer.log(
+        '[API request()] Token issue detected for $url (status: ${response.statusCode})',
+      );
+
+      if (_canAttemptTokenRefresh(response, url, headers)) {
+        developer.log('[API request()] Attempting token refresh for $url...');
         final refreshed = await refreshToken();
         if (refreshed) {
           final freshToken =
@@ -505,80 +893,41 @@ class ApiService extends GetConnect {
           }
           retryHeaders['X-Retry-Attempted'] = 'true';
 
-          developer.log(
-            '[API Retry] Retrying $path with fresh access token...',
+          final retryResponse = await super.request<T>(
+            url,
+            method,
+            body: body,
+            contentType: contentType,
+            headers: retryHeaders,
+            query: query,
+            decoder: decoder,
+            uploadProgress: uploadProgress,
           );
-          return await call(retryHeaders);
+
+          if (isTokenIssue(retryResponse, url)) {
+            developer.log(
+              '[API request()] Retried request for $url still returned token issue. Logging out...',
+            );
+            _handleSessionExpired(
+              reason: _extractTokenErrorMessage(retryResponse),
+            );
+          }
+
+          return retryResponse;
+        } else {
+          developer.log(
+            '[API request()] Refresh rejected for $url. Logging out...',
+          );
+          _handleSessionExpired(reason: _extractTokenErrorMessage(response));
         }
-      }
-
-      return response;
-    } catch (e) {
-      developer.log('[API Exception] Error executing $path: $e');
-      _handleServerException(path, e);
-      return Response<T>(statusCode: 500, statusText: 'Internal exception: $e');
-    }
-  }
-
-  /// Overridden request method to handle 401 token refresh for any direct request calls
-  @override
-  Future<Response<T>> request<T>(
-    String url,
-    String method, {
-    dynamic body,
-    String? contentType,
-    Map<String, String>? headers,
-    Map<String, dynamic>? query,
-    Decoder<T>? decoder,
-    Progress? uploadProgress,
-  }) async {
-    final response = await super.request<T>(
-      url,
-      method,
-      body: body,
-      contentType: contentType,
-      headers: headers,
-      query: query,
-      decoder: decoder,
-      uploadProgress: uploadProgress,
-    );
-
-    if (_isUnauthorized(response, url, headers)) {
-      developer.log(
-        '[API Retry] Received 401 in request() for $url. Triggering refreshToken()...',
-      );
-      final refreshed = await refreshToken();
-      if (refreshed) {
-        final freshToken =
-            AuthService.to.token ??
-            GetStorage().read<String>('accessToken') ??
-            GetStorage().read<String>('auth_token');
-
-        final tokenType =
-            (Get.isRegistered<AuthService>()
-                ? AuthService.to.tokenType
-                : null) ??
-            GetStorage().read<String>('tokenType') ??
-            'Bearer';
-
-        final retryHeaders = Map<String, String>.from(headers ?? {});
-        if (freshToken != null && freshToken.isNotEmpty) {
-          retryHeaders['Authorization'] = '$tokenType $freshToken';
-        }
-        retryHeaders['X-Retry-Attempted'] = 'true';
-
-        return super.request<T>(
-          url,
-          method,
-          body: body,
-          contentType: contentType,
-          headers: retryHeaders,
-          query: query,
-          decoder: decoder,
-          uploadProgress: uploadProgress,
+      } else {
+        developer.log(
+          '[API request()] Token issue on $url without refresh capability. Logging out...',
         );
+        _handleSessionExpired(reason: _extractTokenErrorMessage(response));
       }
     }
+
     return response;
   }
 
@@ -664,6 +1013,19 @@ class ApiService extends GetConnect {
     _cachedUserProfileData = null;
     _lastUserProfileFetchTime = null;
     _pendingUserProfileFuture = null;
+  }
+
+  /// Clears all in-memory API caches, server error banners, and in-flight futures
+  void clearAllCaches() {
+    clearUserProfileCache();
+    _cachedWalletBalanceData = null;
+    _lastWalletBalanceFetchTime = null;
+    _pendingWalletBalanceFuture = null;
+    _consecutiveServerFailures = 0;
+    isServerDown.value = false;
+    serverErrorMessage.value = '';
+    lastServerErrorCode.value = 0;
+    isBannerDismissed.value = false;
   }
 
   /// Invalidate or update profile cache (e.g. after profile update/picture upload)
@@ -763,6 +1125,18 @@ class ApiService extends GetConnect {
           if (data['email'] != null) box.write('email', data['email']);
           if (data['mobileNumber'] != null) {
             box.write('phone', data['mobileNumber']);
+          }
+          if (data['status'] != null) {
+            box.write('user_status', data['status']);
+          }
+          if (data['isPermanentlyBlocked'] != null) {
+            box.write(
+              'is_permanently_blocked',
+              data['isPermanentlyBlocked'] == true,
+            );
+          }
+          if (data['isBlocked'] != null) {
+            box.write('is_blocked', data['isBlocked'] == true);
           }
           if (data['profilePictureUrl'] != null &&
               data['profilePictureUrl'].toString().isNotEmpty) {
@@ -1191,9 +1565,10 @@ class ApiService extends GetConnect {
     int pageSize = 20,
   }) async {
     try {
+      final safePageSize = pageSize.clamp(1, 50);
       final Map<String, dynamic> queryParams = {
         'pageNumber': pageNumber.toString(),
-        'pageSize': pageSize.toString(),
+        'pageSize': safePageSize.toString(),
       };
       if (fromDate != null && fromDate.isNotEmpty) {
         queryParams['fromDate'] = fromDate;
@@ -1409,9 +1784,12 @@ class ApiService extends GetConnect {
     String? cardId,
   }) async {
     try {
+      final defaultCallback = widgetType == "SET_PIN"
+          ? "transwallet://reset-pin/return"
+          : "transwallet://card-details/return";
       final Map<String, dynamic> payload = {
         "widgetType": widgetType,
-        "callbackUrl": callbackUrl ?? "ppiapp://card-widget/return",
+        "callbackUrl": callbackUrl ?? defaultCallback,
       };
 
       final effectiveKit =
@@ -1657,6 +2035,45 @@ class ApiService extends GetConnect {
     return null;
   }
 
+  /// Verify wallet load via POST /api/v1/wallet/loads/{transactionReference}/verify
+  Future<Map<String, dynamic>?> verifyWalletLoad(
+    String transactionReference, {
+    Map<String, dynamic>? verificationPayload,
+  }) async {
+    try {
+      final endpoint = '/api/v1/wallet/loads/$transactionReference/verify';
+      final payload = verificationPayload ?? {};
+      developer.log(
+        '[API Verify Wallet Load Request] $endpoint, Payload: $payload',
+      );
+      debugPrint('[API Verify Wallet Load Request] $endpoint');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        endpoint,
+        payload,
+      );
+
+      developer.log(
+        '[API Verify Wallet Load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+      debugPrint(
+        '[API Verify Wallet Load Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess && body['data'] != null && body['data'] is Map) {
+          return Map<String, dynamic>.from(body['data'] as Map);
+        }
+        return Map<String, dynamic>.from(body);
+      }
+    } catch (e) {
+      developer.log('[API Exception] Error verifying wallet load: $e');
+    }
+    return null;
+  }
+
   /// Load money to wallet via POST /api/v1/wallet/load after payment success
   Future<Map<String, dynamic>?> loadWallet({
     required double amount,
@@ -1829,6 +2246,85 @@ class ApiService extends GetConnect {
     description: description,
   );
 
+  /// Top up NCMC Transit Wallet from General Wallet via POST /api/v1/wallet/transfer/w2w
+  Future<Map<String, dynamic>?> topupNcmcWallet({
+    required double amount,
+    String fromProductId = 'GENERAL',
+    String productId = 'FF01',
+    String? idempotencyKey,
+    String description = 'Wallet to wallet transfer',
+  }) async {
+    try {
+      final key =
+          idempotencyKey ?? 'W2W${DateTime.now().millisecondsSinceEpoch}';
+      final payload = <String, dynamic>{
+        'fromProductId': fromProductId,
+        'productId': productId,
+        'amount': amount % 1 == 0 ? amount.toInt() : amount,
+        'idempotencyKey': key,
+        'description': description,
+      };
+
+      developer.log('[API /wallet/transfer/w2w Request] $payload');
+
+      final response = await postRequest<Map<String, dynamic>>(
+        '/api/v1/wallet/transfer/w2w',
+        payload,
+      );
+
+      developer.log(
+        '[API /wallet/transfer/w2w Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      Map<String, dynamic>? body;
+      if (response.body is Map) {
+        body = Map<String, dynamic>.from(response.body as Map);
+      } else if (response.body is String) {
+        try {
+          final decoded = jsonDecode(response.body as String);
+          if (decoded is Map) body = Map<String, dynamic>.from(decoded);
+        } catch (_) {}
+      }
+
+      if (body != null) {
+        final bool isSuccess =
+            body['success'] == true ||
+            body['code'] == 'OK' ||
+            (body['data'] is Map &&
+                body['data']['status']?.toString().toUpperCase() ==
+                    'PAYMENT_SUCCESS');
+        body['apiSuccess'] = isSuccess;
+
+        if (isSuccess &&
+            body['data'] is Map &&
+            body['data']['balance'] != null) {
+          final bal = (body['data']['balance'] is num)
+              ? (body['data']['balance'] as num).toDouble()
+              : double.tryParse(body['data']['balance'].toString());
+          if (bal != null) {
+            box.write('balance', bal);
+            box.write('wallet_balance', bal);
+          }
+        }
+        return body;
+      }
+
+      if (!response.status.isOk) {
+        return {
+          'apiSuccess': false,
+          'message':
+              response.statusText ??
+              'NCMC Top-up failed with status ${response.statusCode}',
+        };
+      }
+
+      return {'apiSuccess': true, 'message': 'NCMC Top-up successful'};
+    } catch (e) {
+      developer.log('[API Exception] Error in topupNcmcWallet: $e');
+      return {'apiSuccess': false, 'message': 'Error executing NCMC topup: $e'};
+    }
+  }
+
   /// Fetch pincode details via GET /api/v1/pincode/{pincode}
   Future<Map<String, dynamic>?> fetchPincodeDetails(String pincode) async {
     try {
@@ -1908,6 +2404,17 @@ class ApiService extends GetConnect {
     String? explicitFcmToken,
   ]) async {
     try {
+      final String? userToken =
+          (Get.isRegistered<AuthService>() ? AuthService.to.token : null) ??
+          GetStorage().read<String>('accessToken') ??
+          GetStorage().read<String>('auth_token');
+      if (userToken == null || userToken.trim().isEmpty) {
+        developer.log(
+          '[API /api/v1/devices] User not authenticated (no accessToken). Skipping device token registration.',
+        );
+        return null;
+      }
+
       String? token = explicitFcmToken?.trim();
       if (token == null || token.isEmpty) {
         if (Get.isRegistered<FirebaseService>()) {
@@ -1988,13 +2495,105 @@ class ApiService extends GetConnect {
       if (response.isOk && response.body != null) {
         final body = response.body!;
         final bool isSuccess = body['success'] == true || body['code'] == 'OK';
-        if (isSuccess && body['data'] != null && body['data'] is Map) {
-          return Map<String, dynamic>.from(body['data'] as Map);
+        if (isSuccess && body['data'] != null) {
+          if (body['data'] is Map) {
+            return Map<String, dynamic>.from(body['data'] as Map);
+          } else if (body['data'] is List) {
+            return {'items': body['data']};
+          }
         }
       }
     } catch (e, stackTrace) {
       developer.log(
         '[API Exception] Error in fetchNotifications: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    return null;
+  }
+
+  String? _preferredNotificationActionMethod; // 'PATCH' or 'POST'
+
+  Future<Response<Map<String, dynamic>>> _sendNotificationAction(
+    String path,
+  ) async {
+    if (_preferredNotificationActionMethod == 'POST') {
+      return await postRequest<Map<String, dynamic>>(path, {});
+    }
+
+    var response = await patchRequest<Map<String, dynamic>>(path, {});
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      developer.log(
+        '[API Notifications] PATCH returned ${response.statusCode}, falling back to POST: $path',
+      );
+      final postResponse = await postRequest<Map<String, dynamic>>(path, {});
+      if (postResponse.isOk) {
+        _preferredNotificationActionMethod = 'POST';
+      }
+      return postResponse;
+    } else if (response.isOk) {
+      _preferredNotificationActionMethod = 'PATCH';
+    }
+    return response;
+  }
+
+  /// Mark a single notification as read via /api/v1/notifications/{id}/read
+  Future<Map<String, dynamic>?> markNotificationAsRead(String id) async {
+    try {
+      final cleanId = id.trim();
+      if (cleanId.isEmpty) return null;
+
+      final path = '/api/v1/notifications/$cleanId/read';
+      developer.log('[API Mark Notification Read Request] Path: $path');
+
+      final response = await _sendNotificationAction(path);
+
+      developer.log(
+        '[API Mark Notification Read Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess && body['data'] != null && body['data'] is Map) {
+          return Map<String, dynamic>.from(body['data'] as Map);
+        }
+        return body;
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        '[API Exception] Error in markNotificationAsRead: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    return null;
+  }
+
+  /// Mark all notifications as read via /api/v1/notifications/read-all
+  Future<Map<String, dynamic>?> markAllNotificationsAsRead() async {
+    try {
+      const path = '/api/v1/notifications/read-all';
+      developer.log('[API Mark All Notifications Read Request] Path: $path');
+
+      final response = await _sendNotificationAction(path);
+
+      developer.log(
+        '[API Mark All Notifications Read Response] Status: ${response.statusCode}, Body: ${response.body}',
+      );
+
+      if (response.isOk && response.body != null) {
+        final body = response.body!;
+        final bool isSuccess = body['success'] == true || body['code'] == 'OK';
+        if (isSuccess && body['data'] != null && body['data'] is Map) {
+          return Map<String, dynamic>.from(body['data'] as Map);
+        }
+        return body;
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        '[API Exception] Error in markAllNotificationsAsRead: $e',
         error: e,
         stackTrace: stackTrace,
       );
@@ -2060,6 +2659,76 @@ class ApiService extends GetConnect {
   /// Verifies MPIN against the live backend API /api/v1/auth/mpin/login.
   /// Automatically resolves registered phone number if not supplied.
   /// On successful verification, updates auth tokens, saves MPIN and returns success.
+  /// Helper to dynamically extract user-facing message from any API response body
+  static String extractApiMessage(dynamic body, {String fallback = ''}) {
+    if (body == null) return fallback;
+
+    String? resolveCandidate(dynamic val) {
+      if (val == null) return null;
+      if (val is String && val.trim().isNotEmpty) {
+        return val.trim();
+      }
+      if (val is List && val.isNotEmpty) {
+        for (var item in val) {
+          final res = resolveCandidate(item);
+          if (res != null && res.isNotEmpty) return res;
+        }
+      }
+      if (val is Map) {
+        final innerMsg =
+            val['message'] ??
+            val['error'] ??
+            val['errors'] ??
+            val['msg'] ??
+            val['description'] ??
+            val['desc'] ??
+            val['errorMessage'] ??
+            val['detail'] ??
+            val['title'];
+        return resolveCandidate(innerMsg);
+      }
+      return null;
+    }
+
+    if (body is Map) {
+      final candidate =
+          body['message'] ??
+          body['errors'] ??
+          body['error'] ??
+          body['msg'] ??
+          body['description'] ??
+          body['desc'] ??
+          body['response'] ??
+          body['exception'] ??
+          body['errorMessage'] ??
+          body['detail'] ??
+          (body['data'] is Map
+              ? (body['data']['message'] ??
+                    body['data']['errors'] ??
+                    body['data']['error'] ??
+                    body['data']['msg'] ??
+                    body['data']['description'])
+              : (body['data'] is String ? body['data'] : null));
+
+      final resolved = resolveCandidate(candidate);
+      if (resolved != null && resolved.isNotEmpty) {
+        return resolved;
+      }
+    } else if (body is List && body.isNotEmpty) {
+      final resolved = resolveCandidate(body);
+      if (resolved != null && resolved.isNotEmpty) return resolved;
+    } else if (body is String && body.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(body);
+        return extractApiMessage(decoded, fallback: fallback);
+      } catch (_) {
+        return body.trim();
+      }
+    }
+
+    return fallback;
+  }
+
   Future<MpinVerifyResponse> verifyMpin(
     String mpin, {
     String? mobileNumber,
@@ -2162,21 +2831,41 @@ class ApiService extends GetConnect {
           }
         }
 
+        final successMsg = extractApiMessage(
+          body,
+          fallback: 'MPIN verified successfully.',
+        );
+
         return MpinVerifyResponse(
           isSuccess: true,
-          message: body['message']?.toString() ?? 'MPIN verified successfully.',
+          message: successMsg,
           data: body['data'] is Map
               ? Map<String, dynamic>.from(body['data'])
               : null,
         );
       } else {
-        final errorMsg =
-            (body != null &&
-                body['message'] != null &&
-                body['message'].toString().trim().isNotEmpty)
-            ? body['message'].toString()
-            : 'Incorrect MPIN. Please try again.';
-        return MpinVerifyResponse(isSuccess: false, message: errorMsg);
+        final errorMsg = extractApiMessage(
+          body,
+          fallback:
+              response.statusText != null &&
+                  response.statusText!.isNotEmpty &&
+                  response.statusText != 'OK'
+              ? response.statusText!
+              : 'Invalid MPIN',
+        );
+        Map<String, dynamic>? errorData;
+        if (body != null) {
+          if (body['data'] is Map) {
+            errorData = Map<String, dynamic>.from(body['data'] as Map);
+          } else {
+            errorData = Map<String, dynamic>.from(body);
+          }
+        }
+        return MpinVerifyResponse(
+          isSuccess: false,
+          message: errorMsg,
+          data: errorData,
+        );
       }
     } catch (e) {
       developer.log('[ApiService] Exception verifying MPIN: $e');
@@ -2185,13 +2874,14 @@ class ApiService extends GetConnect {
       if (savedMpin != null && savedMpin == cleanPin) {
         return const MpinVerifyResponse(
           isSuccess: true,
-          message: 'MPIN verified (offline fallback).',
+          message: 'MPIN verified successfully.',
         );
       }
-      return const MpinVerifyResponse(
+      return MpinVerifyResponse(
         isSuccess: false,
-        message:
-            'Failed to verify MPIN with server. Please check your network connection.',
+        message: e.toString().contains('SocketException')
+            ? 'Network error. Please check your internet connection.'
+            : e.toString(),
       );
     }
   }

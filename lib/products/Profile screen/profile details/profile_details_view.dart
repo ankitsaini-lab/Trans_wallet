@@ -11,32 +11,52 @@ import 'package:transwallet/widgets/user_avatar.dart';
 class ProfileDetailsView extends StatelessWidget {
   const ProfileDetailsView({super.key});
 
+  void _handleBack(BuildContext context) {
+    if (Get.isSnackbarOpen) {
+      Get.closeCurrentSnackbar();
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Get.offAllNamed('/dashboard');
+      Get.toNamed('/profile');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(ProfileDetailsController());
 
     const Color backgroundColor = Color(0xFFF9FAFB);
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(gradient: appBarGradient),
-        ),
-        leadingWidth: context.responsive(60),
-        leading: const AppBarBackButton(),
-        title: Text(
-          "Profile Details",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
-            fontSize: context.responsive(18),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack(context);
+      },
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(gradient: appBarGradient),
           ),
+          leadingWidth: context.responsive(60),
+          leading: AppBarBackButton(
+            onTap: () => _handleBack(context),
+          ),
+          title: Text(
+            "Profile Details",
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+              fontSize: context.responsive(18),
+            ),
+          ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(
@@ -114,7 +134,7 @@ class ProfileDetailsView extends StatelessWidget {
                                   ? null
                                   : () {
                                       HapticFeedback.lightImpact();
-                                      controller.uploadProfilePicture();
+                                      controller.uploadProfilePicture(context);
                                     },
                               child: Container(
                                 padding: EdgeInsets.all(context.responsive(6)),
@@ -513,14 +533,18 @@ class ProfileDetailsView extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: context.responsive(24)),
+                SizedBox(
+                  height: context.responsive(24) +
+                      MediaQuery.of(context).padding.bottom,
+                ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDetailRow(
     BuildContext context, {

@@ -1,11 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:transwallet/services/auth_service.dart';
-import 'package:transwallet/services/biometric_service.dart';
 import 'package:transwallet/services/network_service.dart';
+import 'package:transwallet/services/app_lock_service.dart';
 
 class SplashscreenController extends GetxController {
   VideoPlayerController? videoController;
@@ -23,6 +25,16 @@ class SplashscreenController extends GetxController {
   void onInit() {
     super.onInit();
 
+    final box = GetStorage();
+    final String? pendingCamera = box.read('pending_camera_upload');
+    if (pendingCamera != null &&
+        Get.isRegistered<AuthService>() &&
+        AuthService.to.isLoggedIn) {
+      _hasNavigated = true;
+      _handleCameraRecreation(pendingCamera);
+      return;
+    }
+
     _initSplashVideo();
 
     if (Get.isRegistered<NetworkService>()) {
@@ -31,6 +43,53 @@ class SplashscreenController extends GetxController {
           _completeAndNavigate('network_reconnected');
         }
       });
+    }
+  }
+
+  Future<void> _handleCameraRecreation(String pendingCamera) async {
+    final box = GetStorage();
+    box.remove('pending_camera_upload');
+    debugPrint(
+      '📸 [Splash] Camera activity recreation detected! Fast-restoring route to /$pendingCamera without splash video',
+    );
+
+    if (Platform.isAndroid) {
+      try {
+        final picker = ImagePicker();
+        final LostDataResponse response = await picker.retrieveLostData();
+        if (!response.isEmpty) {
+          String? recoveredPath;
+          if (response.file != null) {
+            recoveredPath = response.file!.path;
+          } else if (response.files != null && response.files!.isNotEmpty) {
+            recoveredPath = response.files!.first.path;
+          }
+          if (recoveredPath != null && recoveredPath.isNotEmpty) {
+            debugPrint(
+              '📸 [Splash] Successfully recovered lost camera image: $recoveredPath',
+            );
+            box.write('recovered_camera_image', recoveredPath);
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Splash] Error retrieving lost camera data: $e');
+      }
+    }
+
+    // Skip the splash video entirely and navigate straight back to the previous screen directly
+    if (pendingCamera == 'profile_details') {
+      Get.offAllNamed('/dashboard');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.toNamed('/profile');
+        Get.toNamed('/profiledetails');
+      });
+    } else if (pendingCamera == 'profile') {
+      Get.offAllNamed('/dashboard');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.toNamed('/profile');
+      });
+    } else {
+      Get.offAllNamed('/dashboard');
     }
   }
 
@@ -55,7 +114,7 @@ class SplashscreenController extends GetxController {
       isVideoInitialized.value = true;
 
       debugPrint(
-        '🎬 [Splash] Video player initialized in ${videoStopwatch.elapsedMilliseconds}ms. '
+        ' [Splash] Video player initialized in ${videoStopwatch.elapsedMilliseconds}ms. '
         'Duration: ${controller.value.duration.inMilliseconds}ms (${controller.value.size.width.toInt()}x${controller.value.size.height.toInt()})',
       );
 
@@ -110,6 +169,31 @@ class SplashscreenController extends GetxController {
     try {
       final box = GetStorage();
 
+      // 0. If user killed or closed the app during registration / create account,
+      // do NOT redirect to dashboard; user must redirect to login screen when reopening the app.
+      final bool isRegistrationPending =
+          (box.read<bool>('registration_in_progress') == true) ||
+          (box.read<String>('otpFlow') == 'REGISTER') ||
+          (box.read<String>('registrationToken') != null &&
+              (box.read<bool>('is_logged_in') != true));
+
+      if (isRegistrationPending) {
+        debugPrint(
+          '[Splash] Incomplete registration/create account session -> Navigating to /login_singupview',
+        );
+        box.write('registration_in_progress', false);
+        box.write('is_logged_in', false);
+        box.remove('registrationToken');
+        box.remove('accessToken');
+        box.remove('auth_token');
+        box.remove('token');
+        box.remove('refreshToken');
+        box.remove('refresh_token');
+        box.remove('otpFlow');
+        Get.offAllNamed('/login_singupview');
+        return;
+      }
+
       // Check if Activity was killed by Android LMK during camera photo capture
       final String? pendingCamera = box.read('pending_camera_upload');
       if (pendingCamera != null &&
@@ -119,33 +203,52 @@ class SplashscreenController extends GetxController {
         debugPrint(
           '[Splash] Restoring route to /$pendingCamera after camera activity recreation',
         );
-        Get.offAllNamed('/dashboard');
         if (pendingCamera == 'profile_details') {
-          Get.toNamed('/profiledetails');
+          Get.offAllNamed('/dashboard');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Get.toNamed('/profile');
+            Get.toNamed('/profiledetails');
+          });
         } else if (pendingCamera == 'profile') {
-          Get.toNamed('/profilescreen');
+          Get.offAllNamed('/dashboard');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Get.toNamed('/profile');
+          });
+        } else {
+          Get.offAllNamed('/dashboard');
         }
         return;
       }
 
       // 1. Is there an active valid user session?
-      if (Get.isRegistered<AuthService>() && AuthService.to.isLoggedIn) {
+      final bool isExplicitlyLoggedIn =
+          (Get.isRegistered<AuthService>() && AuthService.to.isLoggedIn) ||
+          (box.read<bool>('is_logged_in') == true);
+
+      final bool hasToken =
+          (box.read<String>('accessToken') ??
+                  box.read<String>('auth_token') ??
+                  box.read<String>('token') ??
+                  '')
+              .isNotEmpty;
+
+      final bool hasMpin =
+          (box.read<bool>('has_mpin') == true) ||
+          (box.read<bool>('mpin_set') == true);
+
+      final bool isLoggedIn = isExplicitlyLoggedIn && hasToken && hasMpin;
+
+      if (isLoggedIn) {
         debugPrint('[Splash] Session active -> /dashboard');
+        if (Get.isRegistered<AppLockService>() &&
+            AppLockService.to.canAppLock) {
+          AppLockService.to.lockForColdStart();
+        }
         Get.offAllNamed('/dashboard');
         return;
       }
 
-      // 2. Is Biometric Quick Login enabled for a returning user?
-      if (Get.isRegistered<BiometricService>() &&
-          BiometricService.to.canQuickLogin) {
-        debugPrint(
-          '[Splash] Biometric quick login available -> /quick_biometric_login',
-        );
-        Get.offAllNamed('/quick_biometric_login');
-        return;
-      }
-
-      // 3. Brand new user who has never seen onboarding
+      // 2. Brand new user who has never seen onboarding
       final bool hasSeenOnboarding = box.read('has_seen_onboarding') ?? false;
       if (!hasSeenOnboarding) {
         debugPrint('[Splash] First time user -> /onboarding');

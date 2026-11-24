@@ -9,7 +9,6 @@ class SplashscreenView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ensure controller is registered
     final controller = Get.isRegistered<SplashscreenController>()
         ? Get.find<SplashscreenController>()
         : Get.put(SplashscreenController());
@@ -30,13 +29,13 @@ class SplashscreenView extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Static Brand Splash (Rendered immediately on Frame 1, zero wait/spinner)
           Container(
             color: Colors.black,
             alignment: Alignment.center,
             child: Image.asset(
               'assets/WHITE TRANSCORP .png',
               width: 220,
+              color: Colors.black,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.medium,
             ),

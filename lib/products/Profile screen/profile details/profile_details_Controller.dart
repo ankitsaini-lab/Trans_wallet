@@ -10,6 +10,7 @@ import 'package:transwallet/products/Profile%20screen/profilescreen_Controller.d
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/services/auth_service.dart';
 import 'package:transwallet/utilities/getStorage.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
@@ -33,15 +34,62 @@ class ProfileDetailsController extends GetxController {
   final RxBool isRefreshing = false.obs;
   final RxBool isUploadingImage = false.obs;
 
+  void clear() {
+    name.value = "";
+    email.value = "";
+    phone.value = "";
+    customerId.value = "";
+    accountverification.value = "Verified Account";
+    address.value = "";
+    profilePictureUrl.value = "";
+    localImageFile.value = null;
+    dob.value = "";
+    gender.value = "";
+    panNumber.value = "";
+    maskedPan.value = "";
+    isKycCompleted.value = false;
+    isMinKycCompleted.value = false;
+    isKycUnderReview.value = false;
+    isRefreshing.value = false;
+    isUploadingImage.value = false;
+  }
+
+  bool get _canFetchProfile {
+    final bool loggedIn = (box.read<bool>('is_logged_in') ?? false) &&
+        (box.read<String>('accessToken') != null ||
+            box.read<String>('auth_token') != null);
+    final bool isLoggingOut =
+        (Get.isRegistered<AuthService>() && AuthService.to.isLoggingOut) ||
+        (Get.isRegistered<ApiService>() && ApiService.to.isLoggingOut);
+    return loggedIn && !isLoggingOut;
+  }
+
   @override
   void onInit() {
     super.onInit();
     _loadProfileData();
-    refreshProfile(showSnackbar: false);
-    _checkLostData();
+    if (_canFetchProfile) {
+      refreshProfile(showSnackbar: false);
+      _checkLostData();
+    }
   }
 
   Future<void> _checkLostData() async {
+    // 1. Check if fast-restore from Splash recovered the image
+    final recoveredPath = box.read<String>('recovered_camera_image');
+    if (recoveredPath != null && recoveredPath.isNotEmpty) {
+      box.remove('recovered_camera_image');
+      final file = File(recoveredPath);
+      if (await file.exists()) {
+        developer.log(
+          "[ProfileDetails] Found recovered camera image from fast restore: $recoveredPath",
+        );
+        await _processAndUploadFile(XFile(recoveredPath));
+        return;
+      }
+    }
+
+    // 2. Direct retrieveLostData check as secondary safeguard
     if (!Platform.isAndroid) return;
     try {
       final picker = ImagePicker();
@@ -53,6 +101,12 @@ class ProfileDetailsController extends GetxController {
         );
         box.remove('pending_camera_upload');
         await _processAndUploadFile(response.file!);
+      } else if (response.files != null && response.files!.isNotEmpty) {
+        developer.log(
+          "[ProfileDetails] Recovered lost image from camera: ${response.files!.first.path}",
+        );
+        box.remove('pending_camera_upload');
+        await _processAndUploadFile(response.files!.first);
       } else if (response.exception != null) {
         developer.log(
           "[ProfileDetails] LostDataResponse exception: ${response.exception}",
@@ -151,6 +205,7 @@ class ProfileDetailsController extends GetxController {
     bool force = false,
     bool showSnackbar = false,
   }) async {
+    if (!_canFetchProfile) return;
     isRefreshing.value = true;
     try {
       if (Get.isRegistered<ApiService>()) {
@@ -235,67 +290,144 @@ class ProfileDetailsController extends GetxController {
   }
 
   /// Upload or change profile picture directly from profile details screen
-  Future<void> uploadProfilePicture() async {
-    final ImageSource? source = await Get.bottomSheet<ImageSource>(
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Future<void> uploadProfilePicture([BuildContext? context]) async {
+    final ImageSource? source;
+    if (context != null && context.mounted) {
+      source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (sheetContext) => Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: lightprimaryred,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.photo_library_rounded,
+                      color: primaryRed,
+                    ),
+                  ),
+                  title: const Text(
+                    "Choose from Gallery",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(ImageSource.gallery),
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: lightprimaryred,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: primaryRed,
+                    ),
+                  ),
+                  title: const Text(
+                    "Take a Photo",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(ImageSource.camera),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
+      );
+    } else {
+      source = await Get.bottomSheet<ImageSource>(
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: lightprimaryred,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_library_rounded,
-                  color: primaryRed,
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              title: const Text(
-                "Choose from Gallery",
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              onTap: () => Get.back(result: ImageSource.gallery),
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: lightprimaryred,
-                  shape: BoxShape.circle,
+              const SizedBox(height: 10),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: lightprimaryred,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: primaryRed,
+                  ),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: primaryRed),
+                title: const Text(
+                  "Choose from Gallery",
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () => Get.back(result: ImageSource.gallery),
               ),
-              title: const Text(
-                "Take a Photo",
-                style: TextStyle(fontWeight: FontWeight.w600),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: lightprimaryred,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: primaryRed,
+                  ),
+                ),
+                title: const Text(
+                  "Take a Photo",
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onTap: () => Get.back(result: ImageSource.camera),
               ),
-              onTap: () => Get.back(result: ImageSource.camera),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
 
     if (source == null) return;
+
+    // Allow bottomsheet modal transition to finish cleanly before camera activity launches
+    await Future.delayed(const Duration(milliseconds: 200));
 
     if (isUploadingImage.value) return;
     isUploadingImage.value = true;
@@ -343,13 +475,11 @@ class ProfileDetailsController extends GetxController {
         }
       }
 
-      if (source == ImageSource.camera) {
-        // Free Flutter image caches before external camera app launches to avoid Android Low Memory Killer (LMK)
-        PaintingBinding.instance.imageCache.clear();
-        PaintingBinding.instance.imageCache.clearLiveImages();
-        // Record pending camera upload so if Android restarts the activity, route is restored
-        box.write('pending_camera_upload', 'profile_details');
-      }
+      // Free Flutter image caches before external camera/gallery app launches to avoid Android Low Memory Killer (LMK)
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      // Record pending upload so if Android restarts the activity, route is restored
+      box.write('pending_camera_upload', 'profile_details');
 
       XFile? pickedFile;
       try {
@@ -358,9 +488,9 @@ class ProfileDetailsController extends GetxController {
         // Do NOT pass preferredCameraDevice: CameraDevice.front as it crashes MIUI/OEM camera intents
         pickedFile = await picker.pickImage(
           source: source,
-          maxWidth: 800,
-          maxHeight: 800,
-          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 80,
         );
       } on PlatformException catch (e) {
         developer.log(
@@ -437,9 +567,9 @@ class ProfileDetailsController extends GetxController {
     }
 
     final fileSize = await localFile.length();
-    const maxSizeBytes = 2 * 1024 * 1024;
+    const maxSizeBytes = 5 * 1024 * 1024;
     if (fileSize > maxSizeBytes) {
-      AppSnackbar.error("Image size exceeds maximum limit of 2MB");
+      AppSnackbar.error("Image size exceeds maximum limit of 5MB");
       return;
     }
 

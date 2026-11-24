@@ -25,7 +25,12 @@ class PaySummarySheet extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        16 + (MediaQuery.of(context).padding.bottom > 0 ? 0 : 8),
+      ),
       child: SafeArea(
         top: false,
         child: Column(

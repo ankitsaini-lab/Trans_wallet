@@ -89,6 +89,13 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Transwallet requires access to the local network to communicate with backend API services.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>https</string>
+		<string>http</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -99,6 +106,8 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>transwallet</string>
+				<string>ppiapp</string>
+				<string>yappay</string>
 			</array>
 		</dict>
 	</array>

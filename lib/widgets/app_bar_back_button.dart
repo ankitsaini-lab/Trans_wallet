@@ -12,7 +12,20 @@ class AppBarBackButton extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(left: context.responsive(20)),
       child: GestureDetector(
-        onTap: onTap ?? () => Get.back(),
+        onTap: () {
+          if (onTap != null) {
+            onTap!();
+            return;
+          }
+          if (Get.isSnackbarOpen) {
+            Get.closeCurrentSnackbar();
+          }
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Get.back();
+          }
+        },
         child: Container(
           padding: EdgeInsets.all(context.responsive(8)),
           decoration: BoxDecoration(

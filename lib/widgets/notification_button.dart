@@ -14,7 +14,7 @@ class NotificationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.isRegistered<NotificationController>()
         ? Get.find<NotificationController>()
-        : Get.put(NotificationController(), permanent: true);
+        : Get.put(NotificationController());
 
     return GestureDetector(
       onTap: () {

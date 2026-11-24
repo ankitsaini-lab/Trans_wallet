@@ -41,6 +41,14 @@ class CreateaccountController extends GetxController {
   void onInit() {
     super.onInit();
     final box = GetStorage();
+    box.write('registration_in_progress', true);
+    box.write('is_logged_in', false);
+    box.remove('accessToken');
+    box.remove('auth_token');
+    box.remove('token');
+    box.remove('has_mpin');
+    box.remove('mpin_set');
+    box.remove('saved_mpin');
     box.write('reg_middleName', '');
     box.write('middleName', '');
     final savedTitle = box.read('reg_title') ?? box.read('title');
@@ -304,7 +312,23 @@ class CreateaccountController extends GetxController {
     if (dob.value.isEmpty) {
       dobError.value = "Date of birth is required";
     } else {
-      dobError.value = "";
+      DateTime? parsedDob;
+      final parts = dob.value.split('/');
+      if (parts.length == 3) {
+        final d = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final y = int.tryParse(parts[2]);
+        if (d != null && m != null && y != null) {
+          parsedDob = DateTime(y, m, d);
+        }
+      }
+      if (parsedDob == null) {
+        dobError.value = "Enter a valid date of birth";
+      } else if (isUnderAge(parsedDob)) {
+        dobError.value = "You must be at least 18 years old to register";
+      } else {
+        dobError.value = "";
+      }
     }
 
     if (hasCode.value) {
@@ -342,6 +366,13 @@ class CreateaccountController extends GetxController {
     box.write('reg_middleName', midName.value.trim());
     box.write('middleName', midName.value.trim());
     box.write('reg_lastName', lastName.value.trim());
+    final userFullName = [
+      firstName.value.trim(),
+      midName.value.trim(),
+      lastName.value.trim(),
+    ].where((s) => s.isNotEmpty).join(' ');
+    box.write('name', userFullName);
+    box.write('reg_name', userFullName);
     box.write('reg_gender', gender.value.trim());
     box.write('reg_email', email.value.trim());
     box.write('reg_dob', dob.value.trim());
@@ -444,9 +475,7 @@ class CreateaccountController extends GetxController {
                       Icons.keyboard_arrow_down_rounded,
                       color: Colors.grey.shade400,
                     ),
-                    items: ["Select", "Mr", "Ms", "Mrs", "Dr", "Mx"].map((
-                      String value,
-                    ) {
+                    items: ["Select", "Mr", "Ms", "Mrs"].map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(
@@ -585,15 +614,19 @@ class CreateaccountController extends GetxController {
         ),
         height16,
 
-        const Padding(
-          padding: EdgeInsets.only(left: 4),
-          child: Text(
-            "Date of Birth",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: Colors.black87,
-            ),
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Row(
+            children: const [
+              Text(
+                "Date of Birth",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
           ),
         ),
         height8,
@@ -622,11 +655,20 @@ class CreateaccountController extends GetxController {
                     initialDate: initial,
                   );
                   if (picked != null) {
-                    dob.value =
-                        '${picked.day.toString().padLeft(2, '0')}'
-                        '/${picked.month.toString().padLeft(2, '0')}'
-                        '/${picked.year}';
-                    dobError.value = '';
+                    if (isUnderAge(picked)) {
+                      dob.value = '';
+                      dobError.value =
+                          "You must be at least 18 years old to register";
+                      AppSnackbar.error(
+                        "You must be at least 18 years old to register",
+                      );
+                    } else {
+                      dob.value =
+                          '${picked.day.toString().padLeft(2, '0')}'
+                          '/${picked.month.toString().padLeft(2, '0')}'
+                          '/${picked.year}';
+                      dobError.value = '';
+                    }
                   }
                 },
                 child: Container(
@@ -770,7 +812,7 @@ class CreateaccountController extends GetxController {
           ),
         ),
 
-        height40,
+        SizedBox(height: 36 + MediaQuery.of(context).padding.bottom),
       ],
     );
   }
@@ -938,6 +980,13 @@ class CreateaccountController extends GetxController {
             box.write('reg_middleName', midName.value.trim());
             box.write('middleName', midName.value.trim());
             box.write('reg_lastName', lastName.value.trim());
+            final userFullName = [
+              firstName.value.trim(),
+              midName.value.trim(),
+              lastName.value.trim(),
+            ].where((s) => s.isNotEmpty).join(' ');
+            box.write('name', userFullName);
+            box.write('reg_name', userFullName);
             box.write('reg_gender', gender.value.trim());
             box.write('reg_email', email.value.trim());
             box.write('reg_dob', dob.value.trim());
@@ -950,14 +999,16 @@ class CreateaccountController extends GetxController {
             box.write('reg_state', state.value.trim());
             box.write('reg_city', city.value.trim());
 
-            final regToken =
-                (box.read('registrationToken') ??
-                        box.read('registration_token') ??
-                        box.read('auth_token') ??
-                        box.read('token') ??
-                        '')
-                    .toString()
-                    .trim();
+            final rawReg =
+                box.read('registrationToken') ??
+                box.read('registration_token') ??
+                box.read('auth_token') ??
+                box.read('token') ??
+                '';
+            String regToken = rawReg.toString().trim();
+            if (regToken == 'null' || regToken == '{}' || regToken == '[]') {
+              regToken = '';
+            }
             Get.toNamed(
               '/minkyc_view',
               arguments: {'title': titleToSave, 'registrationToken': regToken},
@@ -1015,7 +1066,7 @@ class CreateaccountController extends GetxController {
             ),
           ),
         ),
-        height40,
+        SizedBox(height: 36 + MediaQuery.of(context).padding.bottom),
       ],
     );
   }
