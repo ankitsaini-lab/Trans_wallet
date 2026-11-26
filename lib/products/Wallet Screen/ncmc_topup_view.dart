@@ -488,9 +488,6 @@ class _NcmcTopupViewState extends State<NcmcTopupView> {
     );
   }
 
-  // ----------------------------------------------------
-  // STEP 1: MPIN VERIFICATION VIEW
-  // ----------------------------------------------------
   Widget _buildMpinView(BuildContext context) {
     return LayoutBuilder(
       key: const ValueKey("MpinView"),
@@ -641,9 +638,9 @@ class _NcmcTopupViewState extends State<NcmcTopupView> {
                           _mpinErrorMessage,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: const Color(0xFFD32F2F),
-                            fontSize: context.responsive(13),
-                            fontWeight: FontWeight.w700,
+                            color: primaryRed,
+                            fontSize: context.responsive(12),
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ] else ...[

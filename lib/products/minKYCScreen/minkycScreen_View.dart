@@ -38,8 +38,9 @@ class MinkycscreenView extends GetView<MinkycscreenController> {
             right: 0,
             child: Image.asset(
               "assets/minkycbg.png",
+              height: MediaQuery.of(context).size.height * 0.55,
               fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+              // alignment: Alignment.topCenter,
             ),
           ),
 
@@ -95,174 +96,182 @@ class MinkycscreenView extends GetView<MinkycscreenController> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                        // "Verify your identity" centered
-                        Center(
-                          child: Text(
-                            "Verify your identity",
-                            style: TextStyle(
-                              fontSize: context.responsive(22),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                          Center(
+                            child: Text(
+                              "Verify your identity",
+                              style: TextStyle(
+                                fontSize: context.responsive(22),
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: context.responsive(12)),
-                        Center(
-                          child: Text(
-                            "RBI requires a PAN check before we can open your\nwallet. It takes about 30 seconds and no documents\nare stored on your device.",
-                            textAlign: TextAlign.center,
+                          SizedBox(height: context.responsive(12)),
+                          Center(
+                            child: Text(
+                              "RBI requires a PAN check before we can open your\nwallet. It takes about 30 seconds and no documents\nare stored on your device.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: context.responsive(12),
+                                color: Colors.grey,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: context.responsive(18)),
+
+                          // "PAN Card Number"
+                          Text(
+                            "PAN Card Number",
                             style: TextStyle(
                               fontSize: context.responsive(13),
-                              color: Colors.grey,
-                              height: 1.4,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
                             ),
                           ),
-                        ),
-                        SizedBox(height: context.responsive(24)),
+                          SizedBox(height: context.responsive(12)),
 
-                        // "PAN Card Number"
-                        Text(
-                          "PAN Card Number",
-                          style: TextStyle(
-                            fontSize: context.responsive(13),
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        SizedBox(height: context.responsive(12)),
-
-                        Obx(
-                          () => TextField(
-                            onChanged: controller.onPanChanged,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                              fontSize: 14,
-                            ),
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(10),
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[a-zA-Z0-9]'),
+                          Obx(
+                            () => TextField(
+                              onChanged: controller.onPanChanged,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 1,
+                                fontSize: 14,
                               ),
-                              UpperCaseTextFormatter(),
-                            ],
-                            decoration: InputDecoration(
-                              hintText: 'ABCDE1234F',
-                              hintStyle: TextStyle(
-                                letterSpacing: 0,
-                                color: Colors.grey.shade400,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.badge_outlined, // ID badge icon
-                                color: Colors.grey.shade700,
-                                size: 22,
-                              ),
-                              suffixIcon: controller.isPanVerified.value
-                                  ? const Icon(
-                                      Icons.check_circle,
-                                      color: Color(0xFF22C55E),
-                                      size: 22,
-                                    )
-                                  : null,
-                              filled: true,
-                              fillColor: const Color(0xFFF9F9FB),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 18,
-                              ),
-                              errorText: controller.panError.value.isEmpty
-                                  ? null
-                                  : controller.panError.value,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade200,
-                                  width: 1.0,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(10),
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[a-zA-Z0-9]'),
                                 ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade200,
-                                  width: 1.0,
+                                UpperCaseTextFormatter(),
+                              ],
+                              decoration: InputDecoration(
+                                hintText: 'ABCDE1234F',
+                                hintStyle: TextStyle(
+                                  letterSpacing: 0,
+                                  color: Colors.grey.shade400,
                                 ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: const BorderSide(
-                                  color: Colors.black,
-                                  width: 1.5,
+                                prefixIcon: Icon(
+                                  Icons.badge_outlined, // ID badge icon
+                                  color: Colors.grey.shade700,
+                                  size: 22,
                                 ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: const BorderSide(
-                                  color: Colors.red,
-                                  width: 1.2,
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                borderSide: const BorderSide(
-                                  color: Colors.red,
-                                  width: 1.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        height40,
-
-                        Obx(
-                          () => GestureDetector(
-                            onTap: controller.isLoading.value
-                                ? null
-                                : () => controller.handleButtonAction(),
-                            child: Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(
-                                vertical: context.responsive(18),
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black,
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: Center(
-                                child: controller.isLoading.value
-                                    ? SizedBox(
-                                        height: context.responsive(20),
-                                        width: context.responsive(20),
-                                        child: const CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
+                                suffixIcon: controller.isPanVerified.value
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: Color(0xFF22C55E),
+                                        size: 22,
                                       )
-                                    : Text(
-                                        controller.isPanVerified.value
-                                            ? "Continue"
-                                            : "Verify",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: context.responsive(16),
-                                        ),
-                                      ),
+                                    : null,
+                                filled: true,
+                                fillColor: const Color(0xFFF9F9FB),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 18,
+                                ),
+                                errorText: controller.panError.value.isEmpty
+                                    ? null
+                                    : controller.panError.value,
+                                errorStyle: TextStyle(
+                                  color: primaryRed,
+                                  fontSize: context.responsive(12),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: const BorderSide(
+                                    color: Colors.black,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: const BorderSide(
+                                    color: primaryRed,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  borderSide: const BorderSide(
+                                    color: primaryRed,
+                                    width: 2.0,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(
-                          height: context.responsive(14) +
-                              (MediaQuery.of(context).padding.bottom > 0 ? 0 : 8),
-                        ),
-                      ],
+                          height24,
+
+                          Obx(
+                            () => GestureDetector(
+                              onTap: controller.isLoading.value
+                                  ? null
+                                  : () => controller.handleButtonAction(),
+                              child: Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.responsive(18),
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: Center(
+                                  child: controller.isLoading.value
+                                      ? SizedBox(
+                                          height: context.responsive(20),
+                                          width: context.responsive(20),
+                                          child:
+                                              const CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                color: Colors.white,
+                                              ),
+                                        )
+                                      : Text(
+                                          controller.isPanVerified.value
+                                              ? "Continue"
+                                              : "Verify",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: context.responsive(16),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height:
+                                context.responsive(12) +
+                                (MediaQuery.of(context).padding.bottom > 0
+                                    ? 0
+                                    : 6),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
         ],
       ),
     );

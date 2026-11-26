@@ -202,11 +202,11 @@ class SendMoneyPasswordView extends GetView<SendMoneyPasswordController> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: isFilled
-                                          ? (isError ? Colors.red : primaryRed)
+                                          ? (isError ? primaryRed : primaryRed)
                                           : Colors.transparent,
                                       border: Border.all(
                                         color: isFilled
-                                            ? (isError ? Colors.red : primaryRed)
+                                            ? (isError ? primaryRed : primaryRed)
                                             : Colors.grey.shade400,
                                         width: 2,
                                       ),
@@ -228,8 +228,8 @@ class SendMoneyPasswordView extends GetView<SendMoneyPasswordController> {
                                     controller.errorMessage.value,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: Colors.red,
-                                      fontSize: context.responsive(13),
+                                      color: primaryRed,
+                                      fontSize: context.responsive(12),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),

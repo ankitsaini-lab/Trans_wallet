@@ -95,36 +95,53 @@ class SplashscreenController extends GetxController {
 
   Future<void> _initSplashVideo() async {
     final videoStopwatch = Stopwatch()..start();
+    VideoPlayerController? tempController;
     try {
-      final controller = VideoPlayerController.asset('assets/videomp_.mp4');
-      videoController = controller;
+      tempController = VideoPlayerController.asset('assets/videomp_.mp4');
 
-      await controller.initialize();
+      await tempController.initialize();
 
       if (_isDisposed || _hasNavigated) {
-        await controller.dispose();
+        try {
+          tempController.dispose();
+        } catch (_) {}
         return;
       }
 
-      controller.setVolume(0.0);
-      controller.setLooping(false);
-      controller.addListener(_onVideoPlayerUpdate);
+      tempController.setVolume(0.0);
+      tempController.setLooping(false);
+      tempController.addListener(_onVideoPlayerUpdate);
 
-      await controller.play();
+      await tempController.play();
+
+      if (_isDisposed || _hasNavigated) {
+        tempController.removeListener(_onVideoPlayerUpdate);
+        try {
+          tempController.dispose();
+        } catch (_) {}
+        return;
+      }
+
+      videoController = tempController;
       isVideoInitialized.value = true;
 
       debugPrint(
-        ' [Splash] Video player initialized in ${videoStopwatch.elapsedMilliseconds}ms. '
-        'Duration: ${controller.value.duration.inMilliseconds}ms (${controller.value.size.width.toInt()}x${controller.value.size.height.toInt()})',
+        '🎬 [Splash] Video player initialized in ${videoStopwatch.elapsedMilliseconds}ms. '
+        'Duration: ${tempController.value.duration.inMilliseconds}ms (${tempController.value.size.width.toInt()}x${tempController.value.size.height.toInt()})',
       );
 
       final maxWait =
-          controller.value.duration + const Duration(milliseconds: 350);
+          tempController.value.duration + const Duration(milliseconds: 350);
       _videoSafetyTimer = Timer(maxWait, () {
         _completeAndNavigate('video_duration_timer');
       });
     } catch (e) {
       debugPrint('⚠️ [Splash] Video initialization failed or unsupported: $e');
+      if (tempController != null && !_isDisposed) {
+        try {
+          tempController.dispose();
+        } catch (_) {}
+      }
       isVideoError.value = true;
 
       _fallbackTimer = Timer(const Duration(milliseconds: 2000), () {
@@ -155,6 +172,9 @@ class SplashscreenController extends GetxController {
     _netWorker?.dispose();
 
     debugPrint('🚀 [Splash] Navigation triggered by: $triggerReason');
+
+    // Unmount VideoPlayer widget cleanly before route transition
+    isVideoInitialized.value = false;
 
     // Cleanly stop video playback before page transition
     try {
@@ -271,12 +291,24 @@ class SplashscreenController extends GetxController {
     _videoSafetyTimer?.cancel();
     _fallbackTimer?.cancel();
     _netWorker?.dispose();
+    isVideoInitialized.value = false;
 
-    try {
-      videoController?.removeListener(_onVideoPlayerUpdate);
-      videoController?.dispose();
-      videoController = null;
-    } catch (_) {}
+    final controllerToDispose = videoController;
+    videoController = null;
+
+    if (controllerToDispose != null) {
+      try {
+        controllerToDispose.removeListener(_onVideoPlayerUpdate);
+        controllerToDispose.pause();
+      } catch (_) {}
+
+      // Defer dispose to post-frame so in-flight platform channel updates & widget unmount drain cleanly
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          controllerToDispose.dispose();
+        } catch (_) {}
+      });
+    }
 
     super.onClose();
   }

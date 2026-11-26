@@ -157,7 +157,25 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         textTheme: GoogleFonts.robotoTextTheme(),
         primaryTextTheme: GoogleFonts.robotoTextTheme(),
-        colorScheme: ColorScheme.fromSeed(seedColor: primaryLightYellow),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primaryLightYellow,
+          error: primaryRed,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          errorStyle: const TextStyle(
+            color: primaryRed,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: primaryRed, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: primaryRed, width: 2.0),
+          ),
+        ),
         appBarTheme: AppBarTheme(
           toolbarHeight: context.responsive(80),
           backgroundColor: primaryYellow,

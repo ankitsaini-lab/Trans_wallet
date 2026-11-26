@@ -962,9 +962,9 @@ class ManagecardController extends GetxController {
                     child: Text(
                       errorMessage.value,
                       style: const TextStyle(
-                        color: Colors.red,
+                        color: primaryRed,
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   );

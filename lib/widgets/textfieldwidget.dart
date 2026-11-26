@@ -61,9 +61,11 @@ class CustomTextField extends StatelessWidget {
               fontWeight: FontWeight.normal,
             ),
             errorText: errorText,
+            errorMaxLines: 2,
             errorStyle: TextStyle(
-              fontSize: context.responsive(10),
-              fontWeight: FontWeight.bold,
+              color: primaryRed,
+              fontSize: context.responsive(12),
+              fontWeight: FontWeight.w600,
             ),
             filled: true,
             fillColor: enabled ? Colors.white : const Color(0xFFF3F4F6),
@@ -85,9 +87,23 @@ class CustomTextField extends StatelessWidget {
                 width: 1.5,
               ),
             ),
-            focusedBorder: UnderlineInputBorder(
+            focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(context.responsive(30)),
               borderSide: const BorderSide(color: primaryRed, width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(context.responsive(30)),
+              borderSide: const BorderSide(
+                color: primaryRed,
+                width: 1.5,
+              ),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(context.responsive(30)),
+              borderSide: const BorderSide(
+                color: primaryRed,
+                width: 2.0,
+              ),
             ),
             disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(context.responsive(30)),

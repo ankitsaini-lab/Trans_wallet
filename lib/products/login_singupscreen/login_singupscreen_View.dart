@@ -42,10 +42,10 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
               top: 0,
               left: 0,
               right: 0,
-              height: screenHeight * 0.52,
+              height: screenHeight * 0.6,
               child: Image.asset(
                 "assets/loginBG.png",
-                fit: BoxFit.fill,
+                fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
             ),
@@ -60,7 +60,7 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                 child: Column(
                   children: [
                     // Transparent spacer so top illustration is visible
-                    SizedBox(height: screenHeight * 0.44),
+                    SizedBox(height: screenHeight * 0.58),
 
                     // White curved card that scrolls together with all its content
                     ClipRRect(
@@ -69,9 +69,9 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                       ),
                       child: Container(
                         width: double.infinity,
-                        constraints: BoxConstraints(
-                          minHeight: screenHeight * 0.72,
-                        ),
+                        // constraints: BoxConstraints(
+                        //   minHeight: screenHeight * 0.3,
+                        // ),
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           boxShadow: [
@@ -132,8 +132,9 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                         child: Text(
                                           controller.phoneError.value,
                                           style: TextStyle(
-                                            color: Colors.red,
+                                            color: primaryRed,
                                             fontSize: context.responsive(12),
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
@@ -351,9 +352,9 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
                                           controller.otpError.value,
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
-                                            color: Colors.red,
+                                            color: primaryRed,
                                             fontSize: context.responsive(12),
-                                            fontWeight: FontWeight.w500,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       );
@@ -449,14 +450,19 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 55,
-          decoration: BoxDecoration(
-            color: const Color.fromRGBO(249, 249, 249, 1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border(bottom: BorderSide(color: primaryRed, width: 1.5)),
-          ),
-          child: Row(
+        Obx(
+          () => Container(
+            height: 55,
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(249, 249, 249, 1),
+              borderRadius: BorderRadius.circular(20),
+              border: controller.phoneError.value.isNotEmpty
+                  ? Border.all(color: primaryRed, width: 1.5)
+                  : const Border(
+                      bottom: BorderSide(color: primaryRed, width: 1.5),
+                    ),
+            ),
+            child: Row(
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -509,6 +515,7 @@ class LoginSingupscreenView extends GetView<LoginSingupscreenController> {
               ),
             ],
           ),
+        ),
         ),
       ],
     );

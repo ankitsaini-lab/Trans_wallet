@@ -1722,12 +1722,12 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                                     ? const Color(0xFF22C55E)
                                     : (filled
                                           ? (_hasError
-                                                ? Colors.red
+                                                ? primaryRed
                                                 : primaryRed)
                                           : const Color(0xFFECECEC)),
                                 border: Border.all(
                                   color: _hasError && filled
-                                      ? Colors.red.withOpacity(0.3)
+                                      ? primaryRed.withOpacity(0.3)
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -1742,8 +1742,8 @@ class _CreateMpinScreenState extends State<CreateMpinScreen> {
                             _errorMessage,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
+                              color: primaryRed,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

@@ -28,10 +28,6 @@ class NetworkService extends GetxService with WidgetsBindingObserver {
       _connectivitySubscription =
           _connectivity.onConnectivityChanged.listen((results) {
         developer.log('[NetworkService] OS Connectivity Changed: $results');
-        if (results.isEmpty ||
-            results.every((r) => r == ConnectivityResult.none)) {
-          isConnected.value = false;
-        }
         checkConnectivity();
       }, onError: (err) {
         developer.log('[NetworkService] Connectivity stream error: $err');
@@ -77,23 +73,17 @@ class NetworkService extends GetxService with WidgetsBindingObserver {
       isChecking.value = true;
 
       // 1. Hardware interface check (guarded against MissingPluginException)
+      bool hasHardwareConnection = true;
       try {
         final connectivityResults = await _connectivity
             .checkConnectivity()
             .timeout(const Duration(milliseconds: 800));
         if (connectivityResults.isEmpty ||
             connectivityResults.every((r) => r == ConnectivityResult.none)) {
-          if (isConnected.value) {
-            developer.log(
-              '[NetworkService] Hardware interface disconnected (No Wi-Fi/Cellular).',
-            );
-          }
-          isConnected.value = false;
-          isChecking.value = false;
-          return false;
+          hasHardwareConnection = false;
         }
       } on MissingPluginException {
-        // Fallback to active pings when native plugin channel is not registered
+        hasHardwareConnection = true;
       } catch (_) {}
 
       // 2. Perform fast concurrent network pings (DNS, Socket, HTTP in parallel)
@@ -106,6 +96,16 @@ class NetworkService extends GetxService with WidgetsBindingObserver {
         isConnected.value = true;
         isChecking.value = false;
         return true;
+      }
+
+      // If active ping failed AND hardware interface reports none
+      if (!hasHardwareConnection || !hasNet) {
+        if (isConnected.value) {
+          developer.log('[NetworkService] Internet connection LOST.');
+        }
+        isConnected.value = false;
+        isChecking.value = false;
+        return false;
       }
     } catch (e) {
       developer.log('[NetworkService] Error checking connectivity: $e');

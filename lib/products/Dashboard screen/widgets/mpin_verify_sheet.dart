@@ -261,7 +261,7 @@ class _MpinVerifySheetState extends State<MpinVerifySheet> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: primaryRed,
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),

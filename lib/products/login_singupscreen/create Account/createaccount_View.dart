@@ -17,10 +17,16 @@ class CreateaccountView extends GetView<CreateaccountController> {
     final topPadding = MediaQuery.of(context).padding.top;
 
     return PopScope(
-      canPop: true,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (Get.isRegistered<LoginSingupscreenController>()) {
-          Get.find<LoginSingupscreenController>().closeOtpPopupOnly();
+        if (didPop) return;
+        if (controller.step.value > 1) {
+          controller.previousStep();
+        } else {
+          if (Get.isRegistered<LoginSingupscreenController>()) {
+            Get.find<LoginSingupscreenController>().closeOtpPopupOnly();
+          }
+          Get.back();
         }
       },
       child: Scaffold(
@@ -85,13 +91,17 @@ class CreateaccountView extends GetView<CreateaccountController> {
                           left: 0,
                           child: AppBarBackButton(
                             onTap: () {
-                              if (Get.isRegistered<
-                                LoginSingupscreenController
-                              >()) {
-                                Get.find<LoginSingupscreenController>()
-                                    .closeOtpPopupOnly();
+                              if (controller.step.value > 1) {
+                                controller.previousStep();
+                              } else {
+                                if (Get.isRegistered<
+                                  LoginSingupscreenController
+                                >()) {
+                                  Get.find<LoginSingupscreenController>()
+                                      .closeOtpPopupOnly();
+                                }
+                                Get.back();
                               }
-                              Get.back();
                             },
                           ),
                         ),

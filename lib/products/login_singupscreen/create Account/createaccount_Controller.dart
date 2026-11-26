@@ -10,7 +10,7 @@ import 'package:transwallet/widgets/dob_picker.dart';
 import 'package:transwallet/widgets/textfieldwidget.dart';
 
 class CreateaccountController extends GetxController {
-  var title = 'Select'.obs;
+  var title = ''.obs;
   var firstName = ''.obs;
   var midName = ''.obs;
   var lastName = ''.obs;
@@ -30,9 +30,19 @@ class CreateaccountController extends GetxController {
   var state = ''.obs;
   var country = 'India'.obs;
 
+  final firstNameController = TextEditingController();
+  final midNameController = TextEditingController();
+  final lastNameController = TextEditingController();
+  final emailController = TextEditingController();
+  final kitNumberController = TextEditingController();
+  final cardNumberController = TextEditingController();
+
+  final address1Controller = TextEditingController();
+  final address2Controller = TextEditingController();
   final pincodeController = TextEditingController();
   final stateController = TextEditingController();
   final cityController = TextEditingController();
+  final countryController = TextEditingController(text: 'India');
   final isFetchingPincode = false.obs;
 
   var step = 1.obs;
@@ -56,12 +66,50 @@ class CreateaccountController extends GetxController {
       final clean = savedTitle.toString().replaceAll('.', '').trim();
       if (clean.isNotEmpty && clean != 'Select') {
         title.value = clean;
+      } else {
+        title.value = '';
       }
+    } else {
+      title.value = '';
+    }
+
+    if (firstName.value.isNotEmpty && firstNameController.text.isEmpty) {
+      firstNameController.text = firstName.value;
+    }
+    if (midName.value.isNotEmpty && midNameController.text.isEmpty) {
+      midNameController.text = midName.value;
+    }
+    if (lastName.value.isNotEmpty && lastNameController.text.isEmpty) {
+      lastNameController.text = lastName.value;
+    }
+    if (email.value.isNotEmpty && emailController.text.isEmpty) {
+      emailController.text = email.value;
+    }
+    if (kitNumber.value.isNotEmpty && kitNumberController.text.isEmpty) {
+      kitNumberController.text = kitNumber.value;
+    }
+    if (cardNumber.value.isNotEmpty && cardNumberController.text.isEmpty) {
+      cardNumberController.text = cardNumber.value;
+    }
+    if (address1.value.isNotEmpty && address1Controller.text.isEmpty) {
+      address1Controller.text = address1.value;
+    }
+    if (address2.value.isNotEmpty && address2Controller.text.isEmpty) {
+      address2Controller.text = address2.value;
     }
   }
 
   @override
   void onClose() {
+    firstNameController.dispose();
+    midNameController.dispose();
+    lastNameController.dispose();
+    emailController.dispose();
+    kitNumberController.dispose();
+    cardNumberController.dispose();
+    address1Controller.dispose();
+    address2Controller.dispose();
+    countryController.dispose();
     pincodeController.dispose();
     stateController.dispose();
     cityController.dispose();
@@ -294,7 +342,16 @@ class CreateaccountController extends GetxController {
   }
 
   void nextStep() {
-    titleError.value = title.value == 'Select' ? "Title is required" : "";
+    firstName.value = firstNameController.text.trim();
+    midName.value = midNameController.text.trim();
+    lastName.value = lastNameController.text.trim();
+    email.value = emailController.text.trim();
+    kitNumber.value = kitNumberController.text.trim();
+    cardNumber.value = cardNumberController.text.trim();
+
+    titleError.value = (title.value.isEmpty || title.value == 'Select')
+        ? "Title is required"
+        : "";
     firstNameError.value = firstName.value.isEmpty
         ? "First Name is required"
         : "";
@@ -332,10 +389,27 @@ class CreateaccountController extends GetxController {
     }
 
     if (hasCode.value) {
-      kitError.value = kitNumber.value.isEmpty ? "Kit Number is required" : "";
-      cardError.value = cardNumber.value.isEmpty
-          ? "Card Number is required"
-          : "";
+      final cleanKit = kitNumber.value.trim();
+      if (cleanKit.isEmpty) {
+        kitError.value = "Kit Number is required";
+      } else if (!RegExp(r'^\d+$').hasMatch(cleanKit)) {
+        kitError.value = "Kit Number must be numeric";
+      } else if (cleanKit.length != 12) {
+        kitError.value = "Kit Number must be 12 digits";
+      } else {
+        kitError.value = "";
+      }
+
+      final cleanCard = cardNumber.value.trim();
+      if (cleanCard.isEmpty) {
+        cardError.value = "Card Number is required";
+      } else if (!RegExp(r'^\d+$').hasMatch(cleanCard)) {
+        cardError.value = "Card Number must be numeric";
+      } else if (cleanCard.length != 4) {
+        cardError.value = "Card Number must be 4 digits";
+      } else {
+        cardError.value = "";
+      }
     } else {
       kitError.value = "";
       cardError.value = "";
@@ -385,6 +459,24 @@ class CreateaccountController extends GetxController {
 
   void previousStep() {
     if (step.value > 1) {
+      if (firstName.value.isNotEmpty && firstNameController.text.isEmpty) {
+        firstNameController.text = firstName.value;
+      }
+      if (midName.value.isNotEmpty && midNameController.text.isEmpty) {
+        midNameController.text = midName.value;
+      }
+      if (lastName.value.isNotEmpty && lastNameController.text.isEmpty) {
+        lastNameController.text = lastName.value;
+      }
+      if (email.value.isNotEmpty && emailController.text.isEmpty) {
+        emailController.text = email.value;
+      }
+      if (kitNumber.value.isNotEmpty && kitNumberController.text.isEmpty) {
+        kitNumberController.text = kitNumber.value;
+      }
+      if (cardNumber.value.isNotEmpty && cardNumberController.text.isEmpty) {
+        cardNumberController.text = cardNumber.value;
+      }
       step.value--;
     }
   }
@@ -456,7 +548,12 @@ class CreateaccountController extends GetxController {
                 decoration: BoxDecoration(
                   color: const Color(0xFFFCFCFC),
                   borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.grey.shade200, width: 1.0),
+                  border: Border.all(
+                    color: titleError.value.isNotEmpty
+                        ? primaryRed
+                        : Colors.grey.shade200,
+                    width: titleError.value.isNotEmpty ? 1.5 : 1.0,
+                  ),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -490,7 +587,7 @@ class CreateaccountController extends GetxController {
                     onChanged: (val) {
                       final box = GetStorage();
 
-                      if (val == "Select") {
+                      if (val == null || val == "Select") {
                         title.value = "";
                         titleError.value = "";
                         box.remove('reg_title');
@@ -498,7 +595,7 @@ class CreateaccountController extends GetxController {
                         return;
                       }
 
-                      final selected = (val ?? "Mr").replaceAll('.', '').trim();
+                      final selected = val.replaceAll('.', '').trim();
                       title.value = selected;
                       titleError.value = "";
 
@@ -513,7 +610,11 @@ class CreateaccountController extends GetxController {
                   padding: const EdgeInsets.only(left: 12, top: 6),
                   child: Text(
                     titleError.value,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                    style: const TextStyle(
+                      color: primaryRed,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
             ],
@@ -523,6 +624,7 @@ class CreateaccountController extends GetxController {
         buildTextField(
           label: "First Name",
           hint: "Enter First Name",
+          controller: firstNameController,
           errorText: firstNameError,
           onChanged: (v) {
             firstName.value = v;
@@ -533,6 +635,7 @@ class CreateaccountController extends GetxController {
         buildTextField(
           label: "Middle Name",
           hint: "Enter Middle Name",
+          controller: midNameController,
           errorText: middleNameError,
           onChanged: (v) {
             midName.value = v;
@@ -542,8 +645,9 @@ class CreateaccountController extends GetxController {
         height16,
 
         buildTextField(
-          label: "Last Name (Optional)",
+          label: "Last Name",
           hint: "Enter Last Name",
+          controller: lastNameController,
           errorText: lastNameError,
           onChanged: (v) {
             lastName.value = v;
@@ -587,7 +691,11 @@ class CreateaccountController extends GetxController {
                   padding: const EdgeInsets.only(left: 12, top: 6),
                   child: Text(
                     genderError.value,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                    style: const TextStyle(
+                      color: primaryRed,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
             ],
@@ -599,7 +707,9 @@ class CreateaccountController extends GetxController {
         buildTextField(
           label: "Email",
           hint: "Enter Email Address",
+          controller: emailController,
           errorText: emailError,
+          keyboardtype: TextInputType.emailAddress,
           onChanged: (v) {
             email.value = v;
             if (v.isNotEmpty && !_isValidEmail(v)) {
@@ -679,7 +789,12 @@ class CreateaccountController extends GetxController {
                   decoration: BoxDecoration(
                     color: const Color(0xFFFCFCFC),
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.0),
+                    border: Border.all(
+                      color: dobError.value.isNotEmpty
+                          ? primaryRed
+                          : Colors.grey.shade200,
+                      width: dobError.value.isNotEmpty ? 1.5 : 1.0,
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -710,7 +825,11 @@ class CreateaccountController extends GetxController {
                   padding: const EdgeInsets.only(left: 12, top: 6),
                   child: Text(
                     dobError.value,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                    style: const TextStyle(
+                      color: primaryRed,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
             ],
@@ -738,7 +857,7 @@ class CreateaccountController extends GetxController {
               ),
               const SizedBox(width: 12),
               InkWell(
-                onTap: () => toggleCode(true),
+                onTap: () => toggleCode(!hasCode.value),
                 child: const Text(
                   "I have an activation code",
                   style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
@@ -754,12 +873,24 @@ class CreateaccountController extends GetxController {
           () => hasCode.value
               ? buildTextField(
                   label: "Kit Number",
-                  hint: "KIT-000123",
+                  hint: "Enter Kit Number",
+                  controller: kitNumberController,
                   enabled: hasCode.value,
                   errorText: kitError,
+                  keyboardtype: TextInputType.number,
+                  inpputofrmater: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(12),
+                  ],
                   onChanged: (v) {
                     kitNumber.value = v;
-                    if (v.isNotEmpty) kitError.value = '';
+                    if (v.isEmpty) {
+                      kitError.value = '';
+                    } else if (!RegExp(r'^\d+$').hasMatch(v)) {
+                      kitError.value = 'Kit Number must be numeric';
+                    } else if (v.length == 12) {
+                      kitError.value = '';
+                    }
                   },
                 )
               : const SizedBox.shrink(),
@@ -772,6 +903,7 @@ class CreateaccountController extends GetxController {
               ? buildTextField(
                   label: "Card Number",
                   hint: "Last 4 Digit Of Card",
+                  controller: cardNumberController,
                   enabled: hasCode.value,
                   errorText: cardError,
                   keyboardtype: TextInputType.number,
@@ -835,6 +967,7 @@ class CreateaccountController extends GetxController {
         buildTextField(
           label: "Address Line 1",
           hint: "Enter Address",
+          controller: address1Controller,
           errorText: address1Error,
           onChanged: (v) {
             address1.value = v;
@@ -846,6 +979,7 @@ class CreateaccountController extends GetxController {
         buildTextField(
           label: "Address Line 2 (Optional)",
           hint: "Enter Address",
+          controller: address2Controller,
           errorText: address2Error,
           onChanged: (v) {
             address2.value = v;
@@ -881,6 +1015,7 @@ class CreateaccountController extends GetxController {
               child: buildTextField(
                 label: "Country",
                 hint: "India",
+                controller: countryController,
                 enabled: false,
                 errorText: countryError,
                 onChanged: (v) {},
@@ -948,6 +1083,12 @@ class CreateaccountController extends GetxController {
         // Proceed Button
         GestureDetector(
           onTap: () {
+            address1.value = address1Controller.text.trim();
+            address2.value = address2Controller.text.trim();
+            pincode.value = pincodeController.text.trim();
+            state.value = stateController.text.trim();
+            city.value = cityController.text.trim();
+
             address1Error.value = address1.value.isEmpty
                 ? "Address Line 1 is required"
                 : "";

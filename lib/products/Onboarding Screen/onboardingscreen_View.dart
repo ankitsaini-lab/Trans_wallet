@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:transwallet/products/Onboarding%20Screen/onboardingscreen_controller.dart';
 import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
@@ -108,6 +109,27 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
                   ),
 
                   Positioned(
+                    top: topInset + (isShortScreen ? 10.0 : 16.0),
+                    left: 10.0,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      opacity: 1.0,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          child: SvgPicture.asset(
+                            "assets/transcorp logo black.svg",
+                            width: 120,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
                     top: topInset + (isShortScreen ? 8.0 : 12.0),
                     right: 20.0,
                     child: Obx(() {
@@ -126,19 +148,19 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
                                 vertical: 7,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.55),
+                                color: primaryLightYellow,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.black.withValues(alpha: 0.08),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: primaryRed.withValues(alpha: 0.05),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                                // border: Border.all(
+                                //   color: Colors.black.withValues(alpha: 0.08),
+                                //   width: 1,
+                                // ),
+                                // boxShadow: [
+                                //   BoxShadow(
+                                //     color: primaryYellow,
+                                //     blurRadius: 8,
+                                //     offset: const Offset(0, 2),
+                                //   ),
+                                // ],
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -146,9 +168,9 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
                                   Text(
                                     "Skip",
                                     style: TextStyle(
-                                      color: textColor,
+                                      color: primaryRed,
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                       letterSpacing: 0.2,
                                     ),
                                   ),
@@ -156,7 +178,7 @@ class OnboardingscreenView extends GetView<OnboardingscreenController> {
                                   Icon(
                                     Icons.chevron_right_rounded,
                                     size: 16,
-                                    color: textColor,
+                                    color: primaryRed,
                                   ),
                                 ],
                               ),

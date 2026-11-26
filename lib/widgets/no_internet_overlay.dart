@@ -27,6 +27,12 @@ class NoInternetOverlay extends StatelessWidget {
             return const SizedBox.shrink();
           }
 
+          // Do not display "No Internet" overlay while on the splash screen
+          final currentRoute = Get.currentRoute;
+          if (currentRoute == '/' || currentRoute.isEmpty) {
+            return const SizedBox.shrink();
+          }
+
           return Positioned.fill(
             child: Material(
               color: Colors.transparent,

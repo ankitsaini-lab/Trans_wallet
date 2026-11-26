@@ -257,7 +257,7 @@ class QuickBiometricLoginView extends StatelessWidget {
                                 controller.pinError.value,
                                 style: const TextStyle(
                                   color: primaryRed,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               );

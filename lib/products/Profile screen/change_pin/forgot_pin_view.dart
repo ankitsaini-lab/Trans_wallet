@@ -1007,7 +1007,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             color: const Color(0xFFF9FAFB),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _phoneError.isNotEmpty ? Colors.red : _borderGrey,
+              color: _phoneError.isNotEmpty ? _primaryRed : _borderGrey,
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1048,7 +1048,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
           const SizedBox(height: 4),
           Text(
             _phoneError,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
+            style: const TextStyle(color: _primaryRed, fontSize: 12),
           ),
         ],
 
@@ -1158,8 +1158,8 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             _otpError,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.red,
-              fontSize: 13,
+              color: _primaryRed,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1300,7 +1300,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
               color: const Color(0xFFF9FAFB),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _panError.isNotEmpty ? Colors.red : _borderGrey,
+                color: _panError.isNotEmpty ? _primaryRed : _borderGrey,
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1330,7 +1330,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             const SizedBox(height: 4),
             Text(
               _panError,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: const TextStyle(color: _primaryRed, fontSize: 12),
             ),
           ],
 
@@ -1358,7 +1358,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
                 color: const Color(0xFFF9FAFB),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _dobError.isNotEmpty ? Colors.red : _borderGrey,
+                  color: _dobError.isNotEmpty ? _primaryRed : _borderGrey,
                 ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
@@ -1393,7 +1393,7 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             const SizedBox(height: 4),
             Text(
               _dobError,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: const TextStyle(color: _primaryRed, fontSize: 12),
             ),
           ],
 
@@ -1498,11 +1498,11 @@ class _ForgotPinViewState extends State<ForgotPinView> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: filled
-                    ? (_mpinError.isNotEmpty ? Colors.red : _primaryRed)
+                    ? (_mpinError.isNotEmpty ? _primaryRed : _primaryRed)
                     : const Color(0xFFECECEC),
                 border: Border.all(
                   color: _mpinError.isNotEmpty && filled
-                      ? Colors.red.withValues(alpha: 0.3)
+                      ? _primaryRed.withValues(alpha: 0.3)
                       : Colors.transparent,
                   width: 2,
                 ),
@@ -1517,8 +1517,8 @@ class _ForgotPinViewState extends State<ForgotPinView> {
             _mpinError,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.red,
-              fontSize: 13,
+              color: _primaryRed,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),

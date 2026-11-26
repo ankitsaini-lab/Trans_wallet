@@ -773,11 +773,11 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
                     color: _isVerifying
                         ? primaryRed.withOpacity(0.3)
                         : (isFilled
-                              ? (_hasError ? Colors.red : primaryRed)
+                              ? (_hasError ? primaryRed : primaryRed)
                               : const Color(0xFFECECEC)),
                     border: Border.all(
                       color: _hasError && isFilled
-                          ? Colors.red
+                          ? primaryRed
                           : Colors.transparent,
                       width: 2,
                     ),
@@ -801,8 +801,8 @@ class _MpinVerifySheetState extends State<_MpinVerifySheet> {
                 _errorMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Colors.red,
-                  fontSize: 13,
+                  color: primaryRed,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),

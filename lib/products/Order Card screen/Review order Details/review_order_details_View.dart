@@ -294,7 +294,9 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: errorText != null ? Colors.red : const Color(0xFFECECEC),
+                color: errorText != null
+                    ? primaryRed
+                    : const Color(0xFFECECEC),
                 width: 1.5,
               ),
             ),
@@ -327,9 +329,9 @@ class ReviewOrderDetailsView extends GetView<ReviewOrderDetailsController> {
           Text(
             errorText,
             style: const TextStyle(
-              color: Colors.red,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              color: primaryRed,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

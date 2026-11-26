@@ -500,11 +500,11 @@ class _ChangePinViewState extends State<ChangePinView> {
                                 color: _isSuccess
                                     ? _successGreen
                                     : (filled
-                                        ? (_hasError ? Colors.red : _primaryRed)
+                                        ? (_hasError ? _primaryRed : _primaryRed)
                                         : const Color(0xFFECECEC)),
                                 border: Border.all(
                                   color: _hasError && filled
-                                      ? Colors.red.withValues(alpha: 0.3)
+                                      ? _primaryRed.withValues(alpha: 0.3)
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -519,8 +519,8 @@ class _ChangePinViewState extends State<ChangePinView> {
                             _errorMessage,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
+                              color: _primaryRed,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

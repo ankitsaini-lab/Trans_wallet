@@ -338,7 +338,8 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                 final isFullKyc = controller.isFullKycCompleted.value;
                 final isFrozen = controller.isCardFrozen;
                 final isPermBlocked = controller.isCardPermanentlyBlocked;
-                final bool canSendMoney = isFullKyc && !isFrozen && !isPermBlocked;
+                final bool canSendMoney =
+                    isFullKyc && !isFrozen && !isPermBlocked;
 
                 return QuickActionButton(
                   icon: Stack(
@@ -362,16 +363,16 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                               color: isFrozen
                                   ? const Color(0xFF2563EB)
                                   : (isPermBlocked
-                                      ? const Color(0xFFDC2626)
-                                      : const Color(0xFFD97706)),
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFFD97706)),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               isFrozen
                                   ? Icons.ac_unit_rounded
                                   : (isPermBlocked
-                                      ? Icons.block_rounded
-                                      : Icons.lock_rounded),
+                                        ? Icons.block_rounded
+                                        : Icons.lock_rounded),
                               color: Colors.white,
                               size: 11,
                             ),
@@ -900,14 +901,9 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           children: [
             Obx(() {
               final metric = controller.selectedAnalyticsMetric.value;
-              final displayTitle =
-                  (metric == "Credit" ||
-                      metric == "Received" ||
-                      metric == "Income")
-                  ? "Credit"
-                  : "Debit";
+
               return Text(
-                "$displayTitle Analytics",
+                "Analytics",
                 style: TextStyle(
                   color: textColor,
                   fontSize: context.responsive(18),
@@ -1009,22 +1005,24 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
                     return Row(
                       children: [
                         _buildMetricFilterChip(
-                          label: "Debit",
-                          isActive: !isCredit,
-                          activeColor: const Color(0xFFFF4500),
+                          label: "Credit",
+                          isActive: isCredit,
+                          activeColor: const Color(0xFF10B981),
+                          imagePath: "assets/Income.png",
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            controller.selectedAnalyticsMetric.value = "Debit";
+                            controller.selectedAnalyticsMetric.value = "Credit";
                           },
                         ),
                         const SizedBox(width: 8),
                         _buildMetricFilterChip(
-                          label: "Credit",
-                          isActive: isCredit,
-                          activeColor: const Color(0xFF10B981),
+                          label: "Debit",
+                          isActive: !isCredit,
+                          imagePath: "assets/expense.png",
+                          activeColor: const Color(0xFFFF4500),
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            controller.selectedAnalyticsMetric.value = "Credit";
+                            controller.selectedAnalyticsMetric.value = "Debit";
                           },
                         ),
                       ],
@@ -2034,6 +2032,7 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
     required String label,
     required bool isActive,
     required Color activeColor,
+    required String imagePath,
     required VoidCallback onTap,
   }) {
     return Expanded(
@@ -2055,16 +2054,17 @@ class _DashboardscreenViewState extends State<DashboardscreenView> {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isActive ? activeColor : const Color(0xFF94A3B8),
+              if (imagePath.isNotEmpty) ...[
+                Image.asset(
+                  imagePath,
+                  height: context.responsive(18),
+                  width: context.responsive(18),
+                  fit: BoxFit.contain,
                 ),
-              ),
-              const SizedBox(width: 5),
+                SizedBox(width: context.responsive(6)),
+              ],
               Text(
                 label,
                 style: TextStyle(
