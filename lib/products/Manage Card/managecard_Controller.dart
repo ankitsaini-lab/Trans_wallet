@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -1107,7 +1108,12 @@ class ManagecardController extends GetxController {
 
     // Open Reset PIN WebView Modal Screen
     Get.to(
-      () => ResetPinWebViewSheet(widgetUrl: widgetUrl, cardData: cardData),
+      () => ResetPinWebViewSheet(
+        key: ResetPinWebViewSheet.globalKey,
+        widgetUrl: widgetUrl,
+        cardData: cardData,
+      ),
+      routeName: '/reset-pin-webview',
       fullscreenDialog: true,
       transition: Transition.downToUp,
       duration: const Duration(milliseconds: 280),
@@ -2290,6 +2296,17 @@ class ResetPinWebViewSheet extends StatefulWidget {
   final String widgetUrl;
   final Map<String, dynamic> cardData;
 
+  static final GlobalKey<_ResetPinWebViewSheetState> globalKey =
+      GlobalKey<_ResetPinWebViewSheetState>();
+
+  static void close() {
+    if (globalKey.currentState != null && globalKey.currentState!.mounted) {
+      globalKey.currentState!._forceClose();
+    } else if (Get.currentRoute == '/reset-pin-webview') {
+      Get.back();
+    }
+  }
+
   const ResetPinWebViewSheet({
     super.key,
     required this.widgetUrl,
@@ -2305,6 +2322,7 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
   double _progress = 0.0;
   bool _isFinished = false;
   InAppWebViewController? _webViewController;
+  Timer? _domCheckTimer;
 
   @override
   void initState() {
@@ -2312,13 +2330,81 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
     if (Get.isRegistered<AppLockService>()) {
       AppLockService.to.startExternalFlow(ExternalFlowType.customWebview);
     }
+    _startDomInspector();
+  }
+
+  void _startDomInspector() {
+    _domCheckTimer?.cancel();
+    _domCheckTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
+      if (!mounted || _isFinished) {
+        timer.cancel();
+        return;
+      }
+      _injectDomInspector();
+    });
+  }
+
+  Future<void> _injectDomInspector() async {
+    if (_webViewController == null || _isFinished) return;
+    try {
+      const script = '''
+        (function() {
+          try {
+            var body = document.body;
+            if (!body) return;
+            var text = (body.innerText || '').toLowerCase();
+            
+            var isSuccess = text.includes('pin set successfully') ||
+                            text.includes('pin changed successfully') ||
+                            text.includes('pin reset successfully') ||
+                            text.includes('pin has been updated') ||
+                            text.includes('pin updated successfully') ||
+                            text.includes('pin setup successful') ||
+                            text.includes('pin set successful') ||
+                            text.includes('set pin successful') ||
+                            text.includes('reset pin successful') ||
+                            text.includes('successfully set') ||
+                            text.includes('successfully changed') ||
+                            text.includes('successfully updated') ||
+                            text.includes('pin generated successfully');
+
+            if (isSuccess) {
+              if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                window.flutter_inappwebview.callHandler('CardPinCallback', 'success');
+              }
+              window.location.href = 'transwallet://reset-pin/success';
+            }
+
+            var buttons = document.querySelectorAll('button, a, input[type="button"], input[type="submit"], div[role="button"]');
+            for (var i = 0; i < buttons.length; i++) {
+              var btn = buttons[i];
+              var bText = (btn.innerText || btn.value || '').trim().toLowerCase();
+              if (bText === 'done' || bText === 'close' || bText === 'finish' || bText === 'ok' || bText === 'continue' || bText.includes('done') || bText.includes('close')) {
+                if (!btn.__pin_hooked) {
+                  btn.__pin_hooked = true;
+                  btn.addEventListener('click', function(e) {
+                    if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                      window.flutter_inappwebview.callHandler('CardPinCallback', 'success');
+                    }
+                    window.location.href = 'transwallet://reset-pin/success';
+                  }, true);
+                }
+              }
+            }
+          } catch(e) {}
+        })();
+      ''';
+      await _webViewController?.evaluateJavascript(source: script);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _isFinished = true;
+    _domCheckTimer?.cancel();
     try {
       _webViewController?.stopLoading();
+      _webViewController?.clearCache();
       _webViewController?.loadUrl(
         urlRequest: URLRequest(url: WebUri("about:blank")),
       );
@@ -2328,6 +2414,36 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
       AppLockService.to.finishExternalFlow(ExternalFlowType.customWebview);
     }
     super.dispose();
+  }
+
+  void _forceClose() {
+    if (_isFinished) return;
+    _isFinished = true;
+    _domCheckTimer?.cancel();
+    try {
+      _webViewController?.stopLoading();
+      _webViewController?.clearCache();
+    } catch (_) {}
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          Get.back();
+        }
+      } else {
+        if (Get.currentRoute == '/reset-pin-webview') {
+          Get.back();
+        }
+      }
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+      if (Get.isBottomSheetOpen ?? false) {
+        Get.back();
+      }
+    });
   }
 
   void _handleCallback(String url) {
@@ -2355,74 +2471,51 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
         lower.contains("failed");
 
     if (isDeepLink) {
-      _isFinished = true;
-      try {
-        _webViewController?.stopLoading();
-      } catch (_) {}
+      _forceClose();
 
-      // Defer route popping so shouldOverrideUrlLoading can return CANCEL to the native engine first
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (Navigator.canPop(context)) {
-          Navigator.of(context).pop();
-        } else {
-          Get.back();
-        }
-        if (Get.isDialogOpen ?? false) {
-          Get.back();
-        }
-        if (Get.isBottomSheetOpen ?? false) {
-          Get.back();
-        }
-
-        if (Get.isRegistered<DeepLinkService>()) {
-          final deepLinkUrl = lower.startsWith("transwallet://")
-              ? url
-              : (lower.contains("failed") || lower.contains("error")
+      if (Get.isRegistered<DeepLinkService>()) {
+        final deepLinkUrl = lower.startsWith("transwallet://")
+            ? url
+            : (lower.contains("failed") || lower.contains("error")
                   ? "transwallet://reset-pin/failed"
                   : (lower.contains("cancel") || lower.contains("close")
-                      ? "transwallet://reset-pin/cancel"
-                      : "transwallet://reset-pin/success"));
-          DeepLinkService.to.handleDeepLink(deepLinkUrl);
-          return;
-        }
+                        ? "transwallet://reset-pin/cancel"
+                        : "transwallet://reset-pin/success"));
+        DeepLinkService.to.handleDeepLink(deepLinkUrl);
+        return;
+      }
 
-        if (Get.currentRoute != '/managecard') {
-          Get.toNamed('/managecard', arguments: widget.cardData);
-        }
+      final queryParams = uri?.queryParameters ?? {};
+      final status =
+          queryParams['status']?.toLowerCase() ??
+          queryParams['result']?.toLowerCase() ??
+          queryParams['event']?.toLowerCase() ??
+          queryParams['action']?.toLowerCase() ??
+          queryParams['code']?.toLowerCase();
+      final msg =
+          queryParams['message'] ??
+          queryParams['msg'] ??
+          queryParams['desc'] ??
+          queryParams['description'];
 
-        final queryParams = uri?.queryParameters ?? {};
-        final status =
-            queryParams['status']?.toLowerCase() ??
-            queryParams['result']?.toLowerCase() ??
-            queryParams['event']?.toLowerCase() ??
-            queryParams['action']?.toLowerCase() ??
-            queryParams['code']?.toLowerCase();
-        final msg =
-            queryParams['message'] ??
-            queryParams['msg'] ??
-            queryParams['desc'] ??
-            queryParams['description'];
-
-        if (lower.contains("failed") ||
-            lower.contains("error") ||
-            status == "failed" ||
-            status == "error" ||
-            status == "rejected") {
-          AppSnackbar.error(msg ?? "Failed to reset Card PIN. Please try again.");
-        } else if (lower.contains("cancel") ||
-            lower.contains("close") ||
-            status == "cancel" ||
-            status == "close") {
-          AppSnackbar.info(msg ?? "Reset PIN was cancelled.");
-        } else {
-          AppSnackbar.success(msg ?? "Card PIN has been updated successfully!");
-          if (Get.isRegistered<ManagecardController>()) {
-            Get.find<ManagecardController>().fetchCardDetails();
-            Get.find<ManagecardController>().fetchCardPreferences();
-          }
+      if (lower.contains("failed") ||
+          lower.contains("error") ||
+          status == "failed" ||
+          status == "error" ||
+          status == "rejected") {
+        AppSnackbar.error(msg ?? "Failed to reset Card PIN. Please try again.");
+      } else if (lower.contains("cancel") ||
+          lower.contains("close") ||
+          status == "cancel" ||
+          status == "close") {
+        AppSnackbar.info(msg ?? "Reset PIN was cancelled.");
+      } else {
+        AppSnackbar.success(msg ?? "Card PIN has been updated successfully!");
+        if (Get.isRegistered<ManagecardController>()) {
+          Get.find<ManagecardController>().fetchCardDetails();
+          Get.find<ManagecardController>().fetchCardPreferences();
         }
-      });
+      }
     }
   }
 
@@ -2532,7 +2625,10 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                       verticalScrollBarEnabled: true,
                       horizontalScrollBarEnabled: false,
                       overScrollMode: OverScrollMode.ALWAYS,
-                      clearCache: false,
+                      clearCache: true,
+                      allowsInlineMediaPlayback: true,
+                      javaScriptCanOpenWindowsAutomatically: true,
+                      supportMultipleWindows: true,
                     ),
                     onWebViewCreated: (controller) {
                       _webViewController = controller;
@@ -2557,6 +2653,31 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                           _handleCallback("transwallet://reset-pin/success");
                         },
                       );
+                      controller.addJavaScriptHandler(
+                        handlerName: 'cardCallback',
+                        callback: (args) {
+                          developer.log("JS cardCallback received: $args");
+                          _handleCallback("transwallet://reset-pin/success");
+                        },
+                      );
+                      controller.addJavaScriptHandler(
+                        handlerName: 'closeWidget',
+                        callback: (args) {
+                          developer.log("JS closeWidget received: $args");
+                          _handleCallback("transwallet://reset-pin/success");
+                        },
+                      );
+                      controller.addJavaScriptHandler(
+                        handlerName: 'onSuccess',
+                        callback: (args) {
+                          developer.log("JS onSuccess received: $args");
+                          _handleCallback("transwallet://reset-pin/success");
+                        },
+                      );
+                    },
+                    onCloseWindow: (controller) {
+                      developer.log("Reset PIN WebView onCloseWindow");
+                      _handleCallback("transwallet://reset-pin/success");
                     },
                     onRenderProcessGone: (controller, detail) async {
                       developer.log(
@@ -2692,6 +2813,21 @@ class _ResetPinWebViewSheetState extends State<ResetPinWebViewSheet> {
                         setState(() => _isLoading = false);
                       }
                       developer.log("WebView error: $code, $message");
+                      if (url != null) {
+                        final urlStr = url.toString();
+                        final lower = urlStr.toLowerCase();
+                        if (lower.startsWith("transwallet://") ||
+                            lower.startsWith("ppiapp://") ||
+                            lower.startsWith("yappay://") ||
+                            lower.contains("card-widget/return") ||
+                            lower.contains("reset-pin") ||
+                            lower.contains("card-pin") ||
+                            lower.contains("set-pin") ||
+                            lower.contains("transcorpint.com/ppi-card")) {
+                          _handleCallback(urlStr);
+                          return;
+                        }
+                      }
                     },
                     shouldOverrideUrlLoading:
                         (controller, navigationAction) async {

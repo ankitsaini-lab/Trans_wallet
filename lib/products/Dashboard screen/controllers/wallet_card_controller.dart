@@ -385,15 +385,12 @@ class WalletCardController extends GetxController {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFFEFF6FF),
-                      border: Border.all(
-                        color: const Color(0xFFBFDBFE),
-                        width: 1.5,
-                      ),
+                      color: primaryLightYellow,
+                      border: Border.all(color: primaryYellow, width: 1.5),
                     ),
                     child: const Icon(
                       Icons.ac_unit_rounded,
-                      color: Color(0xFF2563EB),
+                      color: primaryRed,
                       size: 28,
                     ),
                   ),
@@ -430,7 +427,7 @@ class WalletCardController extends GetxController {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200, width: 1),
+                      border: Border.all(color: primaryYellow, width: 1.5),
                     ),
                     child: Row(
                       children: [
@@ -438,15 +435,15 @@ class WalletCardController extends GetxController {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFFEFF6FF),
+                            color: primaryLightYellow,
                             border: Border.all(
-                              color: const Color(0xFFBFDBFE),
+                              color: primaryYellow,
                               width: 1.5,
                             ),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.credit_card,
-                            color: Color(0xFF2563EB),
+                            color: primaryRed,
                             size: 18,
                           ),
                         ),
@@ -471,7 +468,7 @@ class WalletCardController extends GetxController {
                                     height: 7,
                                     decoration: const BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: Color(0xFF2563EB),
+                                      color: primaryRed,
                                     ),
                                   ),
                                   const SizedBox(width: 5),
@@ -557,7 +554,7 @@ class WalletCardController extends GetxController {
                               ),
                               SizedBox(width: 6),
                               Text(
-                                "Manage Card / Unfreeze",
+                                "Manage Card",
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,

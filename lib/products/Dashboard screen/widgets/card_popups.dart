@@ -95,6 +95,7 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
   void dispose() {
     try {
       _webViewController?.stopLoading();
+      _webViewController?.clearCache();
       _webViewController?.loadUrl(
         urlRequest: URLRequest(url: WebUri("about:blank")),
       );
@@ -581,7 +582,7 @@ class _CardDetailsPopupState extends State<CardDetailsPopup> {
               allowFileAccessFromFileURLs: true,
               allowUniversalAccessFromFileURLs: true,
               mediaPlaybackRequiresUserGesture: false,
-              clearCache: false,
+              clearCache: true,
             ),
             onWebViewCreated: (controller) {
               _webViewController = controller;

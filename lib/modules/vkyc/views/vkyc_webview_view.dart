@@ -203,6 +203,7 @@ class _VkycWebviewViewState extends State<VkycWebviewView> {
     _domCheckTimer?.cancel();
     try {
       _webViewController?.stopLoading();
+      _webViewController?.clearCache();
       _webViewController?.loadUrl(
         urlRequest: URLRequest(url: WebUri("about:blank")),
       );
@@ -519,7 +520,7 @@ class _VkycWebviewViewState extends State<VkycWebviewView> {
                 useWideViewPort: true,
                 loadWithOverviewMode: true,
                 supportZoom: false,
-                clearCache: false,
+                clearCache: true,
               ),
               onPermissionRequest: (webViewController, request) async {
                 return PermissionResponse(

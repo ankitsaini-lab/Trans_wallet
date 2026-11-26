@@ -254,9 +254,9 @@ class ProfilescreenController extends GetxController {
         // Do NOT pass preferredCameraDevice: CameraDevice.front as it crashes MIUI/OEM camera intents
         pickedFile = await picker.pickImage(
           source: source,
-          maxWidth: 1024,
-          maxHeight: 1024,
-          imageQuality: 80,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 75,
         );
       } on PlatformException catch (e) {
         log("ImagePicker PlatformException: ${e.code} - ${e.message}");
@@ -274,7 +274,12 @@ class ProfilescreenController extends GetxController {
         } else {
           try {
             final fallbackPicker = ImagePicker();
-            pickedFile = await fallbackPicker.pickImage(source: source);
+            pickedFile = await fallbackPicker.pickImage(
+              source: source,
+              maxWidth: 800,
+              maxHeight: 800,
+              imageQuality: 75,
+            );
           } catch (retryError) {
             log("Fallback camera pick failed: $retryError");
             AppSnackbar.error("Failed to capture image: ${e.message ?? e.code}");
@@ -285,7 +290,12 @@ class ProfilescreenController extends GetxController {
         log("Error picking image: $e, attempting standard fallback...");
         try {
           final fallbackPicker = ImagePicker();
-          pickedFile = await fallbackPicker.pickImage(source: source);
+          pickedFile = await fallbackPicker.pickImage(
+            source: source,
+            maxWidth: 800,
+            maxHeight: 800,
+            imageQuality: 75,
+          );
         } catch (retryError) {
           log("Fallback camera pick failed: $retryError");
           AppSnackbar.error("Unable to pick image. Please try again.");

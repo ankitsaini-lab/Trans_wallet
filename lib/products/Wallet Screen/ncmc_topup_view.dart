@@ -452,22 +452,20 @@ class _NcmcTopupViewState extends State<NcmcTopupView> {
                           SizedBox(height: context.responsive(0)),
                         SizedBox(height: context.responsive(18)),
 
-                        // Quick Presets
-                        Row(
-                          children: [
-                            Expanded(child: _buildPresetChip(context, 100)),
-                            SizedBox(width: context.responsive(8)),
-                            Expanded(child: _buildPresetChip(context, 200)),
-                            SizedBox(width: context.responsive(8)),
-                            Expanded(child: _buildPresetChip(context, 500)),
-                            SizedBox(width: context.responsive(8)),
-                            Expanded(child: _buildPresetChip(context, 1000)),
-                          ],
-                        ),
+                        // // Quick Presets
+                        // Row(
+                        //   children: [
+                        //     Expanded(child: _buildPresetChip(context, 100)),
+                        //     SizedBox(width: context.responsive(8)),
+                        //     Expanded(child: _buildPresetChip(context, 200)),
+                        //     SizedBox(width: context.responsive(8)),
+                        //     Expanded(child: _buildPresetChip(context, 500)),
+                        //     SizedBox(width: context.responsive(8)),
+                        //     Expanded(child: _buildPresetChip(context, 1000)),
+                        //   ],
+                        // ),
 
-                        height16,
-
-                        // Numeric Keypad
+                        // height16,
                         Center(
                           child: CustomNumericKeypad(
                             leftActionText: '.',

@@ -9,6 +9,7 @@ import 'package:transwallet/products/Dashboard screen/widgets/card_popups.dart';
 import 'package:transwallet/products/Manage Card/managecard_Controller.dart';
 import 'package:transwallet/services/api_service.dart';
 import 'package:transwallet/services/app_lock_service.dart';
+import 'package:transwallet/products/Wallet Screen/Add Money/addmoney_Controller.dart';
 import 'package:transwallet/widgets/app_snackbar.dart';
 
 class DeepLinkService extends GetxService {
@@ -25,21 +26,23 @@ class DeepLinkService extends GetxService {
 
   void _initDeepLinkListener() async {
     try {
-      // Check initial URI if app launched via deep link
-      final initialUri = await _appLinks.getInitialLink();
-      if (initialUri != null) {
-        _handleDeepLinkUri(initialUri);
-      }
-
-      // Listen for incoming deep links while app is running
+      // 1. Listen for incoming deep links first (foreground / background)
       _sub = _appLinks.uriLinkStream.listen(
         (uri) {
+          debugPrint("🔗 [DeepLinkService] Received stream link: $uri");
           _handleDeepLinkUri(uri);
         },
         onError: (err) {
           debugPrint("⚠️ [DeepLinkService] Link error: $err");
         },
       );
+
+      // 2. Check initial URI if app launched cold via deep link
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        debugPrint("🔗 [DeepLinkService] Received initial link: $initialUri");
+        _handleDeepLinkUri(initialUri);
+      }
     } catch (e) {
       debugPrint("⚠️ [DeepLinkService] Initialization error: $e");
     }
@@ -66,10 +69,7 @@ class DeepLinkService extends GetxService {
         urlString.startsWith("transwallet://set-pin") ||
         urlString.startsWith("transwallet://card/pin") ||
         urlString.startsWith("ppiapp://card-widget") ||
-        urlString.startsWith("yappay://") ||
-        urlString.contains("transcorpint.com/ppi-card") ||
-        urlString.contains("transcorpint.com") ||
-        urlString.contains("ppi-card")) {
+        urlString.startsWith("yappay://")) {
       _handleResetPinDeepLink(uri);
       return;
     }
@@ -78,6 +78,313 @@ class DeepLinkService extends GetxService {
         urlString.startsWith("transwallet://card")) {
       _handleCardDetailsDeepLink(uri);
       return;
+    }
+
+    if (urlString.startsWith("transwallet://addmoney") ||
+        urlString.startsWith("transwallet://add-money") ||
+        urlString.startsWith("transwallet://wallet") ||
+        urlString.startsWith("transwallet://payment") ||
+        urlString.startsWith("transwallet://payu") ||
+        urlString.startsWith("transwallet://upi") ||
+        urlString.startsWith("ppiapp://payment") ||
+        urlString.startsWith("ppiapp://addmoney") ||
+        urlString.startsWith("yappay://payment") ||
+        urlString.contains("addmoney") ||
+        urlString.contains("add-money") ||
+        urlString.contains("payment_receipt") ||
+        urlString.contains("payment-receipt") ||
+        ((urlString.startsWith("transwallet://") ||
+                urlString.startsWith("ppiapp://") ||
+                urlString.startsWith("yappay://")) &&
+            (uri.queryParameters.containsKey("status") ||
+                uri.queryParameters.containsKey("txnstatus") ||
+                uri.queryParameters.containsKey("txnid") ||
+                uri.queryParameters.containsKey("transactionid") ||
+                uri.queryParameters.containsKey("responsecode")))) {
+      _handleAddMoneyDeepLink(uri);
+      return;
+    }
+  }
+
+  void _handleAddMoneyDeepLink(Uri uri) async {
+    final urlString = uri.toString().toLowerCase();
+    debugPrint(
+      "💰 [DeepLinkService] Add Money / Payment deep link detected: $urlString",
+    );
+
+    if (Get.isRegistered<AppLockService>()) {
+      AppLockService.to.startExternalFlow(ExternalFlowType.payment);
+    }
+
+    try {
+      final queryParams = uri.queryParameters;
+      final bool isCallback =
+          urlString.contains("/success") ||
+          urlString.contains("/approved") ||
+          urlString.contains("/done") ||
+          urlString.contains("/completed") ||
+          urlString.contains("/fail") ||
+          urlString.contains("/failed") ||
+          urlString.contains("/error") ||
+          urlString.contains("/rejected") ||
+          urlString.contains("/cancel") ||
+          urlString.contains("/cancelled") ||
+          urlString.contains("/close") ||
+          urlString.contains("/return") ||
+          urlString.contains("payment_receipt") ||
+          urlString.contains("payment-receipt") ||
+          queryParams.containsKey("status") ||
+          queryParams.containsKey("txnstatus") ||
+          queryParams.containsKey("result") ||
+          queryParams.containsKey("responsecode") ||
+          queryParams.containsKey("event") ||
+          queryParams.containsKey("action") ||
+          queryParams.containsKey("txnid") ||
+          queryParams.containsKey("transactionid") ||
+          queryParams.containsKey("bank_ref_no") ||
+          queryParams.containsKey("approvalrefno");
+
+      if (!isCallback) {
+        debugPrint(
+          "💰 [DeepLinkService] Navigating to Add Money screen from deep link",
+        );
+        final token = GetStorage().read('token');
+        if (token == null || token.toString().isEmpty) {
+          Get.toNamed('/login');
+          return;
+        }
+
+        final amountStr =
+            queryParams['amount'] ?? queryParams['amt'] ?? queryParams['value'];
+
+        if (Get.currentRoute == '/addmoney') {
+          if (amountStr != null &&
+              amountStr.isNotEmpty &&
+              Get.isRegistered<AddmoneyController>()) {
+            Get.find<AddmoneyController>().setExactAmount(amountStr);
+          }
+        } else {
+          Get.toNamed('/addmoney');
+          if (amountStr != null && amountStr.isNotEmpty) {
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (Get.isRegistered<AddmoneyController>()) {
+                Get.find<AddmoneyController>().setExactAmount(amountStr);
+              }
+            });
+          }
+        }
+        return;
+      }
+
+      // Close open dialog or bottom sheet if active
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+      if (Get.isBottomSheetOpen ?? false) {
+        Get.back();
+      }
+
+      final status = (queryParams['status'] ??
+              queryParams['txnstatus'] ??
+              queryParams['result'] ??
+              queryParams['event'] ??
+              queryParams['action'] ??
+              queryParams['code'] ??
+              '')
+          .toLowerCase();
+      final responseCode =
+          queryParams['responsecode'] ?? queryParams['response_code'] ?? '';
+
+      final txnId = queryParams['txnid'] ??
+          queryParams['transactionid'] ??
+          queryParams['transaction_id'] ??
+          queryParams['transactionreference'] ??
+          queryParams['referenceid'] ??
+          queryParams['refno'] ??
+          '';
+
+      final bankRefNo = queryParams['bank_ref_no'] ??
+          queryParams['bankrefno'] ??
+          queryParams['approvalrefno'] ??
+          queryParams['rrn'] ??
+          queryParams['field1'] ??
+          '';
+
+      final mode = queryParams['mode'] ??
+          queryParams['paymentmode'] ??
+          queryParams['pg_type'] ??
+          'UPI / PayU';
+
+      final message = queryParams['message'] ??
+          queryParams['msg'] ??
+          queryParams['error_message'] ??
+          queryParams['errormessage'] ??
+          queryParams['desc'] ??
+          queryParams['description'];
+
+      final double amountVal = double.tryParse(
+            queryParams['amount'] ?? queryParams['amt'] ?? '',
+          ) ??
+          0.0;
+
+      final bool isSuccess =
+          urlString.contains("/success") ||
+          urlString.contains("/approved") ||
+          urlString.contains("/done") ||
+          urlString.contains("/completed") ||
+          status == "success" ||
+          status == "approved" ||
+          status == "completed" ||
+          status == "200" ||
+          status == "00" ||
+          status == "0" ||
+          responseCode == "00" ||
+          responseCode == "0" ||
+          responseCode == "200";
+
+      final bool isCancel =
+          urlString.contains("/cancel") ||
+          urlString.contains("/close") ||
+          status == "cancel" ||
+          status == "close" ||
+          status == "cancelled" ||
+          status == "user_cancelled";
+
+      final bool isFailed =
+          urlString.contains("/fail") ||
+          urlString.contains("/error") ||
+          urlString.contains("/rejected") ||
+          status == "failed" ||
+          status == "fail" ||
+          status == "error" ||
+          status == "rejected";
+
+      if (Get.isRegistered<AddmoneyController>()) {
+        final controller = Get.find<AddmoneyController>();
+        final effectiveTxnId = txnId.isNotEmpty
+            ? txnId
+            : (controller.currentTxnRef ??
+                "TXN${DateTime.now().millisecondsSinceEpoch}");
+        final effectiveAmount = amountVal > 0 ? amountVal : controller.amount;
+
+        if (isSuccess) {
+          controller.onPaymentSuccess({
+            'status': 'success',
+            'txnid': effectiveTxnId,
+            'transaction_id': effectiveTxnId,
+            'amount': effectiveAmount,
+            'bank_ref_no': bankRefNo,
+            'mode': mode,
+            'field9': message ?? 'Transaction Successful',
+            'Error_Message': message ?? 'Transaction Successful',
+          });
+        } else if (isCancel) {
+          controller.onPaymentCancel({
+            'message': message ?? 'Payment was cancelled',
+          });
+        } else if (isFailed) {
+          controller.onPaymentFailure({
+            'status': 'failed',
+            'txnid': effectiveTxnId,
+            'transaction_id': effectiveTxnId,
+            'amount': effectiveAmount,
+            'bank_ref_no': bankRefNo,
+            'mode': mode,
+            'Error_Message': message ?? 'Payment Failed',
+          });
+        } else {
+          // Default: if no failure or cancel detected, treat return callback as success
+          controller.onPaymentSuccess({
+            'status': 'success',
+            'txnid': effectiveTxnId,
+            'transaction_id': effectiveTxnId,
+            'amount': effectiveAmount,
+            'bank_ref_no': bankRefNo,
+            'mode': mode,
+            'field9': message ?? 'Transaction Successful',
+            'Error_Message': message ?? 'Transaction Successful',
+          });
+        }
+        return;
+      }
+
+      // Fallback when AddmoneyController is not in memory
+      final box = GetStorage();
+      final double currentBal = (box.read('balance') is num)
+          ? (box.read('balance') as num).toDouble()
+          : 0.0;
+      final effectiveTxnId = txnId.isNotEmpty
+          ? txnId
+          : "TXN${DateTime.now().millisecondsSinceEpoch}";
+
+      if (isSuccess) {
+        if (effectiveTxnId.isNotEmpty && Get.isRegistered<ApiService>()) {
+          ApiService.to
+              .verifyWalletLoad(
+                effectiveTxnId,
+                verificationPayload: {
+                  'txnid': effectiveTxnId,
+                  'amount': amountVal,
+                  'status': 'success',
+                  'bank_ref_no': bankRefNo,
+                },
+              )
+              .then((_) {
+                ApiService.to.fetchWalletBalance();
+              })
+              .catchError((_) {
+                ApiService.to.fetchWalletBalance();
+              });
+        }
+
+        final newBal = currentBal + amountVal;
+        box.write('balance', newBal);
+
+        AppSnackbar.success(message ?? "Money added to wallet successfully!");
+        Get.offAllNamed(
+          '/payment_receipt',
+          arguments: {
+            'amount': amountVal,
+            'balance': newBal,
+            'paymentMode': mode,
+            'status': 'Success',
+            'txnId': effectiveTxnId,
+            'transactionReference': effectiveTxnId,
+            'bankRefNo': bankRefNo,
+            'message': message ?? 'Transaction Successful',
+          },
+        );
+      } else if (isCancel) {
+        AppSnackbar.warning(
+          message ?? "Payment process was cancelled.",
+          title: "Cancelled",
+        );
+        if (Get.currentRoute != '/dashboard') {
+          Get.offAllNamed('/dashboard');
+        }
+      } else {
+        AppSnackbar.error(
+          message ?? "Payment failed. Please try again.",
+          title: "Payment Failed",
+        );
+        Get.offAllNamed(
+          '/payment_receipt',
+          arguments: {
+            'amount': amountVal,
+            'balance': currentBal,
+            'paymentMode': mode,
+            'status': 'Failed',
+            'txnId': effectiveTxnId,
+            'transactionReference': effectiveTxnId,
+            'bankRefNo': bankRefNo,
+            'message': message ?? 'Payment Failed',
+          },
+        );
+      }
+    } finally {
+      if (Get.isRegistered<AppLockService>()) {
+        AppLockService.to.finishExternalFlow(ExternalFlowType.payment);
+      }
     }
   }
 
@@ -183,19 +490,23 @@ class DeepLinkService extends GetxService {
 
     try {
       // 1. Close Reset PIN modal or sheet if open
+      ResetPinWebViewSheet.close();
       if (Get.isDialogOpen ?? false) {
         Get.back();
       }
       if (Get.isBottomSheetOpen ?? false) {
         Get.back();
       }
-      if (Get.currentRoute != '/managecard' &&
+      if (Get.currentRoute == '/reset-pin-webview') {
+        Get.back();
+      } else if (Get.currentRoute != '/managecard' &&
           (Get.key.currentState != null && Get.key.currentState!.canPop())) {
         Get.key.currentState!.pop();
       }
 
       // 2. Redirect to Manage Card screen if not already on /managecard
-      if (Get.currentRoute != '/managecard') {
+      if (Get.currentRoute != '/managecard' &&
+          Get.currentRoute != '/reset-pin-webview') {
         final storedCards = GetStorage().read('user_cards');
         Map<String, dynamic> cardData = <String, dynamic>{};
         if (storedCards is List &&
@@ -224,8 +535,6 @@ class DeepLinkService extends GetxService {
           urlString.contains("/approved") ||
           urlString.contains("/done") ||
           urlString.contains("/completed") ||
-          urlString.contains("transcorpint.com") ||
-          urlString.contains("ppi-card") ||
           status == "success" ||
           status == "approved" ||
           status == "completed" ||

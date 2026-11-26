@@ -39,6 +39,7 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
   void dispose() {
     try {
       webViewController?.stopLoading();
+      webViewController?.clearCache();
       webViewController?.loadUrl(
         urlRequest: URLRequest(url: WebUri("about:blank")),
       );
@@ -94,6 +95,7 @@ class _CommonWebViewScreenState extends State<CommonWebViewScreen> {
               useOnRenderProcessGone: true,
               supportMultipleWindows: true,      // Required to intercept target="_blank"
               useOnDownloadStart: true,          // Required to catch attachment triggers
+              clearCache: true,
             ),
             onWebViewCreated: (controller) {
               webViewController = controller;

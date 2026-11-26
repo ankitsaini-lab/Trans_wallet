@@ -22,10 +22,68 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.trans.wallet</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>transwallet</string>
+				<string>ppiapp</string>
+				<string>yappay</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>https</string>
+		<string>http</string>
+		<string>transwallet</string>
+		<string>ppiapp</string>
+		<string>yappay</string>
+		<string>phonepe</string>
+		<string>tez</string>
+		<string>paytm</string>
+		<string>paytmmp</string>
+		<string>bhim</string>
+		<string>credpay</string>
+		<string>cred</string>
+		<string>gpay</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Authenticate securely using Face ID to log in to your Transwallet account</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Transwallet requires camera access to take your profile picture and for identity verification during Video KYC.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Transwallet requires access to your contacts to let you quickly choose recipients for money transfers.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Transwallet requires access to the local network to communicate with backend API services.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Location access is required to verify your geographic presence for regulatory Video KYC compliance.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location access is required to verify your geographic presence for regulatory Video KYC compliance.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is required for audio communication during Video KYC.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Transwallet requires access to your photo library to select a profile picture.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,51 +123,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Authenticate securely using Face ID to log in to your Transwallet account</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Transwallet requires access to your contacts to let you quickly choose recipients for money transfers.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Transwallet requires camera access to take your profile picture and for identity verification during Video KYC.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Transwallet requires access to your photo library to select a profile picture.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access is required for audio communication during Video KYC.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Location access is required to verify your geographic presence for regulatory Video KYC compliance.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Location access is required to verify your geographic presence for regulatory Video KYC compliance.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Transwallet requires access to the local network to communicate with backend API services.</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>tel</string>
-		<string>mailto</string>
-		<string>https</string>
-		<string>http</string>
-	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>com.trans.wallet</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>transwallet</string>
-				<string>ppiapp</string>
-				<string>yappay</string>
-			</array>
-		</dict>
 	</array>
 </dict>
 </plist>

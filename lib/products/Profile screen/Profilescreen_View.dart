@@ -221,11 +221,11 @@ class ProfilescreenView extends GetView<ProfilescreenController> {
                     label = "Under Review";
                   } else {
                     subtitle = "Action required • Tap to complete Full KYC";
-                    accentColor = const Color(0xFFE11D48);
-                    bgColor = const Color(0xFFFFF1F2);
-                    borderColor = const Color(0xFFFECDD3);
-                    statusIcon = Icons.error_outline_rounded;
-                    label = "Pending";
+                    accentColor = const Color(0xFF0284C7);
+                    bgColor = const Color(0xFFF0F9FF);
+                    borderColor = const Color(0xFFBAE6FD);
+                    statusIcon = Icons.shield_outlined;
+                    label = "Min KYC";
                   }
 
                   return _buildRow(

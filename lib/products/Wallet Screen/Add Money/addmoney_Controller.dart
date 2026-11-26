@@ -319,6 +319,24 @@ class AddmoneyController extends GetxController
     selectedPreset.value = amountVal;
   }
 
+  /// Sets the exact amount string from deep links or external flows
+  void setExactAmount(String val) {
+    final double? parsed = double.tryParse(val.replaceAll(',', '').trim());
+    if (parsed != null && parsed > 0) {
+      if (parsed > maxAddableAmount) {
+        final allowedStr = formatCurrency(maxAddableAmount);
+        AppSnackbar.error(
+          "Cannot add ₹$val. Maximum allowed addition is ₹$allowedStr.",
+        );
+        return;
+      }
+      enteredAmount.value = parsed % 1 == 0
+          ? parsed.toInt().toString()
+          : parsed.toString();
+      _updateSelectedPreset();
+    }
+  }
+
   void _updateSelectedPreset() {
     final currentAmount = double.tryParse(enteredAmount.value) ?? 0.0;
     if ([500, 1000, 2000, 5000].contains(currentAmount)) {
@@ -556,7 +574,6 @@ class AddmoneyController extends GetxController
     }
   }
 
-  bool _hasCalledHashApi = false;
   final Map<String, String> _generatedHashesCache = {};
 
   // PayU CheckoutPro Protocol Implementations
@@ -591,9 +608,8 @@ class AddmoneyController extends GetxController
       return;
     }
 
-    // Call Hash API ONLY ONE TIME per PayU checkout session
-    if (!_hasCalledHashApi && Get.isRegistered<ApiService>()) {
-      _hasCalledHashApi = true;
+    // Call Hash API for any requested hash
+    if (Get.isRegistered<ApiService>()) {
       try {
         final hashRes = await ApiService.to.generatePayUHash(
           hashName: hashName,
@@ -605,7 +621,11 @@ class AddmoneyController extends GetxController
         if (hashRes != null) {
           final String resHashName =
               hashRes['hashName']?.toString() ?? hashName;
-          final String generatedHash = hashRes['hash']?.toString() ?? '';
+          final String generatedHash =
+              hashRes['hash']?.toString() ??
+              hashRes['hashValue']?.toString() ??
+              hashRes['payment_hash']?.toString() ??
+              '';
           if (generatedHash.isNotEmpty) {
             debugPrint(
               '[PayU Hash API Success] $resHashName -> $generatedHash',
@@ -621,10 +641,15 @@ class AddmoneyController extends GetxController
       }
     }
 
-    // Fallback: check cached hashes, pre-supplied API hashes, or dynamic salt calculation if Hash API was already called once or failed
+    // Fallback: check cached hashes, pre-supplied API hashes, or dynamic salt calculation if Hash API failed
     String hash =
         _generatedHashesCache[hashName] ?? apiHashesMap[hashName] ?? '';
-    if (hash.isEmpty && apiHash != null && apiHash!.isNotEmpty) {
+    if (hash.isEmpty &&
+        (hashName == 'payment_hash' ||
+            hashName == 'payment' ||
+            hashName == 'paymentHash') &&
+        apiHash != null &&
+        apiHash!.isNotEmpty) {
       hash = apiHash!;
     } else if (hash.isEmpty &&
         hashString.isNotEmpty &&
@@ -639,6 +664,9 @@ class AddmoneyController extends GetxController
       _generatedHashesCache[hashName] = hash;
       Map<String, String> hashMap = {hashName: hash};
       _payUCheckoutProFlutter.hashGenerated(hash: hashMap);
+    } else {
+      debugPrint('[PayU generateHash] No hash generated for $hashName');
+      _payUCheckoutProFlutter.hashGenerated(hash: {hashName: ''});
     }
   }
 
@@ -868,7 +896,6 @@ class AddmoneyController extends GetxController
       return;
     }
 
-    _hasCalledHashApi = false;
     _generatedHashesCache.clear();
 
     isProcessing.value = true;
@@ -977,9 +1004,19 @@ class AddmoneyController extends GetxController
     final String activePhone =
         payuMap['phone']?.toString() ??
         (userPhone.isNotEmpty ? userPhone : "9999999999");
-    // Always use PayU SDK callback URLs so PayU SDK intercepts response immediately without showing web success screens
-    final String activeSurl = "https://cbk.payu.in/sdk/success";
-    final String activeFurl = "https://cbk.payu.in/sdk/failure";
+    // Preserve custom deep links if backend provides them, else fallback to standard PayU SDK callback URLs
+    final String activeSurl =
+        (payuMap['surl'] != null &&
+            payuMap['surl'].toString().isNotEmpty &&
+            payuMap['surl'].toString().startsWith('transwallet://'))
+        ? payuMap['surl'].toString()
+        : "https://cbk.payu.in/sdk/success";
+    final String activeFurl =
+        (payuMap['furl'] != null &&
+            payuMap['furl'].toString().isNotEmpty &&
+            payuMap['furl'].toString().startsWith('transwallet://'))
+        ? payuMap['furl'].toString()
+        : "https://cbk.payu.in/sdk/failure";
     final String envStr =
         payuMap['environment']?.toString().toUpperCase() ?? "TEST";
     final String activeEnv = (envStr == 'TEST' || envStr == '1') ? "1" : "0";
@@ -1006,12 +1043,37 @@ class AddmoneyController extends GetxController
       PayUPaymentParamKey.userCredential: userCred,
     };
 
+    Map<String, dynamic> additionalParam = {};
+    if (payuMap['udf1'] != null && payuMap['udf1'].toString().isNotEmpty) {
+      additionalParam[PayUAdditionalParamKeys.udf1] = payuMap['udf1']
+          .toString();
+    }
+    if (payuMap['udf2'] != null && payuMap['udf2'].toString().isNotEmpty) {
+      additionalParam[PayUAdditionalParamKeys.udf2] = payuMap['udf2']
+          .toString();
+    }
+    if (payuMap['udf3'] != null && payuMap['udf3'].toString().isNotEmpty) {
+      additionalParam[PayUAdditionalParamKeys.udf3] = payuMap['udf3']
+          .toString();
+    }
+    if (payuMap['udf4'] != null && payuMap['udf4'].toString().isNotEmpty) {
+      additionalParam[PayUAdditionalParamKeys.udf4] = payuMap['udf4']
+          .toString();
+    }
+    if (payuMap['udf5'] != null && payuMap['udf5'].toString().isNotEmpty) {
+      additionalParam[PayUAdditionalParamKeys.udf5] = payuMap['udf5']
+          .toString();
+    }
+    if (additionalParam.isNotEmpty) {
+      payUPaymentParams[PayUPaymentParamKey.additionalParam] = additionalParam;
+    }
+
     Map<String, dynamic> payUCheckoutProConfig = {
       PayUCheckoutProConfigKeys.primaryColor: "#ED292A",
       PayUCheckoutProConfigKeys.secondaryColor: "#FFFFFF",
       PayUCheckoutProConfigKeys.merchantName: "Transwallet",
-      PayUCheckoutProConfigKeys.merchantResponseTimeout: 0,
-      PayUCheckoutProConfigKeys.waitingTime: 0,
+      PayUCheckoutProConfigKeys.merchantResponseTimeout: 10000,
+      PayUCheckoutProConfigKeys.waitingTime: 30000,
       PayUCheckoutProConfigKeys.autoSelectOtp: true,
       PayUCheckoutProConfigKeys.autoApprove: true,
       PayUCheckoutProConfigKeys.showExitConfirmationOnPaymentScreen: false,
@@ -1206,8 +1268,8 @@ class _PaymentReceiptViewState extends State<PaymentReceiptView>
         : widget.amount;
     final String currency = _loadDetails?['currency']?.toString() ?? 'INR';
     final String formattedAmountStr = currency == 'INR'
-        ? "₹${displayAmount.toStringAsFixed(0)}"
-        : "$currency ${displayAmount.toStringAsFixed(0)}";
+        ? "₹${displayAmount}"
+        : "$currency ${displayAmount}";
     final String paymentModeStr =
         payuMap?['mode']?.toString() ?? widget.paymentMode;
     final String timestampRaw =
@@ -1874,8 +1936,8 @@ class _MpinVerifySheetForPaymentState extends State<MpinVerifySheetForPayment> {
                     color: _isVerifying
                         ? primaryRed.withOpacity(0.3)
                         : (isFilled
-                            ? (_hasError ? Colors.red : primaryRed)
-                            : const Color(0xFFECECEC)),
+                              ? (_hasError ? Colors.red : primaryRed)
+                              : const Color(0xFFECECEC)),
                     border: Border.all(
                       color: _hasError && isFilled
                           ? Colors.red

@@ -81,6 +81,43 @@
                     android:scheme="transwallet"
                     android:host="card" />
             </intent-filter>
+            <!-- Add Money & Payment Custom Scheme Deep Link Filter -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="addmoney" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="add-money" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="wallet" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="payment" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="payu" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="upi" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="payment-receipt" />
+                <data
+                    android:scheme="transwallet"
+                    android:host="payment_receipt" />
+            </intent-filter>
+            <!-- Generic transwallet scheme filter without host restriction -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="transwallet" />
+            </intent-filter>
             <!-- M2P Card Widget Legacy Scheme Deep Link Filter -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

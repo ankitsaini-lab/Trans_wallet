@@ -8,6 +8,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:transwallet/products/Manage%20Card/managecard_Controller.dart';
+import 'package:transwallet/products/Recharge%20and%20Bills/theme.dart';
 import 'package:transwallet/products/Wallet%20Screen/Add%20Money/addmoney_View.dart';
 import 'package:transwallet/widgets/constsize.dart';
 import 'package:transwallet/widgets/custombutton.dart';
@@ -163,8 +164,7 @@ class DashboardscreenController extends GetxController {
   bool get isCardPermanentlyBlocked =>
       isPermanentlyBlocked.value || _computeIsPermanentlyBlocked();
 
-  bool get isCardFrozen =>
-      isCardFrozenObs.value || _computeIsCardFrozen();
+  bool get isCardFrozen => isCardFrozenObs.value || _computeIsCardFrozen();
 
   /// Checks if the active card or any user card is frozen/temporarily blocked
   bool _computeIsCardFrozen() {
@@ -205,11 +205,13 @@ class DashboardscreenController extends GetxController {
       for (var c in storedCards) {
         if (c is Map) {
           final rawStatus = c['status']?.toString().toUpperCase() ?? '';
-          final bool isPerm = rawStatus == 'BLOCKED' ||
+          final bool isPerm =
+              rawStatus == 'BLOCKED' ||
               rawStatus == 'PERMANENT_BLOCK' ||
               rawStatus == 'PERMANENTLY_BLOCKED' ||
               c['isPermanentlyBlocked'] == true;
-          final bool isFrozen = !isPerm &&
+          final bool isFrozen =
+              !isPerm &&
               (rawStatus == 'LOCKED' ||
                   rawStatus == 'FROZEN' ||
                   c['isBlocked'] == true);
@@ -410,12 +412,12 @@ class DashboardscreenController extends GetxController {
                 width: 64,
                 height: 64,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFEFF6FF),
+                  color: primaryLightYellow,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.ac_unit_rounded,
-                  color: Color(0xFF2563EB),
+                  color: primaryRed,
                   size: 36,
                 ),
               ),
@@ -448,16 +450,18 @@ class DashboardscreenController extends GetxController {
                     Get.toNamed("/managecard");
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
+                    backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
+                    
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     elevation: 0,
                   ),
+                  
                   child: Text(
-                    "Manage Card / Unfreeze",
+                    "Manage Card",
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -609,7 +613,8 @@ class DashboardscreenController extends GetxController {
 
   bool get _canFetchData {
     final box = GetStorage();
-    final bool loggedIn = (box.read<bool>('is_logged_in') ?? false) &&
+    final bool loggedIn =
+        (box.read<bool>('is_logged_in') ?? false) &&
         (box.read<String>('accessToken') != null ||
             box.read<String>('auth_token') != null);
     final bool isLoggingOut =
@@ -620,7 +625,9 @@ class DashboardscreenController extends GetxController {
 
   Future<void> refreshDashboardData({bool force = false}) async {
     if (!_canFetchData) {
-      developer.log('[DashboardController] Suppressing refreshDashboardData: user logged out or logging out');
+      developer.log(
+        '[DashboardController] Suppressing refreshDashboardData: user logged out or logging out',
+      );
       return;
     }
     if (isDashboardLoading.value && !force) return;
@@ -814,7 +821,8 @@ class DashboardscreenController extends GetxController {
                   calcExp += amt.toDouble();
               }
 
-              final timeRaw = item['time'] ??
+              final timeRaw =
+                  item['time'] ??
                   item['createdAt'] ??
                   item['transactionDate'] ??
                   item['timestamp'] ??
@@ -850,13 +858,15 @@ class DashboardscreenController extends GetxController {
                 "isCredit": isCredit,
                 "isFailed": isFailed,
                 "txRef": item['txRef'],
-                "externalTransactionId": item['externalTransactionId'] ??
+                "externalTransactionId":
+                    item['externalTransactionId'] ??
                     item['externalTxnId'] ??
                     item['txRef'] ??
                     item['transactionId'] ??
                     item['id'] ??
                     '',
-                "description": item['description'] ??
+                "description":
+                    item['description'] ??
                     item['narration'] ??
                     item['remarks'] ??
                     title,
@@ -952,7 +962,10 @@ class DashboardscreenController extends GetxController {
     return selectedAnalyticsMonth.value;
   }
 
-  Future<void> fetchTransactionAnalytics({String? month, bool isRetry = false}) async {
+  Future<void> fetchTransactionAnalytics({
+    String? month,
+    bool isRetry = false,
+  }) async {
     if (!_canFetchData || !Get.isRegistered<ApiService>()) return;
     if (weeklyAnalytics.isEmpty || isRetry) {
       isAnalyticsLoading.value = true;
@@ -1139,7 +1152,8 @@ class DashboardscreenController extends GetxController {
                 ? item['amount']
                 : num.tryParse(item['amount']?.toString() ?? '0') ?? 0;
 
-            final timeRaw = item['time'] ??
+            final timeRaw =
+                item['time'] ??
                 item['createdAt'] ??
                 item['transactionDate'] ??
                 item['timestamp'] ??
@@ -1174,13 +1188,15 @@ class DashboardscreenController extends GetxController {
               "isCredit": isCredit,
               "isFailed": isFailed,
               "txRef": item['txRef'],
-              "externalTransactionId": item['externalTransactionId'] ??
+              "externalTransactionId":
+                  item['externalTransactionId'] ??
                   item['externalTxnId'] ??
                   item['txRef'] ??
                   item['transactionId'] ??
                   item['id'] ??
                   '',
-              "description": item['description'] ??
+              "description":
+                  item['description'] ??
                   item['narration'] ??
                   item['remarks'] ??
                   title,
@@ -1489,12 +1505,16 @@ class DashboardscreenController extends GetxController {
       final first = storedCards.first;
       if (first is Map) {
         final rawStatus = first['status']?.toString().toUpperCase() ?? '';
-        isPermBlocked = rawStatus == 'BLOCKED' ||
+        isPermBlocked =
+            rawStatus == 'BLOCKED' ||
             rawStatus == 'PERMANENT_BLOCK' ||
             rawStatus == 'PERMANENTLY_BLOCKED' ||
             first['isPermanentlyBlocked'] == true;
-        isCardFrozen = !isPermBlocked &&
-            (rawStatus == 'LOCKED' || rawStatus == 'FROZEN' || first['isBlocked'] == true);
+        isCardFrozen =
+            !isPermBlocked &&
+            (rawStatus == 'LOCKED' ||
+                rawStatus == 'FROZEN' ||
+                first['isBlocked'] == true);
         cardBrand = first['network']?.toString() ?? first['brand']?.toString();
         cardBg = first['bgImage']?.toString();
         final rawExp =
@@ -1510,18 +1530,35 @@ class DashboardscreenController extends GetxController {
           cardExpiry = rawExp;
         }
 
-        final full = first['fullNumber']?.toString() ?? first['cardNumber']?.toString() ?? '';
+        final full =
+            first['fullNumber']?.toString() ??
+            first['cardNumber']?.toString() ??
+            '';
         final masked = first['maskedNumber']?.toString() ?? '';
         final last4 = first['last4']?.toString() ?? '';
-        cardNumberFull = full.isNotEmpty ? full : (masked.isNotEmpty ? masked : (last4.isNotEmpty ? '•••• •••• •••• $last4' : '•••• •••• •••• ••••'));
-        cardNumberMasked = masked.isNotEmpty ? masked : (last4.isNotEmpty ? '•••• •••• •••• $last4' : '•••• •••• •••• ••••');
+        cardNumberFull = full.isNotEmpty
+            ? full
+            : (masked.isNotEmpty
+                  ? masked
+                  : (last4.isNotEmpty
+                        ? '•••• •••• •••• $last4'
+                        : '•••• •••• •••• ••••'));
+        cardNumberMasked = masked.isNotEmpty
+            ? masked
+            : (last4.isNotEmpty
+                  ? '•••• •••• •••• $last4'
+                  : '•••• •••• •••• ••••');
         if (first['cvv'] != null && first['cvv'].toString().isNotEmpty) {
           cardCvv = first['cvv'].toString();
         }
       }
     }
-    final rawName = (box.read('name') ?? box.read('userName') ?? '').toString().trim();
-    final String cardHolder = rawName.isNotEmpty ? rawName.toUpperCase() : "CARDHOLDER";
+    final rawName = (box.read('name') ?? box.read('userName') ?? '')
+        .toString()
+        .trim();
+    final String cardHolder = rawName.isNotEmpty
+        ? rawName.toUpperCase()
+        : "CARDHOLDER";
     final resolvedBg = PremiumVisaCard.resolveCardBgImage(
       brand: cardBrand,
       bgImage: cardBg,
@@ -1530,7 +1567,9 @@ class DashboardscreenController extends GetxController {
     return Obx(
       () => PremiumVisaCard(
         key: key,
-        cardNumber: isVisible.value ? (cardNumberFull.isNotEmpty ? cardNumberFull : cardNumberMasked) : cardNumberMasked,
+        cardNumber: isVisible.value
+            ? (cardNumberFull.isNotEmpty ? cardNumberFull : cardNumberMasked)
+            : cardNumberMasked,
         cardHolder: cardHolder,
         expiryDate: cardExpiry,
         cvv: isVisible.value ? cardCvv : "•••",
@@ -1568,7 +1607,9 @@ class DashboardscreenController extends GetxController {
     String cardCvv = "•••";
     if (storedCards is List && storedCards.isNotEmpty) {
       final first = storedCards.first;
-      if (first is Map && first['cvv'] != null && first['cvv'].toString().isNotEmpty) {
+      if (first is Map &&
+          first['cvv'] != null &&
+          first['cvv'].toString().isNotEmpty) {
         cardCvv = first['cvv'].toString();
       }
     }
@@ -1736,7 +1777,9 @@ class DashboardscreenController extends GetxController {
     final box = GetStorage();
     final storedCards = box.read('user_cards');
     String cardNumberText = "•••• •••• •••• ••••";
-    if (storedCards is List && storedCards.isNotEmpty && storedCards.first is Map) {
+    if (storedCards is List &&
+        storedCards.isNotEmpty &&
+        storedCards.first is Map) {
       final first = storedCards.first;
       final masked = first['maskedNumber']?.toString() ?? '';
       final last4 = first['last4']?.toString() ?? '';
@@ -1746,8 +1789,12 @@ class DashboardscreenController extends GetxController {
         cardNumberText = "•••• •••• •••• $last4";
       }
     }
-    final rawName = (box.read('name') ?? box.read('userName') ?? '').toString().trim();
-    final String holderName = rawName.isNotEmpty ? rawName.toUpperCase() : "CARDHOLDER";
+    final rawName = (box.read('name') ?? box.read('userName') ?? '')
+        .toString()
+        .trim();
+    final String holderName = rawName.isNotEmpty
+        ? rawName.toUpperCase()
+        : "CARDHOLDER";
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -1805,7 +1852,10 @@ class DashboardscreenController extends GetxController {
           Positioned(
             bottom: 15,
             left: 20,
-            child: Text(holderName, style: const TextStyle(color: Colors.white54)),
+            child: Text(
+              holderName,
+              style: const TextStyle(color: Colors.white54),
+            ),
           ),
 
           Positioned(
@@ -1880,7 +1930,9 @@ class DashboardscreenController extends GetxController {
                           return;
                         }
                         Get.to(
-                          () => const AddmoneyView(showGeneralWalletOption: false),
+                          () => const AddmoneyView(
+                            showGeneralWalletOption: false,
+                          ),
                           transition: Transition.rightToLeftWithFade,
                         );
                       },
@@ -1900,13 +1952,12 @@ class DashboardscreenController extends GetxController {
     final box = GetStorage();
     final storedCards = box.read('user_cards');
     Map<String, dynamic> cardData = <String, dynamic>{};
-    if (storedCards is List && storedCards.isNotEmpty && storedCards.first is Map) {
+    if (storedCards is List &&
+        storedCards.isNotEmpty &&
+        storedCards.first is Map) {
       cardData = Map<String, dynamic>.from(storedCards.first as Map);
     }
-    Get.dialog(
-      CardDetailsPopup(card: cardData),
-      barrierDismissible: true,
-    );
+    Get.dialog(CardDetailsPopup(card: cardData), barrierDismissible: true);
   }
 
   Widget copyIcon(String text) {
